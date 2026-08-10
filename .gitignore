@@ -1,0 +1,25 @@
+# Secrets — NEVER commit. Contains SYNAPSE_CONN_STR and ANTHROPIC_API_KEY.
+.env
+.env.*
+!.env.example
+
+# Business data — internal Tricentis GTM figures. Not for any remote.
+data/
+*.xlsm
+*.xlsx
+*.parquet
+Target_Monthly.csv
+
+# Pipeline outputs and generated exports
+output/
+workspace/exports/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local tooling
+.remember/
