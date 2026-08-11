@@ -1,20 +1,41 @@
 :root{
-  --paper:#faf9f5; --raise:#ffffff; --sink:#f2f0ea;
-  --ink:#1a1917; --ink-2:#57534e; --ink-3:#8a847c;
-  --rule:#e6e2d9; --rule-2:#d6d1c6;
-  --clay:#c15f3c; --clay-soft:#f6e9e2;
-  --ok:#3f7a52; --flag:#9a6a1f; --stop:#a83b2e;
+  /* Chrome stays neutral and quiet — the numbers are the subject. */
+  --paper:#ffffff; --raise:#ffffff; --sink:#f9f9f9;
+  --ink:#0d0d0d; --ink-2:#5d5d5d; --ink-3:#8f8f8f;
+  --rule:#e5e5e5; --rule-2:#d4d4d4;
+  --clay:#2f6f5e; --clay-soft:#eaf3f0;
+  --ok:#2f6f5e; --flag:#a15c07; --stop:#b42318;
+
+  /* Derivation semantics. Four hues for the four KINDS of quantity in the
+     model, so a reader can tell them apart without reading the label:
+       given      — supplied to the model, not computed by it
+       deduct     — bookings already accounted for, drawn down from the target
+       gap        — the residue new pipe must cover
+       clamp      — a constraint overriding the arithmetic
+     Anything not one of these stays greyscale. */
+  --given:#3b5bdb;  --given-soft:#eef1fd;
+  --deduct:#0f7b6c; --deduct-soft:#e9f5f2;
+  --gap:#b45309;    --gap-soft:#fdf1e3;
+  --clamp:#7c3aed;  --clamp-soft:#f3edfe;
+  --suspect:#b42318;--suspect-soft:#fdeceb;
+
   --r:10px;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
   --mono:"SF Mono",ui-monospace,"Cascadia Mono","JetBrains Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --paper:#1a1917; --raise:#232120; --sink:#141312;
-    --ink:#eeebe5; --ink-2:#a8a29a; --ink-3:#78716a;
-    --rule:#332f2c; --rule-2:#403b37;
-    --clay:#e08661; --clay-soft:#33241d;
-    --ok:#7fb08f; --flag:#d0a35e; --stop:#e08072;
+    --paper:#212121; --raise:#2f2f2f; --sink:#181818;
+    --ink:#ececec; --ink-2:#b4b4b4; --ink-3:#8f8f8f;
+    --rule:#3a3a3a; --rule-2:#4a4a4a;
+    --clay:#5fb39b; --clay-soft:#1d302b;
+    --ok:#5fb39b; --flag:#d9a441; --stop:#f0736a;
+
+    --given:#8aa2f5;  --given-soft:#1e2436;
+    --deduct:#5fb39b; --deduct-soft:#16302a;
+    --gap:#e0a45e;    --gap-soft:#332616;
+    --clamp:#b794f6;  --clamp-soft:#271e38;
+    --suspect:#f0736a;--suspect-soft:#3a1f1d;
   }
 }
 *{box-sizing:border-box}
@@ -174,4 +195,94 @@ td.null{color:var(--ink-3)}
   .app{grid-template-columns:1fr}
   .sidebar{display:none}
   .row,.empty,.composer-wrap{padding-left:20px;padding-right:20px}
+}
+
+/* ── derivation ledger ────────────────────────────────────────
+   The chain reads top to bottom like a bank statement, because a
+   waterfall is one. Magnitude bars are scaled against the largest
+   BOOKINGS term only — the create total is an order of magnitude
+   larger and would flatten every other row to nothing. */
+.deriv{
+  border:1px solid var(--rule);border-radius:var(--r);
+  background:var(--raise);margin:14px 0;overflow:hidden;
+}
+.deriv-head{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding:12px 14px;border-bottom:1px solid var(--rule);background:var(--sink);
+}
+.deriv-q{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.deriv-meta{font:11.5px/1.4 var(--mono);color:var(--ink-3)}
+.deriv-body{padding:6px 0}
+
+.step{
+  display:grid;grid-template-columns:22px 1fr 132px 128px;
+  align-items:center;gap:10px;padding:7px 14px;
+  border:0;background:none;width:100%;text-align:left;cursor:pointer;
+  color:inherit;font:inherit;
+}
+.step:hover{background:var(--sink)}
+.step .op{
+  font:13px/1 var(--mono);color:var(--ink-3);text-align:center;
+}
+.step .lbl{font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;gap:7px;min-width:0}
+.step .lbl span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.step .amt{
+  font:13.5px/1 var(--mono);text-align:right;font-variant-numeric:tabular-nums;
+  color:var(--ink);white-space:nowrap;
+}
+.bar{height:6px;border-radius:3px;background:var(--rule);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;transform-origin:left;
+       animation:grow .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+.step[data-kind="given"]  .bar i{background:var(--given)}
+.step[data-kind="deduct"] .bar i{background:var(--deduct)}
+.step[data-kind="subtotal"] .bar i{background:var(--gap)}
+.step[data-kind="clamp"]  .bar i{background:var(--clamp)}
+.step[data-kind="result"] .bar i,
+.step[data-kind="total"]  .bar i{background:var(--ink-2)}
+
+.step[data-kind="subtotal"],.step[data-kind="total"]{border-top:1px solid var(--rule)}
+.step[data-kind="subtotal"] .lbl,.step[data-kind="total"] .lbl{color:var(--ink);font-weight:600}
+.step[data-kind="total"] .amt{font-size:15px;font-weight:600}
+.step[data-kind="divide"] .amt{color:var(--ink-2)}
+
+/* Provenance is information, so it gets a visible mark rather than a tooltip. */
+.prov{
+  font:10px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;
+  padding:3px 5px;border-radius:4px;white-space:nowrap;flex:none;
+}
+.prov[data-p="given"]{background:var(--given-soft);color:var(--given)}
+.prov[data-p="measured"]{background:var(--deduct-soft);color:var(--deduct)}
+.prov[data-p="modelled"]{background:var(--sink);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--rule-2)}
+.prov[data-p="derived"]{background:transparent;color:var(--ink-3)}
+.prov[data-p="constraint"]{background:var(--clamp-soft);color:var(--clamp)}
+.prov[data-p="suspect"]{background:var(--suspect-soft);color:var(--suspect)}
+
+/* A term the model does not trust says so in the primary output, not a footnote. */
+.step[data-prov="suspect"] .amt{color:var(--suspect)}
+.step[data-prov="suspect"] .bar{box-shadow:inset 0 0 0 1px var(--suspect)}
+
+.deriv .step-why{
+  padding:2px 14px 12px 46px;font-size:12.5px;color:var(--ink-2);
+  border-bottom:1px solid var(--rule);background:var(--sink);
+}
+.deriv .step-why code{font:11.5px/1.5 var(--mono);color:var(--ink);background:var(--paper);
+  padding:2px 5px;border-radius:4px;border:1px solid var(--rule)}
+.deriv .step-why p{margin:6px 0 0}
+.deriv .step-why .flagged{color:var(--suspect)}
+
+.deriv-foot{
+  padding:10px 14px;border-top:1px solid var(--rule);background:var(--sink);
+  font-size:12px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+}
+.deriv-foot .key{display:flex;align-items:center;gap:5px}
+.deriv-foot .sw{width:9px;height:9px;border-radius:2px;flex:none}
+
+@media (max-width:760px){
+  .step{grid-template-columns:20px 1fr 92px;gap:8px}
+  .step .bar{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .bar i{animation:none}
 }
