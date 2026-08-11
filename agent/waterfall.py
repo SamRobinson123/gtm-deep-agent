@@ -463,3 +463,84 @@ def slip(quarter_start, grain="Territory") -> pd.DataFrame:
     g.attrs["quarter"] = config.fq_label(quarter_start)
     g.attrs["anchor"] = str(q_start.date())
     return g[["starting_open_pipe", "won", "lost", "slipped", "held", "slip_rate"]]
+
+
+def open_pipe_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
+    """Open pipe currently dated to close IN the given quarter, per grain key.
+
+    Anchored to the latest snapshot at or before `as_of` (default: the latest in
+    the feed). This is the base that slip and win rates act on.
+    """
+    snap = _require("snapshot.parquet")
+    bts = _require("bts.parquet")
+
+    q_start = pd.Timestamp(quarter_start)
+    q_end = pd.Timestamp(config.q_end(quarter_start))
+
+    s = snap.copy()
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"], errors="coerce")
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
+    s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
+
+    cutoff = pd.Timestamp(as_of) if as_of is not None else s["snapshot_date"].max()
+    latest = s[s["snapshot_date"] <= cutoff].sort_values("snapshot_date").groupby("Opp_Id").last()
+
+    live = latest[
+        ~latest["Raw_Stage"].astype(str).str.contains("Closed", case=False, na=False)
+        & latest["CloseDate"].between(q_start, q_end)
+    ].copy()
+
+    b = bts.copy()
+    b["_key"] = b["Bookings_Team_Static"].astype(str).str.strip().str.lower()
+    b = b[["_key", "BTS_Geo", "BTS_Region", "BTS_Territory"]].drop_duplicates("_key")
+    live["_key"] = live["Bookings_Team_static"].astype(str).str.strip().str.lower()
+    live = live.merge(b, on="_key", how="left")
+    for c in ("BTS_Geo", "BTS_Region", "BTS_Territory"):
+        live[c] = live[c].fillna("Unassigned")
+    live["_g"] = _grain_key(live, grain)
+
+    out = live.groupby("_g")["value"].sum()
+    out.name = "open_pipe"
+    out.attrs["as_of"] = str(pd.Timestamp(cutoff).date())
+    return out
+
+
+def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territory",
+                           window=None, as_of=None) -> pd.Series:
+    """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
+
+        expected = open_pipe_in_quarter x (1 - slip_rate) x in_quarter_win_rate
+
+    `slip_quarters` are COMPLETED quarters whose observed slip supplies the rate;
+    several are averaged so one unusual quarter does not set the assumption.
+
+    This is what the goal seek subtracts from the bookings target. Without it the
+    gap is the full target and required create is overstated — which is why
+    derive_targets flags its absence rather than quietly defaulting to zero.
+    """
+    if sku is None:
+        sku = load_sku(grain)
+
+    rates = win_rates(sku, window, grain)
+    open_pipe = open_pipe_at(quarter_start, grain, as_of=as_of)
+
+    frames = []
+    for q in slip_quarters:
+        try:
+            frames.append(slip(q, grain)["slip_rate"])
+        except MissingData:
+            raise
+    if not frames:
+        raise ValueError("at least one completed quarter is needed to measure slip")
+    slip_rate = pd.concat(frames, axis=1).mean(axis=1)
+
+    keys = open_pipe.index
+    sr = slip_rate.reindex(keys).fillna(slip_rate.mean() if len(slip_rate) else 0.0)
+    wr = rates["in_quarter"].reindex(keys).fillna(rates["in_quarter"].mean() if len(rates) else 0.0)
+
+    out = open_pipe * (1.0 - sr) * wr
+    out.name = "expected_bookings_from_existing_pipe"
+    out.attrs["slip_quarters"] = list(slip_quarters)
+    out.attrs["mean_slip_rate"] = float(sr.mean()) if len(sr) else None
+    out.attrs["as_of"] = open_pipe.attrs.get("as_of")
+    return out

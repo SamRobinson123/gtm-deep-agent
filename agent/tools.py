@@ -267,7 +267,7 @@ async def query(args):
     "This is the DERIVED target. It is NOT the published target in Target_Monthly.csv "
     "(use pipe_create_targets for that). Requires a pull. Read "
     "docs/analysis/pipe-create-waterfall.md before interpreting the output.",
-    {"quarters": str, "grain": str, "window_start": str, "window_end": str},
+    {"quarters": str, "grain": str, "window_start": str, "window_end": str, "slip_quarters": str},
 )
 async def derive_pipe_create_target(args):
     import pandas as pd
@@ -303,8 +303,26 @@ async def derive_pipe_create_target(args):
         return _ok("Bookings targets are keyed by territory. Use grain='Territory' "
                    "until a mapping to Region/Geo keys is agreed.")
 
+    # Slip is part of the assumptions, not an optional extra: it supplies expected
+    # bookings from pipe that already exists, which the goal seek subtracts. Without
+    # it the gap is the full bookings target and required create is overstated.
+    existing, slip_note = None, ""
+    slip_qs = args.get("slip_quarters") or "Q1 FY26, Q2 FY26"
     try:
-        df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window)
+        sq = [targets.resolve_quarter(q.strip()) for q in slip_qs.replace(";", ",").split(",") if q.strip()]
+        existing = waterfall.existing_pipe_bookings(qs[0], sq, sku=sku, grain=grain, window=window)
+        slip_note = (f"Slip measured on {', '.join(config.fq_label(q) for q in sq)} — "
+                     f"mean slip rate {existing.attrs.get('mean_slip_rate'):.1%}, "
+                     f"open pipe as of {existing.attrs.get('as_of')}.")
+    except waterfall.MissingData as e:
+        slip_note = (f"SLIP NOT INCLUDED — {e} Expected bookings from existing pipe is "
+                     f"therefore zero, which OVERSTATES the required create.")
+    except Exception as e:
+        slip_note = f"SLIP NOT INCLUDED — {type(e).__name__}: {e}. Required create is overstated."
+
+    try:
+        df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window,
+                                      existing_pipe_bookings=existing)
         summary = waterfall.summarize(df)
     except Exception as e:
         return _ok(f"Derivation failed: {type(e).__name__}: {e}")
@@ -345,10 +363,8 @@ async def derive_pipe_create_target(args):
         "",
         df.head(25).to_string(index=False),
     ]
-    if not summary["existing_pipe_supplied"]:
-        lines += ["", "WARNING: expected bookings from EXISTING open pipe was not supplied, so it "
-                      "is treated as zero. That OVERSTATES the required create. Slip analysis "
-                      "(needs snapshot.parquet) provides it."]
+    if slip_note:
+        lines += ["", slip_note]
     lines += ["", "This is a derived figure, not the published target. State that when reporting it.",
               f"Run stored: {run_dir}"]
     return _ok("\n".join(lines))
