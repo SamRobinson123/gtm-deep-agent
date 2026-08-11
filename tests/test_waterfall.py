@@ -142,6 +142,36 @@ def test_quarters_are_solved_in_order_and_the_tail_reduces_the_later_gap():
     assert q4_coupled["gap"] < q4_alone["gap"]
 
 
+def test_existing_pipe_bookings_as_a_series_reduces_the_gap():
+    """existing_pipe_bookings arrives from existing_pipe_bookings() as a Series.
+
+    Every other test leaves it None, so the branch that consumes it was dead until
+    snapshot.parquet existed. A Series must not be coerced to bool anywhere on that
+    path — pandas raises rather than returning a truth value.
+    """
+    sku = _tiny_sku()
+    bt = pd.Series({"T1": 1_000_000.0})
+
+    without = w.derive_targets(sku, bt, ["2026-07-01"], grain="Territory").iloc[0]
+    with_existing = w.derive_targets(
+        sku, bt, ["2026-07-01"], grain="Territory",
+        existing_pipe_bookings=pd.Series({"T1": 250_000.0}),
+    ).iloc[0]
+
+    assert with_existing["expected_from_existing_pipe"] == pytest.approx(250_000.0)
+    assert with_existing["gap"] == pytest.approx(without["gap"] - 250_000.0)
+    assert with_existing["pipe_create_target"] <= without["pipe_create_target"]
+
+
+def test_existing_pipe_bookings_series_missing_key_falls_back_to_zero():
+    """A territory absent from the Series must contribute 0, not NaN."""
+    df = w.derive_targets(
+        _tiny_sku(), pd.Series({"T1": 1_000_000.0}), ["2026-07-01"], grain="Territory",
+        existing_pipe_bookings=pd.Series({"SOME_OTHER_TERRITORY": 999.0}),
+    )
+    assert df.iloc[0]["expected_from_existing_pipe"] == 0.0
+
+
 def test_summary_reports_how_much_is_floor_driven():
     df = w.derive_targets(_tiny_sku(), pd.Series({"T1": 1_000_000.0}),
                           ["2026-07-01"], grain="Territory")

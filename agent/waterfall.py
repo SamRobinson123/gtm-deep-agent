@@ -319,7 +319,9 @@ def derive_targets(
             yld = yield_per_dollar(crow, in_q, later)
 
             target = float(bookings_target.get(key, 0.0))
-            existing = float((existing_pipe_bookings or {}).get(key, 0.0)) if existing_pipe_bookings is not None else 0.0
+            # No `or {}` fallback: existing_pipe_bookings is a Series, and `or` would
+            # call bool() on it. The `is not None` guard is the whole check.
+            existing = float(existing_pipe_bookings.get(key, 0.0)) if existing_pipe_bookings is not None else 0.0
             tail = carried.get((key, qi), 0.0)
 
             gap = target - existing - tail
