@@ -185,6 +185,123 @@ understates how far pipe eventually travels.
 
 ---
 
+## Pre-Q vs In-Q — the cohort split, and why it comes out backwards
+
+`Bookings Forecast 2.0 Product V9.ipynb` carries two push rates, and the premise
+behind them is that pipe created *inside* a quarter behaves differently from pipe
+carried into it. Measured on the snapshot feed, it does — but in the opposite
+direction to the notebook's assumption.
+
+Reproduce with `waterfall.slip_by_cohort(quarter_start)`.
+
+### First: what the notebook actually does
+
+Read the mechanics before comparing numbers, because `PRE_Q` and `IN_Q` there are
+**not create-date cohorts**. They are two sequential push rounds applied to the
+same pool:
+
+```python
+pre_q_out = calculate_outflow(existing, PRE_Q)
+pre_q_in  = calculate_inflow(pre_q_out, PRE_Q)
+in_q_out  = calculate_outflow(existing + pre_q_out + pre_q_in, IN_Q)   # same pool
+in_q_in   = calculate_inflow(in_q_out, IN_Q)
+adjusted  = existing + pre_q_out + pre_q_in + in_q_out + in_q_in
+```
+
+`IN_Q` acts on the post-`PRE_Q` balance, which includes the pipe that just
+survived round one plus what flowed back in from earlier months. So the two rates
+**compound**: for Q3 FY26 the notebook's 0.46 then 0.55 leaves
+`0.54 x 0.45 = 24.3%` of a month's pipeline in place before inflow returns any of
+it. That is a far harsher haircut than either rate suggests read alone, and it is
+not comparable to our single-round measured rate without saying so.
+
+The distribution is `{3 months: 0.60, 6 months: 0.40, 9 months: 0.00}`. A +3 month
+shift from any month of a quarter lands in the next quarter, so this is directly
+comparable to our quarter-offset curve: **Q+1 60% / Q+2 40% / Q+3 0%** against a
+measured pooled **54.9 / 33.8 / 7.8 / 3.2**. Close on the first two hops; the
+notebook truncates a tail that is really about 11%.
+
+### The measured cohorts
+
+Three cohorts, all four completed quarters pooled, value-weighted:
+
+| Cohort | Opps | Value | Avg deal | Slip | Won | Lost | Held |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `in_q` — created in the quarter | 1,496 | $75,078,424 | $50,186 | **42.4%** | 31.9% | 11.7% | 14.0% |
+| `pre_q` — carried in | 3,675 | $322,690,718 | $87,807 | **59.3%** | 11.0% | 27.7% | 2.0% |
+| `pre_q_reslip` — carried in, already moved once | 1,957 | $167,796,511 | $85,742 | **59.7%** | 13.4% | 22.7% | 4.2% |
+
+**In-quarter creates slip LESS, not more** — 42.4% against 59.3%. And they win
+nearly three times as often, 31.9% against 11.0%.
+
+**Having already slipped barely moves the slip rate** — 59.7% against 59.3%.
+What it moves is the *win/lose* mix: re-slipped pipe wins more (13.4% vs 11.0%)
+and loses less (22.7% vs 27.7%). The 13.4% here is the same population as the
+13.1% in "Slip is serial" above, measured a different way, and the two agree.
+
+### Two confounds, both ruled out
+
+**Exposure.** An opp created in month 3 has less quarter left in which to slip, so
+a raw `in_q` rate is biased downward. Restricting to opps created in the
+quarter's *first* month — near-full exposure — the gap narrows but does not close:
+
+| `in_q` created in | Opps | Slip | Won |
+|---|---:|---:|---:|
+| Month 1 | 697 | 48.2% | 25.0% |
+| Month 2 | 501 | 36.4% | 37.7% |
+| Month 3 | 298 | 37.4% | 40.4% |
+
+48.2% against `pre_q`'s 59.3%. Per quarter, month-1 `in_q` vs `pre_q`: Q3 FY25
+46.2 / 59.4, Q4 FY25 57.5 / 57.3, Q1 FY26 36.3 / 62.0, Q2 FY26 46.3 / 61.9. The
+direction holds in three quarters of four; **Q4 FY25 is the exception and ties.**
+
+**Deal size.** `in_q` deals average $50k against $88k, so size could be doing the
+work. It is not — the gap survives inside every band:
+
+| Band | `in_q` slip | `pre_q` slip | `pre_q_reslip` slip |
+|---|---:|---:|---:|
+| <$25k | 34.2% | 38.9% | 43.1% |
+| $25–100k | 45.6% | 56.6% | 59.6% |
+| $100–500k | 45.5% | 62.3% | 58.8% |
+| $500k+ | 11.0% | 57.4% | 79.3% |
+
+The $500k+ row rests on 8 / 24 / 10 opps and should not be read as a finding.
+
+### The mechanism
+
+`pre_q` is a **residual pool**, and residual pools are enriched in non-closers.
+Pipe created earlier that was going to close on time already did, in an earlier
+quarter; what remains to be carried in is disproportionately the pipe that keeps
+pushing. `in_q` has not been through that filter yet — it still contains its fast
+closers, which is why it both slips less and wins three times as often.
+
+This is the same selection effect documented under "Anchoring matters more than
+the window", where the measured rate rises from 58.4% to 63.9% as a quarter
+progresses. Here it acts across cohorts instead of across time.
+
+**So the intuition that once-moved pipe should slip less is not what the data
+shows.** Slipping once tells you the opp is in the sticky pool; it does not make
+it more likely to close next time. It only makes it slightly less likely to be
+written off outright.
+
+### Caveats on this measurement
+
+- **Create dates come from `sku_nacv`**, the only source carrying one — the
+  snapshot table has no `CreateDate`. It covers 86.9% of snapshot opps; the rest
+  fall back to first-appearance in the feed, and opps with neither are excluded
+  and counted on `.attrs["unknown_create"]` (187 / 98 / 7 / 0 by quarter).
+- **`pre_q_reslip` is unobservable for Q3 FY25.** The historic feed opens on
+  2025-07-01, exactly that quarter's start, so no opp can show an earlier close
+  date. The empty cohort means "not observable here", not "no re-slipped pipe
+  existed" — `.attrs["reslip_observable"]` reports which case you are in.
+- **Anchoring differs from `slip()` by necessity.** An in-quarter create does not
+  exist at the quarter start, so each opp is anchored at its own first in-quarter
+  observation. Both paths share `_partition()` for the outcome rule, so the
+  won/lost/slipped/held definition is identical.
+- Nothing here is wired into `derive_targets()`. No target moves.
+
+---
+
 ## Dollars do not carry forward intact
 
 Q3 FY25's slipped opps, valued at both ends of the quarter:
@@ -371,7 +488,18 @@ choices, not established facts:
 5. **Territory grain.** Fitted globally today. Q3 FY25 had 687 slipped opps
    across 31 booking teams — median 19, with 12 teams under 10 — so a per-
    territory curve needs a fallback and more history than one quarter.
-6. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
+6. **Should the model split Pre-Q from In-Q at all?** The cohorts measurably
+   differ — 42.4% vs 59.3% slip, 31.9% vs 11.0% win — so a single blended rate
+   applied to all open pipe is wrong in both directions. But the model's existing
+   pipe term only ever sees pipe carried IN, so the `pre_q` rate is arguably the
+   right one to use today, and the `in_q` rate belongs to newly created pipe,
+   where the sales cycle curve already does that job. Whether the two mechanisms
+   overlap or double-count is unresolved.
+7. **Should the two rates compound, as the notebook has them?** Its `IN_Q` round
+   acts on the post-`PRE_Q` balance, which is a much larger effective haircut than
+   either rate reads alone. We measure one round. Which is right depends on
+   whether a quarter really gets two independent chances to push.
+8. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
    inflow/outflow model, and it is deliberately **not** implemented yet — it
    would move every quarter after the first while the `$0` sales cycle tail is

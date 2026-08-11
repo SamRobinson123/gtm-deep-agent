@@ -611,6 +611,45 @@ def equivalent_point(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
     return pd.Timestamp(prior_quarter_start) + offset
 
 
+def _partition(j: pd.DataFrame, q_end) -> pd.Series:
+    """won / lost / slipped / held, from an end stage and an end CloseDate.
+
+    The single implementation of the outcome rule. classify_outcomes() (one anchor
+    date for everybody) and slip_by_cohort() (a per-opp anchor, because in-quarter
+    creates do not exist at the quarter start) both call this rather than keeping
+    their own copy — the two would drift, exactly as the duplicated slip assembly
+    in tools.py did.
+
+    Expects `end_stage`, `end_close`, and optionally `end_mapped_stage`.
+    """
+    if "end_mapped_stage" in j.columns:
+        # SQL already applied the CASE (snapshots pulled after 2026-08-11). One
+        # mapping, shared with the SKU query, so the two cannot diverge.
+        m = j["end_mapped_stage"].astype(str)
+        won, closed = m.eq(WON), m.eq(LOST)
+    else:
+        # Cached parquet predating the Stage column — same CASE, in Python.
+        st = j["end_stage"].astype(str)
+        won = st.isin(WON_STAGES)
+        closed = st.isin(LOST_STAGES)
+
+        # ELSE 'Open' — exactly as the SQL CASE. An unrecognised stage is Open,
+        # not re-derived from a substring: a substring rule is what mis-booked
+        # "Stage 4 - Closed Pending" as a loss. Unmapped values are RECORDED so a
+        # new stage is visible, but they do not change the classification.
+        known = won | closed | st.isin(OTHER_STAGES) | st.isin(OPEN_STAGES)
+        if (~known).any():
+            j.attrs["unmapped_stages"] = sorted(st[~known].unique())
+
+    moved = (~won) & (~closed) & (j["end_close"] > pd.Timestamp(q_end))
+
+    out = pd.Series("held", index=j.index)
+    out[won] = "won"
+    out[closed] = "lost"
+    out[moved] = "slipped"
+    return out
+
+
 def classify_outcomes(snap: pd.DataFrame, q_start, q_end, anchor) -> pd.DataFrame:
     """Partition the pipe open at `anchor` into won / lost / slipped / held.
 
@@ -646,31 +685,7 @@ def classify_outcomes(snap: pd.DataFrame, q_start, q_end, anchor) -> pd.DataFram
     j = open_start[cols].join(
         end[list(end_cols)].rename(columns=end_cols), how="left")
 
-    if "end_mapped_stage" in j.columns:
-        # SQL already applied the CASE (snapshots pulled after 2026-08-11). One
-        # mapping, shared with the SKU query, so the two cannot diverge.
-        m = j["end_mapped_stage"].astype(str)
-        won, closed = m.eq(WON), m.eq(LOST)
-    else:
-        # Cached parquet predating the Stage column — same CASE, in Python.
-        st = j["end_stage"].astype(str)
-        won = st.isin(WON_STAGES)
-        closed = st.isin(LOST_STAGES)
-
-        # ELSE 'Open' — exactly as the SQL CASE. An unrecognised stage is Open,
-        # not re-derived from a substring: a substring rule is what mis-booked
-        # "Stage 4 - Closed Pending" as a loss. Unmapped values are RECORDED so a
-        # new stage is visible, but they do not change the classification.
-        known = won | closed | st.isin(OTHER_STAGES) | st.isin(OPEN_STAGES)
-        if (~known).any():
-            j.attrs["unmapped_stages"] = sorted(st[~known].unique())
-
-    moved = (~won) & (~closed) & (j["end_close"] > pd.Timestamp(q_end))
-
-    j["outcome"] = "held"
-    j.loc[won, "outcome"] = "won"
-    j.loc[closed, "outcome"] = "lost"
-    j.loc[moved, "outcome"] = "slipped"
+    j["outcome"] = _partition(j, q_end)
     return j
 
 
@@ -720,6 +735,122 @@ def slip_destinations(quarter_start, from_point=None,
     out.attrs["quarter"] = config.fq_label(quarter_start)
     out.attrs["from_point"] = str(anchor.date())
     return out
+
+
+COHORTS = ("in_q", "pre_q", "pre_q_reslip")
+
+
+def slip_by_cohort(quarter_start, snapshot_file="snapshot_hist.parquet",
+                   by_create_month=False) -> pd.DataFrame:
+    """Slip split by WHEN the pipe was created, testing the Pre-Q / In-Q assumption.
+
+    The bookings-forecast notebook carries two push rates, PRE_Q and IN_Q, on the
+    premise that pipe created inside the quarter behaves differently from pipe
+    carried into it. This measures whether it does, on three cohorts:
+
+        in_q          created inside the quarter, dated to close inside it
+        pre_q         created before the quarter, first seen dated into it
+        pre_q_reslip  created before the quarter AND already carrying a CloseDate
+                      from an earlier quarter — i.e. it has slipped at least once
+
+    Anchoring differs from slip() and it has to. slip() reads one population at
+    one date; an in-quarter create does not exist at the quarter start, so each
+    opp is anchored at its OWN first in-quarter observation. Both paths share
+    _partition() for the outcome rule.
+
+    `by_create_month` splits in_q by month-of-creation within the quarter, which
+    is the exposure control: an opp created in month 2 has less of the quarter in
+    which to slip, so a raw in_q rate is not directly comparable to pre_q.
+
+    MEASUREMENT ONLY. derive_targets() does not call this and no target moves.
+
+    Create dates come from sku_nacv (the only source that carries one — the
+    snapshot table has no CreateDate), falling back to first-appearance in the
+    snapshot feed. That fallback is left-censored at the feed's start, so it is
+    trusted only strictly after it; opps with neither are excluded and reported
+    on `.attrs["unknown_create"]`.
+    """
+    snap = _require(snapshot_file)
+    sku = _require("sku_nacv.parquet")
+    q_start = pd.Timestamp(quarter_start)
+    q_end = pd.Timestamp(config.q_end(quarter_start))
+
+    s = snap.copy()
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"], errors="coerce")
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
+    s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
+    s = s.sort_values(["Opp_Id", "snapshot_date"])
+
+    window_open = s["snapshot_date"].min()
+    first_seen = s.groupby("Opp_Id")["snapshot_date"].min()
+    # The earliest CloseDate the feed ever saw for this opp. If it sits in a
+    # quarter before the one being measured, the opp has already moved once.
+    first_close = s.groupby("Opp_Id")["CloseDate"].first()
+
+    created = pd.to_datetime(sku["CreateDate"], errors="coerce").groupby(
+        sku["Opportunity_Id"]).min()
+
+    inq = s[s["snapshot_date"].between(q_start, q_end)]
+    if inq.empty:
+        raise MissingData(
+            f"no snapshots inside {config.fq_label(quarter_start)} "
+            f"({q_start:%Y-%m-%d}..{q_end:%Y-%m-%d}). Add it to "
+            f"config.HIST_SNAP_WINDOWS and re-pull.")
+
+    entry, exit_ = inq.groupby("Opp_Id").first(), inq.groupby("Opp_Id").last()
+    st = entry["Raw_Stage"].astype(str)
+    open_at_entry = ~(st.isin(WON_STAGES) | st.isin(LOST_STAGES) | st.isin(OTHER_STAGES))
+    elig = entry[open_at_entry & entry["CloseDate"].between(q_start, q_end)]
+
+    create = created.reindex(elig.index)
+    seen = first_seen.reindex(elig.index)
+    create = create.fillna(seen.where(seen > window_open))
+
+    j = pd.DataFrame({
+        "value": elig["value"],
+        "create": create,
+        "end_stage": exit_["Raw_Stage"].reindex(elig.index),
+        "end_close": exit_["CloseDate"].reindex(elig.index),
+    })
+    if "Stage" in exit_.columns:
+        j["end_mapped_stage"] = exit_["Stage"].reindex(elig.index)
+    j["outcome"] = _partition(j, q_end)
+
+    reslip = first_close.reindex(elig.index) < q_start
+    born_in_q = j["create"].between(q_start, q_end)
+    j["cohort"] = "pre_q"
+    j.loc[reslip, "cohort"] = "pre_q_reslip"
+    j.loc[born_in_q, "cohort"] = "in_q"
+    unknown = j["create"].isna() & ~reslip
+    j = j[~unknown]
+
+    keys = ["cohort"]
+    if by_create_month:
+        j["create_month"] = (j["create"].dt.year * 12 + j["create"].dt.month) - (
+            q_start.year * 12 + q_start.month)
+        keys.append("create_month")
+
+    g = j.groupby(keys + ["outcome"])["value"].sum().unstack(fill_value=0.0)
+    for c in ("won", "lost", "slipped", "held"):
+        if c not in g.columns:
+            g[c] = 0.0
+    g["starting_open_pipe"] = g[["won", "lost", "slipped", "held"]].sum(axis=1)
+    g["opps"] = j.groupby(keys).size()
+    g["avg_deal"] = g["starting_open_pipe"] / g["opps"]
+    base = g["starting_open_pipe"].where(g["starting_open_pipe"] > 0)
+    for c in ("slipped", "won", "lost", "held"):
+        g[f"{c}_rate" if c != "slipped" else "slip_rate"] = g[c] / base
+
+    g.attrs["quarter"] = config.fq_label(quarter_start)
+    g.attrs["unknown_create"] = int(unknown.sum())
+    g.attrs["create_from_sku"] = int(created.reindex(elig.index).notna().sum())
+    # A prior slip is only detectable if the feed opened BEFORE this quarter. When
+    # it did not, pre_q_reslip comes back empty — which means "not observable
+    # here", NOT "no re-slipped pipe existed". Q3 FY25 sits exactly on the window
+    # start, so it can never show the cohort.
+    g.attrs["reslip_observable"] = bool(window_open < q_start)
+    return g[["opps", "starting_open_pipe", "avg_deal", "won", "lost", "slipped",
+              "held", "slip_rate", "won_rate", "lost_rate", "held_rate"]]
 
 
 def slip_forecast(quarter_start, open_pipe=None, grain="Territory", as_of=None,

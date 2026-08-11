@@ -558,3 +558,124 @@ def test_an_unmapped_stage_is_recorded_rather_than_silently_opened(monkeypatch, 
     ], columns=["Opp_Id", "snapshot_date", "Raw_Stage", "CloseDate", "value", "Bookings_Team_static"])
     j = w.classify_outcomes(snap, s, e, s)
     assert j.attrs["unmapped_stages"] == ["Brand New Stage"]
+
+
+# --- Pre-Q vs In-Q cohorts ----------------------------------------------------
+
+def _cohort_fixture(tmp_path):
+    """Q3 FY25, one opp per cohort, each slipping or not by design.
+
+      pre_in    created BEFORE the quarter, present at its start, slips
+      pre_hold  created before, present at start, does not move
+      in_new    created INSIDE the quarter (absent at start), slips
+      reslip    created before AND first seen carrying a Q2 close date
+    """
+    s, m, e = (pd.Timestamp("2025-07-01"), pd.Timestamp("2025-08-01"),
+               pd.Timestamp("2025-09-30"))
+    rows = [
+        ["pre_in",   s, "Stage 3", pd.Timestamp("2025-08-15"), 100.0, "T1"],
+        ["pre_in",   e, "Stage 3", pd.Timestamp("2025-11-15"), 100.0, "T1"],
+        ["pre_hold", s, "Stage 3", pd.Timestamp("2025-09-20"), 200.0, "T1"],
+        ["pre_hold", e, "Stage 3", pd.Timestamp("2025-09-20"), 200.0, "T1"],
+        # absent at the quarter start — this is why the anchor must be per-opp
+        ["in_new",   m, "Stage 3", pd.Timestamp("2025-09-10"), 400.0, "T1"],
+        ["in_new",   e, "Stage 3", pd.Timestamp("2025-12-10"), 400.0, "T1"],
+        # Already moved once. The prior close date is only visible BEFORE the
+        # quarter — by the time it enters, it has been re-dated into it. Putting
+        # the Q2 date on the in-quarter row instead makes it ineligible, which is
+        # correct: such an opp is not pipe dated to close in this quarter.
+        ["reslip",   pd.Timestamp("2025-06-01"), "Stage 3", pd.Timestamp("2025-06-10"), 800.0, "T1"],
+        ["reslip",   s, "Stage 3", pd.Timestamp("2025-08-20"), 800.0, "T1"],
+        ["reslip",   e, "Stage 3", pd.Timestamp("2025-11-01"), 800.0, "T1"],
+    ]
+    _snap_frame(rows).rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({
+        "Opportunity_Id": ["pre_in", "pre_hold", "in_new", "reslip"],
+        "CreateDate": pd.to_datetime(
+            ["2025-04-01", "2025-04-01", "2025-08-01", "2025-02-01"]),
+    }).to_parquet(tmp_path / "sku_nacv.parquet")
+
+
+def test_slip_by_cohort_separates_in_quarter_creates_from_carried_pipe(monkeypatch, tmp_path):
+    """The cohort split the bookings-forecast notebook's PRE_Q/IN_Q rates assume."""
+    from pipeline import config as cfg
+    _cohort_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    g = w.slip_by_cohort("2025-07-01", snapshot_file="s.parquet")
+
+    # in_new is anchored at its OWN first sighting, not the quarter start —
+    # anchoring everyone at the quarter start would drop it entirely.
+    assert g.loc["in_q", "starting_open_pipe"] == pytest.approx(400.0)
+    assert g.loc["in_q", "slip_rate"] == pytest.approx(1.0)
+    # pre_in slipped, pre_hold held: 100 of 300
+    assert g.loc["pre_q", "slip_rate"] == pytest.approx(100.0 / 300.0)
+
+
+def test_a_prior_quarter_close_date_marks_pipe_as_already_slipped(monkeypatch, tmp_path):
+    """pre_q_reslip is the cohort that has moved before — the notebook's premise
+    that once-moved pipe behaves differently is only testable if it is split out."""
+    from pipeline import config as cfg
+    _cohort_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    g = w.slip_by_cohort("2025-07-01", snapshot_file="s.parquet")
+    assert g.loc["pre_q_reslip", "starting_open_pipe"] == pytest.approx(800.0)
+    assert "reslip" not in g.index          # it is a cohort label, not an opp id
+    # and it must NOT also be counted in plain pre_q
+    assert g.loc["pre_q", "starting_open_pipe"] == pytest.approx(300.0)
+
+
+def test_cohort_totals_reconcile_with_the_quarter_wide_slip(monkeypatch, tmp_path):
+    """Every dollar slip() sees must land in exactly one cohort. The two use
+    different anchors, so the check is on the pipe both can see: opps present at
+    the quarter start."""
+    from pipeline import config as cfg
+    _cohort_fixture(tmp_path)
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(
+        tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    g = w.slip_by_cohort("2025-07-01", snapshot_file="s.parquet")
+    q = w.slip("2025-07-01", "Territory", snapshot_file="s.parquet")
+
+    carried = g.drop(index="in_q")
+    assert carried["starting_open_pipe"].sum() == pytest.approx(
+        q["starting_open_pipe"].sum())
+    assert carried["slipped"].sum() == pytest.approx(q["slipped"].sum())
+
+
+def test_the_exposure_control_splits_in_quarter_creates_by_month(monkeypatch, tmp_path):
+    """An opp created in month 2 has less quarter left in which to slip, so a raw
+    in_q rate is not comparable to pre_q without this cut."""
+    from pipeline import config as cfg
+    _cohort_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    g = w.slip_by_cohort("2025-07-01", snapshot_file="s.parquet", by_create_month=True)
+    assert ("in_q", 1) in g.index           # created in the quarter's 2nd month
+    assert g.loc[("in_q", 1), "starting_open_pipe"] == pytest.approx(400.0)
+
+
+def test_classify_outcomes_and_slip_by_cohort_share_one_partition_rule(monkeypatch, tmp_path):
+    """Both call _partition(). A second copy of the won/lost/slipped/held rule is
+    exactly how the duplicated slip assembly in tools.py drifted."""
+    from pipeline import config as cfg
+    _cohort_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    s = pd.read_parquet(tmp_path / "s.parquet")
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"])
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"])
+    s["value"] = s["Cal_IACV"]
+
+    direct = w.classify_outcomes(s, pd.Timestamp("2025-07-01"),
+                                 pd.Timestamp("2025-09-30"), pd.Timestamp("2025-07-01"))
+    g = w.slip_by_cohort("2025-07-01", snapshot_file="s.parquet")
+
+    # Same rule, so the pipe both can see must be classified identically.
+    carried = g.drop(index="in_q")
+    for outcome in ("won", "lost", "slipped", "held"):
+        assert carried[outcome].sum() == pytest.approx(
+            direct.loc[direct["outcome"] == outcome, "value"].sum()), outcome
