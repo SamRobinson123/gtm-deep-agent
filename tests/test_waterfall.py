@@ -15,11 +15,33 @@ from agent import waterfall as w
 
 # --- the closed form ---------------------------------------------------------
 
-def test_yield_per_dollar_is_the_weighted_win_rate():
-    """Q0 weight x in-quarter rate + later weights x later rate."""
+def test_yield_per_dollar_counts_only_the_in_quarter_slice():
+    """Only Q0 x in-quarter rate. The later slices book in LATER quarters.
+
+    Verified against the workbook 2026-08-11. AQ (Pipe Won) = AO + AP, and only
+    AO depends on this row's S:
+
+        AC (Q0 close)  = $S*T              <- this row's create
+        AD (Q+1 close) = IF(same terr/prod, $S{r-1}*U{r-1}, 0)   <- PRIOR row's
+        AO             = AC*$AM            <- so AO = S x Q0_wt x in_q_rate
+        AP             = SUM(AD:AK)*$AN    <- independent of this row's S
+
+    Crediting the later weights here would count the tail twice, since it is also
+    propagated forward to reduce later quarters' gaps.
+    """
     curve = pd.Series({0: 0.10, 1: 0.20, 2: 0.30, 3: 0.40})
     y = w.yield_per_dollar(curve, in_q_rate=0.70, later_rate=0.35)
-    assert y == pytest.approx(0.10 * 0.70 + 0.90 * 0.35)
+    assert y == pytest.approx(0.10 * 0.70)
+
+
+def test_the_maturation_tail_is_not_counted_twice():
+    """A quarter's later-quarter weights must reduce a LATER quarter's gap, and
+    must not also inflate the creating quarter's own yield."""
+    curve = pd.Series({0: 0.10, 1: 0.90})
+    only_q0 = w.yield_per_dollar(curve, in_q_rate=0.50, later_rate=0.20)
+    # If the Q+1 slice were credited here it would add 0.90 x 0.20 = 0.18.
+    assert only_q0 == pytest.approx(0.05)
+    assert only_q0 < 0.05 + 0.90 * 0.20
 
 
 def test_closed_form_matches_iterative_goal_seek():

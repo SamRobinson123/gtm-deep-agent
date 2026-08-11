@@ -214,27 +214,56 @@ situational workarounds, not part of the method.
 
 #### The solve is linear — no iteration is needed
 
-Tracing the sheet's own formulas:
+**CORRECTED 2026-08-11 by reading the cell formulas directly.** An earlier
+reading of this section had `AD:AK` as this row's create spread forward, giving a
+denominator that included the later weights. That is wrong, and it inflates yield
+by ~3x on FY26 data.
+
+Tracing the sheet's own formulas — note where the row index moves:
 
 ```
-AC (Q0 close)      = S × T                     (Pipe Create × Q0 weight)
-AO (Pipe Won In Q) = AC × AM                   (× in-quarter win rate)
-AP (Pipe Won Pre Q)= SUM(AD:AK) × AN           (later quarters × pre-Q win rate)
+AC (Q0 close)      = $S{r} × T{r}                        this row's create
+AD (Q+1 close)     = IF(same terr+prod, $S{r-1} × U{r-1}, 0)   ← PRIOR row
+AE (Q+2 close)     = IF(same terr+prod, $S{r-2} × V{r-2}, 0)   ← two rows back
+…AK (Q+8 close)    = IF(same terr+prod, $S{r-8} × AB{r-8}, 0)
+
+AO (Pipe Won In Q) = AC × AM                    (× in-quarter win rate)
+AP (Pipe Won Pre Q)= SUM(AD:AK) × AN            (× pre-Q win rate)
 AQ (Pipe Won)      = AO + AP
-                   = S × ( T×AM + Σ(Q+1…Q+8 weights)×AN )
 ```
 
-**`Pipe Won` is strictly proportional to `Pipe Create`.** So the goal seek has a
-closed form:
+Rows are sorted Territory → Product → Quarter ascending, so row `r-k` is exactly
+k quarters earlier. The `IF` guards are what stop the tail bleeding across a
+Territory x Product boundary.
+
+**So `AD:AK` is the maturation tail ARRIVING from earlier quarters — it does not
+depend on this row's `S` at all.** Only `AC` does. `Pipe Won` is still linear in
+`Pipe Create`, but with a much smaller coefficient:
 
 ```
-                          Goal (the gap to fill)
-S* = ────────────────────────────────────────────────────────────
-      Q0_wt × in_quarter_win_rate  +  Σ(Q+1…Q+8 wts) × pre_q_win_rate
+AQ = S × (Q0_wt × in_quarter_win_rate)  +  AP        where AP is a constant w.r.t. S
 ```
 
-The denominator is **bookings yield per dollar of pipe created** — a meaningful
-quantity in its own right, and worth reporting.
+**Goal seek confirmed from `Module13` VBA:** target cell `Cells(i, 43)` = **AQ**,
+goal value `Cells(i, 10)` = **J** (`Difference` = Targets − Pre Q Bookings),
+changing cell `Cells(i, 19)` = **S**. Solving `AQ = J` gives the closed form:
+
+```
+      Difference − AP        Adj Difference (col K)
+S* = ──────────────────  =  ────────────────────────
+      Q0_wt × in_q_rate       Q0_wt × in_q_rate
+```
+
+since `K = I − H = I − G − AP`. That identity is why the macro is named
+`GoalSeek_AdjDifference`.
+
+The denominator is **bookings yield per dollar of pipe created, IN THE CREATING
+QUARTER ONLY** — on FY26 data it averages 0.074 (range 0.017–0.193). Report it.
+
+**Do not add the later weights to this denominator.** The tail is already
+accounted for by being propagated forward into later quarters' `AP`. Counting it
+in both places books the same dollars twice and understates required create by
+~3x.
 
 Excel iterates because `GoalSeek` is a generic 1-D solver that cannot know the
 function is linear. A Python implementation should divide: exact, instant, no
@@ -412,8 +441,8 @@ same-quarter revenue is wrong by roughly an order of magnitude.**
 
 | Col | Header | Formula |
 |---|---|---|
-| AC | `Q0 (close)` | `=$S*T` — pipe create x Q0 weight |
-| AD–AK | `Q+1 (close)` … `Q+8 (close)` | Same pattern per quarter |
+| AC | `Q0 (close)` | `=$S*T` — **this row's** pipe create x its Q0 weight |
+| AD–AK | `Q+1 (close)` … `Q+8 (close)` | **`=IF(AND($B{r-k}=$B{r},$C{r-k}=$C{r}), $S{r-k}*<wt_k>{r-k}, 0)`** — the k-th slice reaches **BACK k rows**, to the same Territory x Product k quarters earlier. **Not** this row's create spread forward. |
 | AL | `Pipe Transposed (Q Waterfall)` | `=SUM(AC:AK)` |
 | AM | `In Q Win Rate` | Applied to the in-quarter slice only |
 | AN | `Pre Q Win Rate` | Applied to all future-quarter slices |
@@ -433,6 +462,41 @@ converts far better than pipe that has to survive to a later quarter.
 **Columns AV/AW carry a second `In Q Win Rate` / `Pre Q Win Rate` pair**
 (`0.55` / `0.15` in row 2) that no formula in A–AQ references. Purpose unknown —
 possibly a scenario or a superseded assumption. **Do not use.**
+
+---
+
+## The starting tail — open, and it dominates the answer
+
+**Found 2026-08-11 while rebuilding this in Python.**
+
+Every quarter's `AP` is fed by `S` from up to **8 preceding quarters** of the same
+Territory x Product. A rebuild that solves only Q3 and Q4 FY26 starts with an
+empty tail, so Q3 receives nothing from Q1/Q2 FY26 and its whole target falls on
+its own in-quarter create at ~7% yield.
+
+`agent/waterfall.py` approximates that starting tail with
+`expected_from_existing_pipe` = open pipe in the quarter x (1 − slip) x pre-Q win
+rate. **The two are not the same population:**
+
+| | Workbook `AP` | `expected_from_existing_pipe` |
+|---|---|---|
+| Population | Pipe *created* in the 8 prior quarters | Pipe *currently open* with `CloseDate` in this quarter |
+| Selected by | Maturation curve of the creating quarter | Snapshot `CloseDate` |
+| Misses | — | Prior-quarter creates not yet dated into this quarter |
+
+Measured Q3 FY26: the term supplies $11.8M, and landing on the published
+$201.8M would need roughly **$18.3M**. The shortfall is the right order of
+magnitude for two quarters of missing maturation tail.
+
+**Consequence — the two errors were cancelling.** Before 2026-08-11 the rebuild
+used the inflated yield *and* this understated tail, and landed within +3.2% of
+published. Correcting yield alone moves it to +94.7%. **Neither number is
+evidence of correctness**; the first was two errors offsetting.
+
+Resolving this needs the solve seeded with real prior-quarter creates — either by
+extending the solve window back 8 quarters and letting `AP` build naturally, or
+by measuring the starting tail directly from `sku_nacv_fact` creates. **Until
+then, treat the derived totals as unreconciled.**
 
 ---
 

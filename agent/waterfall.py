@@ -258,16 +258,32 @@ def historic_floor(sku: pd.DataFrame, quarter_start, grain="Territory") -> pd.Se
 # --------------------------------------------------------------------------
 
 def yield_per_dollar(curve_row: pd.Series, in_q_rate: float, later_rate: float) -> float:
-    """Bookings produced per dollar of pipe created.
+    """Bookings produced IN THE CREATING QUARTER per dollar of pipe created.
 
-        Q0_wt x in_quarter_rate  +  sum(Q+1..Q+8 wts) x later_rate
+        Q0_wt x in_quarter_rate
 
-    This is the denominator of the closed-form solve, and a meaningful figure in
-    its own right — report it.
+    The later weights are deliberately absent. Verified against the workbook
+    2026-08-11: on the `Pipeline Waterfall (Quarterly)` sheet only the Q0 slice
+    depends on this row's Pipe Create —
+
+        AC (Q0 close)  = $S*T
+        AD (Q+1 close) = IF(AND($B{r-1}=$B{r},$C{r-1}=$C{r}), $S{r-1}*U{r-1}, 0)
+
+    — so AD:AK are the tail ARRIVING from earlier quarters of the same
+    Territory x Product, not this row's create spread forward. Since
+    AO = AC x AM and AP = SUM(AD:AK) x AN, the goal seek's changing cell S moves
+    only AO, giving the closed form
+
+        S* = (Difference - AP) / (Q0_wt x in_quarter_rate)
+
+    `later_rate` stays in the signature because the caller applies it when
+    propagating this quarter's tail forward. Counting it here as well would book
+    the same dollars twice — once as this quarter's bookings and again as a later
+    quarter's reduced gap. Doing so inflates yield ~3x on this data and
+    understates required create by the same factor.
     """
     q0 = float(curve_row.get(0, 0.0))
-    later = float(curve_row.reindex(range(1, MAX_OFFSET + 1)).fillna(0.0).sum())
-    return q0 * float(in_q_rate or 0.0) + later * float(later_rate or 0.0)
+    return q0 * float(in_q_rate or 0.0)
 
 
 @dataclass
