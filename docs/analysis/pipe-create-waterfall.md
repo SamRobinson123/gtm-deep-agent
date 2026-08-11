@@ -52,45 +52,76 @@ being solved*.
 
 ### Step 1 — Sales cycle sets the maturation curve
 
-**Sales cycle = the average time from opportunity `CreatedDate` to `CloseDate`,
-within a territory.** That distribution is what becomes the `Q0 wt` … `Q+8 wt`
-vector: pipe created now closes across future quarters according to how long
-deals in that territory actually take.
+**Source: `[src].[sku_nacv_fact]`** — see
+[`../tables/sku-nacv-fact.md`](../tables/sku-nacv-fact.md).
+Definition given by the Strategic Analytics lead, 2026-08-10.
 
-*Verified:* the `Create VS Close` sheet (3,541 x 5) computes exactly this shape —
-closed dollars bucketed by create-quarter → close-quarter offset
-(`Q0 (close)` … `Q+6 (close)`). For `AMS Core East Canada` it yields
-`0.132, 0.191, 0.364, 0.206, 0.099, 0.008`.
+**Sales cycle = the number of QUARTERS from opportunity creation to close.**
+Count from `Stage_1_Start_Date_Corrected` (the create / discovery date — the file
+uses it as `Create_Month`) to `Opp_Closed_Date`, for deals that reached `Closed`
+or `Closed Won`. Bucket the offset: in-quarter, Q+1, Q+2, … That distribution of
+closed dollars across offsets **is** the `Q0 wt` … `Q+8 wt` vector.
 
-*Grain caveat:* `Create VS Close` is **territory-grain only** (no `Product`
-column), while the waterfall carries **10 distinct weight vectors for that same
-territory** — so maturation is fitted at Territory x Product. `Create VS Close`
-is the blended view, not the direct source of any single vector. Where the
-per-product fitting happens is **not established**.
+It is a **quarter-offset distribution, not an average duration.** A mean number
+of days cannot allocate dollars across future quarters; the bucketed distribution
+can.
 
-This is why sales cycle is load-bearing rather than descriptive: a territory
-with a longer cycle pushes weight out to later quarters, so more pipe must be
-created *earlier* to land the same bookings.
+*Why this table and not `opportunity_live`:* `sku_nacv_fact` is **product-grain**,
+which is what allows maturation to be fitted at Territory x Product — matching the
+10 distinct weight vectors observed for a single territory in the workbook.
+Opportunity-grain data cannot produce a per-product curve.
+**This resolves the earlier open question about where per-product fitting happens.**
+
+*Cross-check:* the workbook's `Create VS Close` sheet (3,541 x 5) computes the
+same shape at territory grain — closed dollars bucketed `Q0 (close)` …
+`Q+6 (close)`. For `AMS Core East Canada`: `0.132, 0.191, 0.364, 0.206, 0.099,
+0.008`. It is the blended view of the per-product curves, useful for validating a
+derivation rather than as its source.
+
+**`SKU_SQL` does not currently select `Stage_1_Start_Date_Corrected`.** Adding it
+is what makes sales cycle computable from a standard pull.
+
+This is why sales cycle is load-bearing rather than descriptive: a territory with
+a longer cycle pushes weight into later quarters, so more pipe must be created
+*earlier* to land the same bookings.
 
 ### Step 2 — Slip analysis sets the movement assumptions
 
 **Source: `[rep].[trf_opp_daily_snapshot_new]`** — see
 [`../tables/opp-daily-snapshot.md`](../tables/opp-daily-snapshot.md).
+Definition given by the Strategic Analytics lead, 2026-08-10.
 
-Take the **first snapshot of the quarter** to establish starting pipeline, then
-track that same pipe forward: how much moved out to future quarters, and which
-quarter it landed in. That movement analysis is what populates the flow columns —
-`In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`, `Pre Q Outflow`.
+**Slip = open pipe that neither closed nor was won, and moved to a different
+quarter.** Measured on a *historic* quarter so the outcome is known:
 
-*Not verified.* No code implementing this exists in the corpus, and the workbook
-carries the results rather than the calculation.
+1. Take the **open pipe at the beginning of the quarter** (e.g. Q1) from the
+   snapshot feed.
+2. Follow that same pipe forward to the end of the quarter.
+3. Partition it: reached `Closed`, reached `Closed Won`, or **neither** — still
+   open with its `CloseDate` moved into a later quarter. **That last bucket is
+   slip**, and which quarter it landed in matters.
 
-Note the anchoring rule this implies: "first snapshot of the quarter" is a
-deliberate point-in-time anchor, and per root `CLAUDE.md` invariant 5 the Python
-pipeline anchors week 1 against a **pre-quarter buffer** for exactly this class
-of boundary problem. Whether the Excel slip analysis uses the same buffered
-anchor is **unknown**, and it is a plausible source of disagreement between the
-two.
+This is what populates `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
+`Pre Q Outflow`.
+
+**Slip and maturation are different measurements, not two names for one thing:**
+
+| | Maturation curve | Slip |
+|---|---|---|
+| Population | Newly *created* pipe | Pipe already open at quarter start |
+| Question | When will new pipe close? | Where did existing pipe move to? |
+| Source | `sku_nacv_fact` (create → close) | `trf_opp_daily_snapshot_new` (point-in-time) |
+| Shape | Distribution across Q0…Q+8 | Share that pushed out, and to where |
+| Acts on | `Pipe Create` (col S) | `Pre Q Bookings` (col G) |
+
+*Anchoring caveat:* "beginning of the quarter" is a point-in-time anchor, and root
+`CLAUDE.md` invariant 5 has the Python pipeline anchor week 1 against a
+**pre-quarter buffer** precisely because opps enter the snapshot feed 1–4 days
+late. Whether the Excel slip analysis uses the same buffered anchor is
+**unknown**, and is a plausible source of disagreement between the two.
+
+*Not verified:* no code implementing slip exists in the corpus; the workbook
+carries results rather than the calculation.
 
 ### Step 3 — Goal seek solves for required pipe create
 
@@ -278,11 +309,23 @@ stale too and join via `Target_Monthly.csv` as canonical.
 1. **Is this still how targets are set?** The workbook is dated 2026-05-15 and
    `Target_Monthly.csv` 2026-07-27. Whether FY26 targets came from this sheet or
    a successor is **unknown**.
-2. ~~Where do the maturation curves come from?~~ **Answered 2026-08-10:** from
-   sales cycle — average `CreatedDate` → `CloseDate` per territory. **Residual:**
-   `Create VS Close` is territory-grain, but the waterfall fits at Territory x
-   Product (10 vectors for one territory). *Where the per-product fitting is
-   performed is still unknown.*
+2. ~~Where do the maturation curves come from?~~ **Fully answered 2026-08-10:**
+   from sales cycle computed on `[src].[sku_nacv_fact]` —
+   `Stage_1_Start_Date_Corrected` → `Opp_Closed_Date`, bucketed by quarter offset.
+   The per-product fitting question is resolved too: `sku_nacv_fact` is
+   product-grain, which is exactly what yields Territory x Product curves.
+
+2a. **Possible double-count — unresolved, and it biases pipe create upward.**
+   The maturation curve is fitted on *actual historical close dates*, which
+   already embed every slip those deals experienced: a deal created in Q1 that
+   slipped twice and closed in Q4 appears in the curve at `Q+3`, not as `Q+1`
+   plus two slips. So slip behaviour is **already inside the maturation curve**.
+   Applying a separate slip term on top is only legitimate if the two act on
+   genuinely disjoint populations — new creation vs the pre-existing open base.
+   On the face of it they do, but an opp created *within* the quarter that then
+   slips could fall into both. **Testable** once create dates are pulled: check
+   whether the fitted curve already reproduces observed slip. If it does, the
+   separate slip term is redundant and inflates required pipe create.
 3. **What time window fits the curves?** Trailing how many quarters? A curve
    fitted on a period containing a pricing or packaging change would misstate
    maturation. Not established.
