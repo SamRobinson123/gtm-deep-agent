@@ -354,3 +354,28 @@ def test_an_override_can_target_one_quarter():
     got = df.set_index(["quarter_start", "Territory"])["in_quarter_win_rate"]
     assert got[("2026-10-01", "T2")] == pytest.approx(0.40)
     assert got[("2026-07-01", "T2")] != pytest.approx(0.40)
+
+
+# --- column naming guard ------------------------------------------------------
+
+def test_no_emitted_column_shadows_a_pandas_attribute():
+    """A column named after a DataFrame attribute is silently unreachable.
+
+    `df.flags` returns pandas' own Flags object, not the column, so
+    `(df.flags != "")` compares an object to a string and yields a bare bool.
+    Nothing raises — the filter just quietly does the wrong thing. This caught
+    `flags` (now `outlier_flags`); it exists to catch the next one.
+    """
+    reserved = set(dir(pd.DataFrame))
+    sku = _two_territories()
+    frames = {
+        "derive_targets": w.derive_targets(
+            sku, pd.Series({"T1": 1e6, "T2": 1e6}), ["2026-07-01"], grain="Territory"),
+        "win_rates": w.win_rates(sku, grain="Territory"),
+        "sales_cycle_weights": w.sales_cycle_weights(sku, grain="Territory"),
+    }
+    frames["flag_outliers"] = w.flag_outliers(frames["derive_targets"], "Territory")
+
+    for name, df in frames.items():
+        clashes = [c for c in df.columns if isinstance(c, str) and c in reserved]
+        assert not clashes, f"{name} emits column(s) shadowing pandas attributes: {clashes}"
