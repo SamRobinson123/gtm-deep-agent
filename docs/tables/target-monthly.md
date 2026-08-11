@@ -135,11 +135,15 @@ a collision — do not "fix" it by casing.
 preserve the split is an open decision — see below. Until it is resolved, any
 `GeoTerritory`-grain output must be checked against these three pairs.
 
-### 2b. Product names do not match `sku_nacv_fact` — verified
+### 2b. This file is a BY-PRODUCT — do not join to it on Product
 
-The target file uses short codes where `SKU_SQL`'s `PRODUCT_CASE` emits full
-names. Joining on `Product` silently drops **$53,271,424 — 26.4% of the Q3 FY26
-target**:
+**Per the model owner (2026-08-10): this file is downstream of the pipe create
+derivation, not an input to it.** The bookings target is given; the waterfall
+solves for required pipe create; splits and renaming are applied *afterwards* to
+produce this file.
+
+Consequence: its product vocabulary differs from `sku_nacv_fact`, and that is
+expected rather than a defect.
 
 | Here | `PRODUCT_CASE` emits | Q3 FY26 Pipeline |
 |---|---|---|
@@ -147,12 +151,16 @@ target**:
 | `DI` | `Data Integrity` | $12,730,530 |
 | `Neoload` | `NeoLoad` | $22,634,232 |
 
-`Tosca`, `qTest`, `Sealights`, `Recurring Services` match as-is. An explicit
-mapping is required — do not case-fold blindly, since `Sealights` matches while
-`SeaLights` also exists in the file and a naive fold creates a new collision.
+`Tosca`, `qTest`, `Sealights`, `Recurring Services` match as-is.
 
-See [`../analysis/pipe-create-waterfall.md`](../analysis/pipe-create-waterfall.md)
-Step 2b for where splits come from.
+**Do not rename either side to force a join.** Compare a derivation to this file
+at **aggregate** level. Renaming would manufacture agreement between artifacts of
+different pipeline stages.
+
+The `Target_Type = 'Bookings'` rows are the exception: those are the **given
+input** to the derivation (Q3 FY26 $38,448,676 · Q4 FY26 $58,971,436), and will
+eventually be supplied directly rather than read from here. See
+[`../analysis/pipe-create-waterfall.md`](../analysis/pipe-create-waterfall.md).
 
 ### 3. `SEA` does not mean South-East Asia
 

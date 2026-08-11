@@ -148,38 +148,52 @@ sheet (113,113 rows — the largest) holds.
 (invariant 2: ASP is derived per product, $33,158–$165,255 in Q3 FY26), so the
 opp-count target depends on the product split. Change the mix, change the count.
 
-#### Product names do not match between the two files — verified 2026-08-10
+#### Product names differ between the files — expected, not a defect
 
-`Target_Monthly.csv` uses short codes where `SKU_SQL`'s `PRODUCT_CASE` emits full
-names. A join on `Product` silently drops these:
+**Direction of flow, per the model owner (2026-08-10): `Target_Monthly.csv` is a
+BY-PRODUCT of this process, not an input to it.** Splits and renaming are applied
+*after* the pipe create target is derived. So the naming difference is an artifact
+of that downstream packaging step, not a join bug to fix.
 
-| `Target_Monthly.csv` | `PRODUCT_CASE` emits | Q3 FY26 Pipeline target |
+Observed difference, recorded for reference only:
+
+| `Target_Monthly.csv` | `PRODUCT_CASE` emits | Q3 FY26 Pipeline |
 |---|---|---|
 | `LC` | `LiveCompare` | $17,906,662 |
 | `DI` | `Data Integrity` | $12,730,530 |
-| `Neoload` | `NeoLoad` (case differs) | $22,634,232 |
+| `Neoload` | `NeoLoad` (case) | $22,634,232 |
 | `Tosca` · `qTest` · `Sealights` · `Recurring Services` | match | — |
 
-**$53,271,424 — 26.4% of the $201,789,918 Q3 target — fails to join.** Any
-product-split reconciliation needs an explicit mapping. Do not case-fold blindly:
-`Sealights` matches while `SeaLights` also exists elsewhere in the file, so a
-naive fold creates a different collision.
-
-Whole-file alias variants also exist (`Data Integrity` alongside `DI`,
-`LiveCompare` alongside `LC`, `SeaLights` alongside `Sealights`), but they carry
-no Q3 FY26 Pipeline value — only one spelling is active per product this quarter.
-They would matter for a multi-quarter or historical comparison.
+**Do NOT rename either side.** A derivation should compute splits from
+`sku_nacv_fact` in its own vocabulary and compare to the published file at
+**aggregate** level, not by joining on product name. Renaming to force a join
+would fabricate agreement between two artifacts of different stages.
 
 ### Step 3 — Goal seek solves for required pipe create
 
-The bookings target is the constraint. Expected bookings from pipe that already
-exists — adjusted for slip and multiplied by win rates — is subtracted from it.
-The remainder is the gap, and **goal seek solves for the `Pipe Create` figure
-that closes it.**
+**The bookings target is GIVEN.** Per the model owner (2026-08-10) it arrives as
+an input from finance/planning — it is not derived here. Today it is readable from
+`Target_Monthly.csv` as the `Target_Type = 'Bookings'` rows, and it has not
+changed, so that is the usable source for now. **Treat it as a parameter with that
+default, not as a fixed lookup** — it will be supplied directly.
 
-This is why `Pipe Create` (col S) is an *input* to this sheet: it is the solved
-variable, not a measurement. It is the number that ends up in
-`Target_Monthly.csv` as the `Pipeline` target.
+| Quarter | Bookings target (given) | Published pipe create | Implied ratio |
+|---|---:|---:|---:|
+| Q3 FY26 | $38,448,676 | $201,789,918 | 5.25x |
+| Q4 FY26 | $58,971,436 | $192,223,413 | 3.26x |
+
+**The ratio is not constant, and that is the point.** A flat coverage multiple
+would give the same figure both quarters. Note the direction: Q4 carries a *higher*
+bookings target but a *lower* pipe create target, because Q4's bookings are largely
+served by pipe created in Q2/Q3 that is now maturing. That is the multi-quarter
+coupling of Step 4, visible in the published numbers.
+
+Expected bookings from pipe that already exists — slip-adjusted and multiplied by
+win rates — is subtracted from the given bookings target. The remainder is the gap,
+and **goal seek solves for the `Pipe Create` figure that closes it.**
+
+This is why `Pipe Create` (col S) is an *input* to the sheet: it is the solved
+variable, not a measurement.
 
 *Verified structurally:* `Adj Difference` (`=Targets − Adj Bookings`) is the gap
 being closed, and `Pipe Won` is the lever. *Not verified:* the goal-seek
@@ -203,26 +217,31 @@ hand — is **not established** and is the largest remaining gap.
 ### Chain summary
 
 ```
-sku_nacv_fact
-  ├─ sales cycle (create → close, in QUARTER offsets)  → maturation weights Q0…Q+8
-  └─ historical mix                                    → splits: Segment, Source,
-                                                          Deal Type, Product, Territory
-trf_opp_daily_snapshot_new
-  └─ slip (open at quarter start, neither closed nor   → inflow / outflow columns
-           won, moved quarter)
+GIVEN (input)                    COMPUTED FROM SOURCE
+bookings target                  sku_nacv_fact
+  from finance/planning            ├─ sales cycle (create→close, QUARTER offsets)
+  today: Target_Monthly.csv        │    → maturation weights Q0…Q+8
+  Target_Type = 'Bookings'         ├─ win rates (in-quarter vs later)
+                                   └─ historical mix → splits
+                                 trf_opp_daily_snapshot_new
+                                   └─ slip: open at quarter start, neither
+                                      closed nor won, moved quarter
         ↓
 bookings target − expected bookings from existing pipe (slip- and win-rate-adjusted)
         ↓  goal seek
-required Pipe Create
-        ↓  splits
-pushed down Segment × Source × Deal Type × Product × Territory
-        ↓
-Target_Monthly.csv — 63,171 rows × 12 dimensions
+REQUIRED PIPE CREATE   ← the answer
+        ↓  splits + renaming applied downstream
+Target_Monthly.csv — a BY-PRODUCT, 63,171 rows × 12 dimensions
         ↓  maturation curve
 supports this quarter (~10-14%) + all subsequent quarters (~86-90%)
         ↓
 couples every quarter to every later quarter
 ```
+
+**Read the direction carefully.** `Target_Monthly.csv` sits *below* the answer,
+not above it. It is where a previous cycle's derived target was published after
+splits and renaming — a comparison point at aggregate level, never an input and
+never a join partner.
 
 ---
 
