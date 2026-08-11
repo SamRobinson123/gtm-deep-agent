@@ -498,3 +498,41 @@ def test_slip_and_slip_destinations_agree_on_what_slipped(monkeypatch, tmp_path)
     g = w.slip("2025-07-01", "Territory", snapshot_file="s.parquet")
     d = w.slip_destinations("2025-07-01", snapshot_file="s.parquet")
     assert g["slipped"].sum() == pytest.approx(d.attrs["slipped_value"])
+
+
+def test_slip_forecast_takes_both_assumptions_from_the_prior_year_quarter(monkeypatch, tmp_path):
+    """Rate AND destination come from the same quarter a year earlier — never a
+    pooled average. Q3 and Q4 have genuinely different destination shapes, so a
+    blend describes neither."""
+    from pipeline import config as cfg
+    _slip_fixture().rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    # Q3 FY26 is forecast from Q3 FY25, where $400 of $2,287 slipped: 75% to Q+1,
+    # 25% to Q+3.
+    f = w.slip_forecast("2026-07-01", open_pipe=pd.Series({"T1": 1_000_000.0}),
+                        grain="Territory", snapshot_file="s.parquet")
+
+    assert f.attrs["source_quarter"] == "Q3 FY25"
+    assert f.attrs["pooled"] is False
+    slipped = f.loc["T1", "slipped_value"]
+    assert slipped == pytest.approx(1_000_000.0 * f.loc["T1", "slip_rate"])
+    # The slipped dollars are distributed by the SOURCE quarter's curve, and the
+    # distribution is exhaustive.
+    assert f.loc["T1", "to_Q+1"] == pytest.approx(slipped * 0.75)
+    assert f.loc["T1", "to_Q+3"] == pytest.approx(slipped * 0.25)
+    assert sum(f.loc["T1", f"to_Q+{k}"] for k in range(1, 9)) == pytest.approx(slipped)
+
+
+def test_slip_forecast_without_open_pipe_returns_the_shares(monkeypatch, tmp_path):
+    """Assumptions alone, for inspection — no dollars needed."""
+    from pipeline import config as cfg
+    _slip_fixture().rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    f = w.slip_forecast("2026-07-01", grain="Territory", snapshot_file="s.parquet")
+    assert f.loc["T1", "to_Q+1"] == pytest.approx(0.75)

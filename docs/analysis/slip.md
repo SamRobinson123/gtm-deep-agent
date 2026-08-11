@@ -60,6 +60,7 @@ cycle describes *newly created* pipe, slip describes the *already open* base.
 | `classify_outcomes(snap, q_start, q_end, anchor)` | one row per opp with its outcome — the shared classification |
 | `slip(quarter_start, grain, from_point, snapshot_file)` | won/lost/slipped/held dollars and `slip_rate` per grain key |
 | `slip_destinations(quarter_start, from_point, snapshot_file)` | **where the slipped pipe landed**, as shares by quarter offset |
+| `slip_forecast(quarter_start, open_pipe, grain)` | the forecast: prior-year rate x prior-year destination curve, in dollars |
 | `prior_year_quarter(q)` / `slip_anchor(q, as_of, prior)` | which historic quarter to measure, and from where |
 
 Both `slip()` and `slip_destinations()` go through `classify_outcomes()`. Keep it
@@ -92,20 +93,44 @@ destination quarter offset (1 = the next quarter):
 | Q4 FY25 | $108,300,047 | 1,094 | **41%** | **43%** | 10% | 6% |
 | Q1 FY26 | $65,838,054 | 742 | 56% | 34% | 9% | 1% |
 | Q2 FY26 | $65,408,000 | 718 | 54% | 40% | 3% | 2% |
-| **Pooled** | | | **54.9%** | **33.8%** | **7.8%** | **3.2%** |
 
 **Q4 is the outlier and it is a real seasonal effect.** Pipe slipping out of Q4
 skips Q1 and lands in Q2 — a calendar year-boundary push. Everywhere else the
 next quarter dominates.
 
-> **The pooled curve describes no actual quarter.** It is the average of an 80/11
-> shape and a 41/43 shape. Use it only as a fallback, and never to reason about
-> Q4.
+> ### Do not pool these into an average
+>
+> **Directive from the Strategic Analytics lead, 2026-08-11.** A blended curve is
+> the average of an 80/11 shape and a 41/43 shape, and describes neither. Applied
+> to Q4 it would move roughly a third of Q4's slipped dollars into the wrong
+> quarter. **Each quarter is forecast from the same quarter a year earlier — its
+> rate and its destination curve, together.** That pairing is the model.
 
-Note this is a **stronger seasonality signal than the slip RATE shows.** The rate
+The destination is a **stronger seasonality signal than the slip RATE.** The rate
 varied only 52.6%–58.4% across these four quarters, while the destination split
-ranges from 41% to 80% into Q+1. If slip is going to be seasonal anywhere, it is
-here.
+ranges from 41% to 80% into Q+1. If slip is seasonal anywhere, it is here.
+
+### The forecast mechanic
+
+`slip_forecast(quarter_start, open_pipe, grain)` composes it. Both assumptions
+come from `prior_year_quarter(quarter_start)` — never from a pool:
+
+```
+slipped        = open_pipe x slip_rate              # prior-year same quarter
+to quarter n+k = slipped x destination_share[k]     # same prior-year quarter
+```
+
+Run on 2026-08-11:
+
+| Target | Source | Open pipe | Slip rate | Slipping | → Q+1 | → Q+2 | → Q+3 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Q3 FY26 | Q3 FY25 | $75,741,019 | 71.1% | $53,824,503 | $42,936,068 (80%) | $6,070,714 (11%) | $3,398,839 (6%) |
+| Q4 FY26 | Q4 FY25 | $211,460,105 | 62.4% | $131,956,805 | $54,081,254 (41%) | $56,235,775 (43%) | $13,563,473 (10%) |
+
+Read the Q3 row: of Q3 FY26's open pipe, $53.8M is forecast to slip, and **$42.9M
+of it lands in Q4 FY26**. Nothing in `derive_targets()` receives that $42.9M
+today — it is subtracted from Q3 and arrives nowhere. That is the missing inflow,
+quantified.
 
 ---
 
@@ -230,8 +255,9 @@ choices, not established facts:
 
 ## Open questions
 
-1. **Should destination be fitted per quarter-of-year?** The Q4 year-boundary
-   effect says yes; the sample size per quarter says be careful.
+1. ~~Should destination be fitted per quarter-of-year?~~ **Decided 2026-08-11:
+   yes.** Each quarter is forecast from the same quarter a year earlier, rate and
+   destination together. Pooling is explicitly rejected.
 2. **Which valuation carries** — value at anchor, or value at the moment of slip?
 3. **Should serial slip compound**, or be modelled directly as a single
    multi-quarter distribution measured over a longer horizon? The 55% re-slip

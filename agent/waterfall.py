@@ -684,6 +684,53 @@ def slip_destinations(quarter_start, from_point=None,
     return out
 
 
+def slip_forecast(quarter_start, open_pipe=None, grain="Territory", as_of=None,
+                  snapshot_file="snapshot_hist.parquet") -> pd.DataFrame:
+    """Forecast this quarter's slip from the SAME QUARTER a year earlier.
+
+    Both assumptions come from that one historic quarter — its slip rate and its
+    destination curve. Never a pooled average across quarters: the shapes differ
+    too much to blend. Q3 sends 80% of its slip to the next quarter; Q4 sends 41%
+    and pushes 43% out two quarters across the calendar year boundary. An average
+    of those describes neither, and applying it to Q4 would move roughly a third
+    of Q4's slipped dollars into the wrong quarter.
+
+    The mechanic, per grain key:
+
+        slipped        = open_pipe x slip_rate          (from the prior-year quarter)
+        to quarter n+k = slipped x destination_share[k] (same prior-year quarter)
+
+    `open_pipe` is a Series per grain key. Omit it to get the assumptions alone;
+    supply it to get the dollars landing in each future quarter.
+
+    Returns one row per grain key: `slip_rate`, `slipped_value`, and `to_Q+1` …
+    `to_Q+8`. Source quarter and destination curve are on `.attrs`.
+    """
+    source = prior_year_quarter(quarter_start)
+    anchor = slip_anchor(quarter_start, as_of, source) if as_of else None
+
+    rates = slip(source, grain, from_point=anchor, snapshot_file=snapshot_file)
+    dest = slip_destinations(source, from_point=anchor, snapshot_file=snapshot_file)
+
+    out = pd.DataFrame({"slip_rate": rates["slip_rate"].fillna(0.0)})
+    if open_pipe is not None:
+        out["open_pipe"] = pd.Series(open_pipe).reindex(out.index).fillna(0.0)
+        out["slipped_value"] = out["open_pipe"] * out["slip_rate"]
+    else:
+        out["slipped_value"] = float("nan")
+
+    for k in range(1, MAX_OFFSET + 1):
+        share = float(dest.get(k, 0.0))
+        out[f"to_Q+{k}"] = out["slipped_value"] * share if open_pipe is not None else share
+
+    out.attrs["source_quarter"] = config.fq_label(source)
+    out.attrs["target_quarter"] = config.fq_label(quarter_start)
+    out.attrs["destination_curve"] = dest
+    out.attrs["anchor"] = str(anchor.date()) if anchor is not None else str(pd.Timestamp(source).date())
+    out.attrs["pooled"] = False
+    return out
+
+
 def slip(quarter_start, grain="Territory", from_point=None,
          snapshot_file="snapshot.parquet") -> pd.DataFrame:
     """Of the pipe OPEN at the start of a historic quarter, how much neither closed
