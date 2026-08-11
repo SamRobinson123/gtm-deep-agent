@@ -170,3 +170,17 @@ def test_doc_retrieval_subagent_is_read_only():
     o = options.build_options()
     sub = o.agents["doc-retrieval"]
     assert set(sub.tools) <= {"Read", "Glob", "Grep"}
+
+
+# --- Azure CLI resolution ---------------------------------------------------
+
+def test_az_is_resolved_via_which_not_bare_name():
+    """Regression: on Windows `az` is az.CMD, and subprocess without shell=True
+    cannot launch a .cmd by bare name. It raises FileNotFoundError, which reads
+    exactly like "not installed" and produced a completely wrong diagnosis —
+    the agent reported Azure CLI missing on a machine where it was installed
+    and logged in. Resolve through shutil.which, which honours PATHEXT."""
+    src = inspect.getsource(tools)
+    assert 'shutil.which("az")' in src
+    assert '["az", "account"' not in src, "must not invoke az by bare name"
+    assert '"az", "login"' not in src, "must not invoke az by bare name"

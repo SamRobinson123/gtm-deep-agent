@@ -24,15 +24,30 @@ def _ok(text: str):
     return {"content": [{"type": "text", "text": text}]}
 
 
+def _az() -> str | None:
+    """Resolve the Azure CLI executable.
+
+    On Windows `az` is `az.CMD`, a batch file. subprocess without shell=True cannot
+    launch a .cmd by bare name — it raises FileNotFoundError, which reads exactly
+    like "not installed" and produces a completely wrong diagnosis. shutil.which
+    honours PATHEXT and returns the real path.
+    """
+    import shutil
+    return shutil.which("az")
+
+
 @tool("az_login_status", "Check whether the Azure CLI session is live. Synapse pulls authenticate via `az login`, so a stale session is the most likely pull failure.", {})
 async def az_login_status(args):
+    az = _az()
+    if not az:
+        return _ok("Azure CLI is not installed or not on PATH. Pulls will fail until it is.")
     try:
         r = subprocess.run(
-            ["az", "account", "show", "--output", "json"],
+            [az, "account", "show", "--output", "json"],
             capture_output=True, text=True, timeout=30,
         )
     except FileNotFoundError:
-        return _ok("Azure CLI is not installed or not on PATH. Pulls will fail until it is.")
+        return _ok(f"Azure CLI resolved to {az} but could not be executed.")
     except subprocess.TimeoutExpired:
         return _ok("`az account show` timed out after 30s.")
     if r.returncode != 0:
@@ -147,17 +162,26 @@ async def show_run(args):
     return _ok(json.dumps(m, indent=2))
 
 
-@tool("azure_login", "Sign in to Azure so Synapse queries can run. Launches `az login`, which opens your browser for MFA. Use when az_login_status reports you are not signed in.", {})
+@tool("azure_login", "Sign in to Azure for the Synapse database scope. Launches `az login --scope https://database.windows.net/.default`, which opens your browser for MFA. Use when az_login_status reports you are not signed in, OR when a pull fails with AADSTS50078 (MFA expired for the database audience) — a general az login does not satisfy that.", {"tenant": str})
 async def azure_login(args):
     import asyncio
 
+    az = _az()
+    if not az:
+        return _ok("Azure CLI is not installed or not on PATH. Install it, then retry.")
+    # Synapse needs a token for the database scope specifically. A general `az login`
+    # can leave MFA unsatisfied for that audience (AADSTS50078), which surfaces later
+    # as a confusing credential error rather than a login prompt.
+    cmd = [az, "login", "--scope", "https://database.windows.net/.default", "--only-show-errors"]
+    if args.get("tenant"):
+        cmd[2:2] = ["--tenant", args["tenant"]]
+
     try:
         proc = await asyncio.create_subprocess_exec(
-            "az", "login", "--only-show-errors",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
         )
     except FileNotFoundError:
-        return _ok("Azure CLI is not installed or not on PATH. Install it, then retry.")
+        return _ok(f"Azure CLI resolved to {az} but could not be executed.")
     try:
         # az login authenticates through a BROWSER, not a terminal prompt â€” which is
         # why it works from a subprocess. MFA lands in the user's browser window.
