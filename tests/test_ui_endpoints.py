@@ -33,7 +33,7 @@ def legacy_run(tmp_path, monkeypatch):
         "gap": 650_000.0, "yield_per_dollar": 0.07,
         "required_by_gap": 9_285_714.0, "historic_floor": 1_000_000.0,
         "pipe_create_target": 9_285_714.0, "binding": "gap",
-        "in_quarter_win_rate": 0.5, "later_win_rate": 0.15, "q0_weight": 0.14,
+        "in_quarter_win_rate": 0.5, "pre_q_win_rate": 0.15, "q0_weight": 0.14,
     }]).to_csv(d / "derived_pipe_create.csv", index=False)
     (d / "manifest.json").write_text('{"run_id": "%s", "quarter": "Q3 FY26"}' % rid)
     return rid

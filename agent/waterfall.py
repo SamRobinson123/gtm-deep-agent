@@ -199,10 +199,16 @@ def sales_cycle_weights(sku: pd.DataFrame, window=None, grain="Territory") -> pd
 # --------------------------------------------------------------------------
 
 def win_rates(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFrame:
-    """Win rate per grain key, split in-quarter vs later.
+    """Win rate per grain key, split In Q vs Pre Q.
 
     in_quarter — deals that closed in the SAME quarter they were created
-    later      — deals that closed in a subsequent quarter
+    pre_q      — deals that closed in a subsequent quarter, i.e. pipe that
+                 existed BEFORE the quarter it books in
+
+    The names are the model owner's and are not negotiable: these are the
+    In Q and Pre Q win rates as the business states them. "later" was an
+    internal coinage for the same thing and has been retired — it invited the
+    reading that it describes the deal's timing rather than the pipe's origin.
 
     Rate is won value / decided value (won + lost). Open deals are excluded: they
     have not decided, and counting them as losses understates the rate.
@@ -213,13 +219,13 @@ def win_rates(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFrame
     d["offset"] = (d["close_q"] - d["create_q"]).astype(int)
     d = d[d["offset"].between(0, MAX_OFFSET)]
     d["_g"] = _grain_key(d, grain)
-    d["_bucket"] = d["offset"].eq(0).map({True: "in_quarter", False: "later"})
+    d["_bucket"] = d["offset"].eq(0).map({True: "in_quarter", False: "pre_q"})
     d["_won"] = d["value"].where(d["Stage"].eq(WON), 0.0)
 
     g = d.groupby(["_g", "_bucket"])[["_won", "value"]].sum()
     rate = (g["_won"] / g["value"].where(g["value"] > 0)).unstack()
-    rate = rate.reindex(columns=["in_quarter", "later"])
-    decided = g["value"].unstack().reindex(columns=["in_quarter", "later"]).fillna(0.0)
+    rate = rate.reindex(columns=["in_quarter", "pre_q"])
+    decided = g["value"].unstack().reindex(columns=["in_quarter", "pre_q"]).fillna(0.0)
     rate.attrs["decided_value"] = decided
     rate.attrs["window"] = window
     rate.index.name = grain
@@ -277,7 +283,7 @@ def historic_floor(sku: pd.DataFrame, quarter_start, grain="Territory") -> pd.Se
 # Step 3/4 — the solve
 # --------------------------------------------------------------------------
 
-def yield_per_dollar(curve_row: pd.Series, in_q_rate: float, later_rate: float) -> float:
+def yield_per_dollar(curve_row: pd.Series, in_q_rate: float, pre_q_rate: float) -> float:
     """Bookings produced IN THE CREATING QUARTER per dollar of pipe created.
 
         Q0_wt x in_quarter_rate
@@ -296,7 +302,7 @@ def yield_per_dollar(curve_row: pd.Series, in_q_rate: float, later_rate: float) 
 
         S* = (Difference - AP) / (Q0_wt x in_quarter_rate)
 
-    `later_rate` stays in the signature because the caller applies it when
+    `pre_q_rate` stays in the signature because the caller applies it when
     propagating this quarter's tail forward. Counting it here as well would book
     the same dollars twice — once as this quarter's bookings and again as a later
     quarter's reduced gap. Doing so inflates yield ~3x on this data and
@@ -398,7 +404,7 @@ def derive_targets(
         for key in keys:
             crow = curve.loc[key]
             in_q = rates.loc[key, "in_quarter"] if key in rates.index else None
-            later = rates.loc[key, "later"] if key in rates.index else None
+            pre_q = rates.loc[key, "pre_q"] if key in rates.index else None
             q0 = float(crow.get(0, 0.0))
 
             # An override replaces a measured assumption and then flows through
@@ -407,7 +413,7 @@ def derive_targets(
             # would give an answer that no longer reconciles with its own quarters.
             ov = _override_for(overrides, qs, key)
             in_q = ov.get("in_quarter_win_rate", in_q)
-            later = ov.get("later_win_rate", later)
+            pre_q = ov.get("pre_q_win_rate", pre_q)
             q0 = ov.get("q0_weight", q0)
 
             yld = q0 * float(in_q or 0.0)
@@ -431,7 +437,7 @@ def derive_targets(
             for off in range(1, MAX_OFFSET + 1):
                 w = float(crow.get(off, 0.0))
                 if w:
-                    carried[(key, qi + off)] = carried.get((key, qi + off), 0.0) + create * w * float(later or 0.0)
+                    carried[(key, qi + off)] = carried.get((key, qi + off), 0.0) + create * w * float(pre_q or 0.0)
 
             out.append({
                 "quarter": config.fq_label(qs),
@@ -448,7 +454,7 @@ def derive_targets(
                 "pipe_create_target": create,
                 "binding": binding,
                 "in_quarter_win_rate": in_q,
-                "later_win_rate": later,
+                "pre_q_win_rate": pre_q,
                 "q0_weight": q0,
                 # A what-if row must never be mistaken for a measured one.
                 "overridden": ",".join(sorted(ov)) if ov else "",
@@ -461,7 +467,7 @@ def derive_targets(
     return df
 
 
-ASSUMPTIONS = ("in_quarter_win_rate", "later_win_rate", "q0_weight",
+ASSUMPTIONS = ("in_quarter_win_rate", "pre_q_win_rate", "q0_weight",
                "expected_from_existing_pipe", "historic_floor")
 
 
@@ -1232,9 +1238,9 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
 
         adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
-        expected = adjusted x (1 - in_q_slip) x later_win_rate
+        expected = adjusted x (1 - in_q_slip) x pre_q_win_rate
 
-    `later`, not `in_quarter` — see the comment on `wr` below. The sales cycle
+    `pre_q`, not `in_quarter` — see the comment on `wr` below. The sales cycle
     curve is NOT applied here: it governs newly created pipe only, so existing
     pipe and pipe create cannot double-count each other.
 
@@ -1270,11 +1276,11 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
 
     keys = open_pipe.index
     sr = slip_rate.reindex(keys).fillna(slip_rate.mean() if len(slip_rate) else 0.0)
-    # The PRE-Q rate, not the in-quarter one. Pipe already open at quarter start was
-    # created in an earlier quarter, so its analogue is `later` — deals that closed
+    # The PRE-Q win rate, not the In Q one. Pipe already open at quarter start was
+    # created in an earlier quarter, so its analogue is `pre_q` — deals that closed
     # in a quarter after the one that created them. Using in_quarter here applies a
     # rate 3-4x too high (0.41-0.66 vs 0.11-0.21) and swamps the gap.
-    wr = rates["later"].reindex(keys).fillna(rates["later"].mean() if len(rates) else 0.0)
+    wr = rates["pre_q"].reindex(keys).fillna(rates["pre_q"].mean() if len(rates) else 0.0)
 
     # The full timing sequence, in the order it happens in the world:
     #

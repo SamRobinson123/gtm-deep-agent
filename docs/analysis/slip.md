@@ -30,11 +30,31 @@ timing split:
 
 ```
 adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
-expected = adjusted x (1 - in_q_slip) x later_win_rate
+expected = adjusted x (1 - in_q_slip) x pre_q_win_rate
 ```
 
 This file is the measurement behind every term in that line, and the record of
 which parts are stated assumptions rather than established facts.
+
+---
+
+## Terminology — In Q and Pre Q
+
+**The win rate assumptions are the model owner's and are stated, not derived.
+Use their names.**
+
+| Name | Meaning |
+|---|---|
+| **In Q win rate** | deals that closed in the SAME quarter they were created (`win_rates()["in_quarter"]`) |
+| **Pre Q win rate** | deals that closed in a LATER quarter than they were created — i.e. pipe that existed before the quarter it books in (`win_rates()["pre_q"]`) |
+
+`later` / `later_win_rate` was an internal coinage for the Pre Q win rate and was
+**retired 2026-08-11**. It invited the reading that the rate describes the deal's
+timing rather than the pipe's origin. Runs written before the rename still carry
+the old header; `gtm_ui/server.py::LEGACY_COLUMNS` maps it forward.
+
+Note this is the same In Q / Pre Q axis as the slip timing split below, applied to
+a different quantity — win rates to conversion, slip to movement.
 
 ---
 
@@ -191,7 +211,7 @@ Following Q3 FY25's slippers into Q4 FY25, the quarter they landed in
 | Held | 28 | $2,492,420 | 5% |
 
 **Once-slipped pipe wins at 13.1% in its new quarter.** The model applies the
-`later` win rate — mean 0.158 across territories — to *all* pre-existing pipe.
+Pre Q win rate — mean 0.158 across territories — to *all* pre-existing pipe.
 Slipped pipe is not the same asset as freshly-matured pipe, and treating them
 alike overstates what existing pipe will deliver.
 
@@ -434,7 +454,7 @@ For a quarter not yet started, six terms. The model has two.
 |---|---|---|
 | 4 | **Pre-Q slip** — leaks out before the quarter opens | **modelled** — `pre_q_slip()` |
 | 5 | In-Q slip — pushes out during the quarter | **modelled** — `(1 - slip_rate)` |
-| 6 | Loss | **modelled implicitly** — `win_rates` uses a won+lost denominator, so pipe that dies is already inside the `later` rate. Do **not** add a separate attrition haircut; it would double-count. |
+| 6 | Loss | **modelled implicitly** — `win_rates` uses a won+lost denominator, so pipe that dies is already inside the Pre Q win rate. Do **not** add a separate attrition haircut; it would double-count. |
 
 Terms 3 and 4 are the workbook's `Pre Q Inflow` / `Pre Q Outflow` / `In Q Inflow`
 / `In Q Outflow` columns. **Implemented 2026-08-11**; all six terms are now
@@ -442,7 +462,7 @@ present. `existing_pipe_bookings()` applies them in the order they happen:
 
 ```
 adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
-expected = adjusted x (1 - in_q_slip) x later_win_rate
+expected = adjusted x (1 - in_q_slip) x pre_q_win_rate
 ```
 
 Inflow arrives at the quarter boundary, so it is added AFTER the Pre-Q haircut
@@ -491,7 +511,7 @@ in-flight path.
 
 **These terms are correctness, not reconciliation.** The net effect on Q4 is
 about **+$0.7M of bookings**, because existing pipe converts weakly — $211,460,105
-of open pipe yields only ~$12.9M after the haircuts and the 0.158 `later` rate.
+of open pipe yields only ~$12.9M after the haircuts and the 0.158 Pre Q win rate.
 Do not present them as closing the gap to published. And note that the `$0`
 sales cycle tail for Q3 is **not** the explanation either — it is correct for an
 in-flight quarter, because prior-quarter creates destined for Q3 are already in
@@ -527,7 +547,7 @@ for an in-flight quarter".
 - **Destination / slip inflow.** Nothing receives the slipped pipe. The workbook's
   `In Q Inflow` / `Pre Q Inflow` have no counterpart in `derive_targets()`.
 - **Serial slip.** Modelled as a one-time loss.
-- **The distinct win rate of slipped pipe** (13.1% vs the 0.158 `later` mean).
+- **The distinct win rate of slipped pipe** (13.1% vs the 0.158 Pre Q win rate mean).
 - **Value drift.**
 
 Also unresolved in the workbook itself: `In Q Outflow` is omitted from its own
@@ -646,7 +666,7 @@ choices, not established facts:
    multi-quarter distribution measured over a longer horizon? The 55% re-slip
    rate means a one-hop curve understates travel.
 4. **Should slipped pipe carry its own win rate** (13.1%) rather than the general
-   `later` rate (0.158)?
+   Pre Q win rate (0.158)?
 5. **Territory grain.** Fitted globally today. Q3 FY25 had 687 slipped opps
    across 31 booking teams — median 19, with 12 teams under 10 — so a per-
    territory curve needs a fallback and more history than one quarter.
@@ -662,7 +682,7 @@ choices, not established facts:
    terms; agreement with the published total is a separate question and is not
    the criterion for whether a real mechanism gets built.
 9. **Should slipped pipe carry its own win rate?** Inflow currently earns the
-   general `later` rate (0.158), but once-slipped pipe was measured winning at
+   general Pre Q win rate (0.158), but once-slipped pipe was measured winning at
    13.1%. Applying the lower rate would reduce what inflow contributes.
 10. ~~Unattributed pipe is dropped silently.~~ **Closed 2026-08-11 — working as
     intended.** It is entirely **`AMS Specialty`**: 5 opps, $892,135, all dated

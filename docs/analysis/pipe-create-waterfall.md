@@ -108,7 +108,7 @@ Three headlines from that file, because they bear directly on this derivation:
   moved only 52.6%–58.4% over the same four quarters.
 - **Slip is serial.** 55% of once-slipped pipe slips again in its destination
   quarter, and once-slipped pipe wins at only 13.1% — well under the 0.158 mean
-  `later` rate this model applies to all pre-existing pipe.
+  Pre Q win rate this model applies to all pre-existing pipe.
 - **Only the outflow half is implemented.** These four columns are what slip
   populates in the workbook — `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
   `Pre Q Outflow` — and `derive_targets()` has **no inflow term at all**. Slipped
@@ -528,47 +528,35 @@ conversion-rate issue below.
 
 ---
 
-### OPEN, and now the largest known error: existing pipe converts at half the
-### rate the model gives it
+### Measured, and DECIDED: the composition stays as it is
 
-The model composes the existing-pipe term from two separately measured rates:
+The existing-pipe term composes two separately measured rates:
 
 ```
-expected = open_pipe x (1 - slip_rate) x later_win_rate
+expected = open_pipe x (1 - slip_rate) x Pre Q win rate
 ```
 
-That composition can be checked directly, because a completed quarter tells us
-what the pipe open mid-quarter *actually* converted to. Anchored at day 41 of
-each quarter — the same point Q3 FY26 is at now — and followed to quarter end:
+A completed quarter lets that composition be checked against what the pipe open
+mid-quarter *actually* converted to. Anchored at day 41 of each quarter and
+followed to quarter end:
 
-| Quarter | Open pipe at day 41 | Won by quarter end | **Actual** | Slip | **Model** | Ratio |
+| Quarter | Open pipe at day 41 | Won by quarter end | Actual | Slip | Composed | Ratio |
 |---|---:|---:|---:|---:|---:|---:|
-| Q3 FY25 | $68,432,014 | $10,148,360 | **14.8%** | 64.1% | 5.5% | 2.7x |
-| Q4 FY25 | $155,612,390 | $24,246,208 | **15.6%** | 54.7% | 6.9% | 2.3x |
-| Q1 FY26 | $67,958,448 | $8,065,031 | **11.9%** | 56.2% | 6.7% | 1.8x |
-| Q2 FY26 | $79,366,795 | $11,884,609 | **15.0%** | 53.3% | 7.1% | 2.1x |
+| Q3 FY25 | $68,432,014 | $10,148,360 | 14.8% | 64.1% | 5.5% | 2.7x |
+| Q4 FY25 | $155,612,390 | $24,246,208 | 15.6% | 54.7% | 6.9% | 2.3x |
+| Q1 FY26 | $67,958,448 | $8,065,031 | 11.9% | 56.2% | 6.7% | 1.8x |
+| Q2 FY26 | $79,366,795 | $11,884,609 | 15.0% | 53.3% | 7.1% | 2.1x |
 
-**The model understates existing-pipe conversion by roughly 2x, every quarter.**
+> **DECIDED 2026-08-11 by the Strategic Analytics lead: leave it. The win rate
+> assumptions are stated and the model sticks to them.** This table is recorded
+> as a measurement, NOT as a defect to fix. Do not propose replacing the
+> composition with a directly measured conversion rate, and do not "correct" the
+> Pre Q win rate to close this gap — the assumptions are the owner's to set.
 
-The mechanism is a double deduction. `later_win_rate` is `won / (won + lost)`
-among deals closing in a quarter *after* they were created — a population that
-already consists largely of deals that slipped at least once and then decided.
-Slip is therefore inside that rate. Applying `(1 - slip_rate)` on top deducts it
-a second time.
-
-Note how closely the mean `later` rate (15.2%) matches the *actual* conversion
-(11.9%–15.6%) with **no** slip haircut at all. That is the tell.
-
-**The candidate fix is to measure the conversion directly** rather than compose
-it, using the same `classify_outcomes()` partition that already produces `won`:
-
-```
-conversion = won / starting_open_pipe    # at the equivalent point, prior-year quarter
-expected   = open_pipe x conversion
-```
-
-This is a modelling decision for the owner, not a refactor, because it retires
-the `later` rate from this term. **Not implemented.**
+Kept in the file because the size of the difference is worth knowing when reading
+a derived total: the existing-pipe term is conservative by construction, so
+required create is correspondingly high. That is a property of the stated
+assumptions, not an error in applying them.
 
 ---
 

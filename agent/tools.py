@@ -248,7 +248,7 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     "Recompute a derived pipe create target with one assumption replaced, for a "
     "single territory or all of them. Use when someone challenges an input — "
     "'I don't believe the in-quarter win rate is 3%, call it 40%, what does the "
-    "target become?'. Assumptions: in_quarter_win_rate, later_win_rate, q0_weight, "
+    "target become?'. Assumptions: in_quarter_win_rate, pre_q_win_rate, q0_weight, "
     "expected_from_existing_pipe, historic_floor. Rates are fractions (0.40, not 40).",
     {"key": str, "assumption": str, "value": float, "quarters": str},
 )

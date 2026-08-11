@@ -109,6 +109,9 @@ async def run_file(run_id: str, name: str):
 # are migrated forward on read rather than rewritten on disk.
 LEGACY_COLUMNS = {
     "maturation_tail_from_earlier_quarters": "sales_cycle_tail_from_earlier_quarters",
+    # "later" was an internal coinage for the Pre Q win rate. Renamed 2026-08-11 to
+    # the business's own term; runs written before then still carry the old header.
+    "later_win_rate": "pre_q_win_rate",
 }
 
 
@@ -143,7 +146,7 @@ async def run_derivation(run_id: str):
         return float(round(x, 2))
 
     out = []
-    for q, g in df.groupby("quarter", sort=False):
+    for qi, (q, g) in enumerate(df.groupby("quarter", sort=False)):
         target = g["bookings_target"].sum()
         won = g["closed_won"].sum() if "closed_won" in g else 0.0
         existing = g["expected_from_existing_pipe"].sum()
@@ -165,15 +168,28 @@ async def run_derivation(run_id: str):
              "note": "Already banked. Pipe create does not have to cover it."},
             {"kind": "deduct", "label": "Expected from existing pipe", "value": money(-existing),
              "provenance": "modelled",
-             "formula": "open pipe x (1 - slip rate) x pre-Q win rate",
-             "note": "Slip and win rate apply in sequence, not as alternatives."},
+             "formula": "(open pipe x (1 - Pre Q slip) + slip inflow) x (1 - In Q slip) x Pre Q win rate",
+             "note": "Slip and win rate apply in sequence, not as alternatives. "
+                     "Pre Q slip is zero for the quarter in flight — it has already "
+                     "happened and is inside the observed balance."},
             {"kind": "deduct", "label": "Sales cycle tail from earlier quarters",
              "value": money(-tail),
-             "provenance": "suspect" if tail == 0 else "modelled",
-             "formula": "sum over prior quarters of created pipe x weight x pre-Q win rate",
-             "note": ("Zero because no earlier quarter is in this solve. The workbook "
-                      "feeds this from up to 8 prior quarters, so the gap below is "
-                      "overstated and the target with it.") if tail == 0 else
+             # A zero tail on the FIRST quarter of the solve is correct, not
+             # suspect: pipe created earlier and destined for this quarter is
+             # already dated into it and sits in the observed open pipe above.
+             # Modelling it again would double-count. A zero on a LATER quarter
+             # is a real anomaly, because that quarter's feeder IS in the solve.
+             "provenance": "modelled" if tail else ("given" if qi == 0 else "suspect"),
+             "formula": "sum over prior quarters of created pipe x weight x Pre Q win rate",
+             "note": ("Zero, and correct. Pipe created in earlier quarters that is due "
+                      "to close in this one already exists and is already counted in "
+                      "'Expected from existing pipe' above. Modelling a tail on top "
+                      "would double-count it. The workbook reaches back 8 quarters "
+                      "because it runs at annual planning time, when none of this is "
+                      "observable yet.") if (tail == 0 and qi == 0) else
+                     ("Zero despite an earlier quarter being in this solve — that "
+                      "quarter's created pipe should be maturing into this one. "
+                      "Investigate.") if tail == 0 else
                      "Pipe created in earlier quarters of this solve, maturing now."},
             {"kind": "subtotal", "label": "Bookings still to find", "value": money(gap),
              "provenance": "derived",
@@ -182,7 +198,8 @@ async def run_derivation(run_id: str):
              "value": float(round(yields.mean(), 6)) if len(yields) else None,
              "provenance": "modelled",
              "formula": "Q0 weight x in-quarter win rate",
-             "note": ("Only the Q0 slice counts. Later slices book in later quarters "
+             "note": ("Only the Q0 slice counts. The Q+1 and beyond slices book in "
+                      "later quarters "
                       "and are propagated forward, so counting them here would book "
                       "the same dollars twice."),
              "spread": {"min": float(round(yields.min(), 6)),
@@ -225,7 +242,7 @@ async def run_waterfall(run_id: str):
     df = df.replace({float("nan"): None})
     order = ["quarter", "Territory", "bookings_target", "closed_won",
              "expected_from_existing_pipe", "sales_cycle_tail_from_earlier_quarters",
-             "gap", "q0_weight", "in_quarter_win_rate", "later_win_rate",
+             "gap", "q0_weight", "in_quarter_win_rate", "pre_q_win_rate",
              "yield_per_dollar", "required_by_gap", "historic_floor",
              "pipe_create_target", "binding", "outlier_flags", "outlier_reasons"]
     cols = [c for c in order if c in df.columns]

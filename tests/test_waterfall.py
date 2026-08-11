@@ -30,7 +30,7 @@ def test_yield_per_dollar_counts_only_the_in_quarter_slice():
     propagated forward to reduce later quarters' gaps.
     """
     curve = pd.Series({0: 0.10, 1: 0.20, 2: 0.30, 3: 0.40})
-    y = w.yield_per_dollar(curve, in_q_rate=0.70, later_rate=0.35)
+    y = w.yield_per_dollar(curve, in_q_rate=0.70, pre_q_rate=0.35)
     assert y == pytest.approx(0.10 * 0.70)
 
 
@@ -38,7 +38,7 @@ def test_the_sales_cycle_tail_is_not_counted_twice():
     """A quarter's later-quarter weights must reduce a LATER quarter's gap, and
     must not also inflate the creating quarter's own yield."""
     curve = pd.Series({0: 0.10, 1: 0.90})
-    only_q0 = w.yield_per_dollar(curve, in_q_rate=0.50, later_rate=0.20)
+    only_q0 = w.yield_per_dollar(curve, in_q_rate=0.50, pre_q_rate=0.20)
     # If the Q+1 slice were credited here it would add 0.90 x 0.20 = 0.18.
     assert only_q0 == pytest.approx(0.05)
     assert only_q0 < 0.05 + 0.90 * 0.20
@@ -112,7 +112,7 @@ def _tiny_sku():
 def test_win_rates_split_in_quarter_from_later():
     r = w.win_rates(_tiny_sku(), grain="Territory")
     assert r.loc["T1", "in_quarter"] == pytest.approx(400 / 1000)
-    assert r.loc["T1", "later"] == pytest.approx(300 / 1000)
+    assert r.loc["T1", "pre_q"] == pytest.approx(300 / 1000)
 
 
 def test_sales_cycle_weights_sums_to_one():
