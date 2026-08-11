@@ -195,9 +195,52 @@ and **goal seek solves for the `Pipe Create` figure that closes it.**
 This is why `Pipe Create` (col S) is an *input* to the sheet: it is the solved
 variable, not a measurement.
 
-*Verified structurally:* `Adj Difference` (`=Targets − Adj Bookings`) is the gap
-being closed, and `Pipe Won` is the lever. *Not verified:* the goal-seek
-mechanism itself — no solver, macro, or iterative formula was located.
+#### The mechanism — RESOLVED 2026-08-10 from the workbook's VBA
+
+Extracted from `Module13.GoalSeek_AdjDifference_FloorSafe_FAST` (the latest of
+five iterations of the same macro; Modules 1, 10, 11, 12 are predecessors).
+
+| Phase | Action |
+|---|---|
+| A | Clamp each row's `Pipe Create` **up** to its floor |
+| B | **Row-by-row Excel `GoalSeek`**: change **S** (`Pipe Create`) until **AQ** (`Pipe Won`) equals **J** (`Difference` = Target − Pre Q Bookings) |
+| C | Clamp surplus **down** — if the gap ≤ 0, reset `Pipe Create` to the floor |
+| D | Regroup by `Year\|Territory\|Quarter` and raise to a territory-level floor |
+
+The macro also **pins** `New Logo` and `EMEA Corporate` — skipping the solve and
+setting them to floor — and hard-locks Q4-2025 with a scale factor.
+**Do not reproduce either.** Per the model owner (2026-08-10) these are
+situational workarounds, not part of the method.
+
+#### The solve is linear — no iteration is needed
+
+Tracing the sheet's own formulas:
+
+```
+AC (Q0 close)      = S × T                     (Pipe Create × Q0 weight)
+AO (Pipe Won In Q) = AC × AM                   (× in-quarter win rate)
+AP (Pipe Won Pre Q)= SUM(AD:AK) × AN           (later quarters × pre-Q win rate)
+AQ (Pipe Won)      = AO + AP
+                   = S × ( T×AM + Σ(Q+1…Q+8 weights)×AN )
+```
+
+**`Pipe Won` is strictly proportional to `Pipe Create`.** So the goal seek has a
+closed form:
+
+```
+                          Goal (the gap to fill)
+S* = ────────────────────────────────────────────────────────────
+      Q0_wt × in_quarter_win_rate  +  Σ(Q+1…Q+8 wts) × pre_q_win_rate
+```
+
+The denominator is **bookings yield per dollar of pipe created** — a meaningful
+quantity in its own right, and worth reporting.
+
+Excel iterates because `GoalSeek` is a generic 1-D solver that cannot know the
+function is linear. A Python implementation should divide: exact, instant, no
+convergence tolerance, and no silent failures. **The macro wraps its GoalSeek in
+`On Error Resume Next`, so a row that fails to converge is left at whatever value
+it held** — a defect a closed form cannot have.
 
 ### Step 4 — Each quarter's pipe must support itself and future quarters
 
@@ -211,8 +254,63 @@ calculation repeated four times. A change to one quarter's create target
 propagates forward through the maturation curve into every subsequent quarter's
 starting position.
 
-*Not verified.* How the coupling is solved — sequential, simultaneous, or by
-hand — is **not established** and is the largest remaining gap.
+#### How to solve the coupling — RESOLVED 2026-08-10
+
+Quarter N's created pipe flows into quarter N+1's `Pipe Won Pre Q`, which reduces
+N+1's gap. So quarters must be solved **in chronological order**, each propagating
+its maturation tail forward before the next is solved.
+
+Because every link is linear (see Step 3), the system is **triangular** — earlier
+quarters affect later ones but never the reverse. It therefore solves exactly by
+**forward substitution**, with no iteration and no simultaneous solve:
+
+```
+for each quarter in chronological order:
+    gap        = bookings_target − expected_from_existing_pipe
+                                 − maturation_tail_from_earlier_quarters
+    S          = gap / yield_per_dollar          # closed form, exact
+    S          = apply_floor(S)                  # constraint, see below
+    propagate  S × maturation_weights → later quarters
+```
+
+Solving quarters independently would be wrong: it would ignore the tail and
+overstate every quarter after the first.
+
+### Step 5 — The historic floor: a team cannot create less than last year
+
+**Definition from the model owner, 2026-08-10.** The floor exists so a territory
+is not permitted to plan less pipe creation than it demonstrated a year earlier.
+
+| | |
+|---|---|
+| **Basis** | Pipe **actually created** in the **same quarter of the prior year** — Q3 FY26's floor is Q3 FY25 actual creation. Same quarter, so seasonality is respected. |
+| **Grain** | **Territory × Quarter.** The territory total must not fall; product mix may move freely to follow demand. |
+| **Source** | `sku_nacv_fact` — created pipe by create date, the same source as sales cycle |
+
+**The `Historic Floor` sheet is a cached artifact, not a source.** Recompute the
+floor from history each cycle; do not read a sheet that ages.
+
+**Note the grain change from the workbook.** The macro floors at
+Territory × Product × Quarter (Phase A/B/C) and *then* raises to a territory floor
+(Phase D). The intended rule is Territory × Quarter only, which is looser and
+lets product mix shift.
+
+#### Floors change the answer's meaning
+
+A floor is an inequality constraint on an otherwise exact linear solve. When it
+binds, the derived target is **above** what the bookings math requires — the
+number stops being "what we need" and becomes "what we need, or last year's level,
+whichever is higher."
+
+**Report which one is binding.** A floor-driven target is high because the team
+did more last year; a gap-driven target is high because the bookings number
+demands it. Those are different conversations. Any implementation should emit a
+`binding: floor | gap` flag per row and a total of how much of the target is
+floor-driven.
+
+Floors also interact with the coupling: a floor-raised quarter pushes a larger
+maturation tail forward, which **reduces** the next quarter's gap. Solving in
+chronological order handles this; solving independently does not.
 
 ### Chain summary
 
@@ -408,12 +506,22 @@ stale too and join via `Target_Monthly.csv` as canonical.
    per root `CLAUDE.md` invariant 5. If the Excel slip analysis anchors on the
    first in-quarter snapshot without a buffer, the two disagree on starting pipe
    by construction. **This is the most likely source of a reconciliation gap.**
-5. **How is the multi-quarter coupling solved?** Sequentially, simultaneously, or
-   by hand? Step 4 of the derivation chain is understood in principle but not in
-   mechanism.
+5. ~~How is the multi-quarter coupling solved?~~ **Answered 2026-08-10:**
+   chronological forward substitution. The system is triangular because every link
+   is linear, so it solves exactly without iteration. See Step 4.
+5a. ~~What is the goal-seek mechanism?~~ **Answered 2026-08-10** from the
+   workbook's VBA (`Module13`). Row-by-row Excel `GoalSeek` of `Pipe Won` to
+   `Difference` by changing `Pipe Create`, wrapped in floor clamps. The relation
+   is linear, so a closed form replaces it exactly. See Step 3.
 6. **Are win rates fitted or set?** Their precision (`0.43393573125`) suggests
-   computed, but the computation is not in this sheet.
+   computed, but the computation is not in this sheet. **They must be recomputed
+   from `sku_nacv_fact` per window, not copied** — a stored win rate is stale the
+   moment the period moves.
 7. **What are AV/AW for?**
+8. **Should floors ever be overridden?** The macro pins `New Logo` and
+   `EMEA Corporate` and hard-locks Q4-2025. These are situational workarounds and
+   are **not** to be reproduced — but whether *some* override mechanism is needed
+   is unresolved.
 8. **Should this be reimplemented in Python?** It is the only artifact connecting
    bookings targets to pipe create targets. The Python pipeline currently
    consumes the target as a given and can neither explain nor re-derive it, so it
