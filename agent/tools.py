@@ -1,9 +1,13 @@
-"""Scoped SDK tools — the agent's entire non-file capability.
+"""Scoped SDK tools â€” the agent's entire non-file capability.
 
-DESIGN RULE, load-bearing: no tool here takes a SQL string. The agent can only
-name one of the four queries in pipeline/queries.py. Adding a free-text SQL
-parameter would remove the security model, and tests/test_boundary.py fails if
-anyone does.
+DESIGN RULE, load-bearing: exactly ONE tool takes SQL (`query`), it validates
+through agent.sqlguard BEFORE executing, and it is never auto-approved — the user
+sees the exact statement and approves it.
+
+This reverses the original four-queries-only design (2026-08-10). Deriving win
+rates or maturation curves over an arbitrary window is impossible without composing
+SQL, so the control moved: from "the agent cannot express SQL" to "the agent can
+only express reads against documented tables, and you approve each one".
 """
 from __future__ import annotations
 
@@ -12,7 +16,7 @@ import subprocess
 
 from claude_agent_sdk import create_sdk_mcp_server, tool
 
-from agent import lineage, targets
+from agent import lineage, sqlguard, targets
 from pipeline import config, queries
 
 
@@ -54,19 +58,19 @@ async def run_pull(args):
     force = bool(args.get("force", False))
     if name not in queries.REGISTRY:
         return _ok(f"Refused: {name!r} is not a known query. Permitted: {', '.join(queries.QUERY_NAMES)}.")
-    from pipeline import pull  # imported lazily — pyodbc/azure-identity are pull-only deps
+    from pipeline import pull  # imported lazily â€” pyodbc/azure-identity are pull-only deps
     try:
         r = pull.pull_one(name, force=force)
     except Exception as e:
         return _ok(f"Pull failed for {name!r}: {type(e).__name__}: {e}\n"
                    f"Check VPN, then `az login`. Use az_login_status to distinguish the two.")
     if r["cached"]:
-        return _ok(f"{name}: already cached at {r['path']} — not re-pulled (CLAUDE.md: never re-pull "
+        return _ok(f"{name}: already cached at {r['path']} â€” not re-pulled (CLAUDE.md: never re-pull "
                    f"what cached parquet can answer). Pass force=true to override.")
     return _ok(f"{name}: pulled {r['rows']:,} rows -> {r['path']}")
 
 
-@tool("pipe_create_targets", "Day-weighted Pipe Create TARGET allocation by week, at Geo/Region/Territory/All grain, for ANY quarter present in Target_Monthly.csv (e.g. quarter='Q3 FY26' or '2026-10-01'). These are the PUBLISHED targets read from the CSV — to see how a target was derived from bookings and assumptions, read docs/analysis/pipe-create-waterfall.md. Writes an immutable run with lineage.", {"grain": str, "key": str, "as_of": str, "quarter": str})
+@tool("pipe_create_targets", "Day-weighted Pipe Create TARGET allocation by week, at Geo/Region/Territory/All grain, for ANY quarter present in Target_Monthly.csv (e.g. quarter='Q3 FY26' or '2026-10-01'). These are the PUBLISHED targets read from the CSV â€” to see how a target was derived from bookings and assumptions, read docs/analysis/pipe-create-waterfall.md. Writes an immutable run with lineage.", {"grain": str, "key": str, "as_of": str, "quarter": str})
 async def pipe_create_targets(args):
     grain = args.get("grain") or "All"
     key = args.get("key") or None
@@ -100,7 +104,7 @@ async def pipe_create_targets(args):
             quarter_asp=total["asp"],
             weeks=len(df),
         )
-        # Emitted by code, not by prompt — CLAUDE.md requires this caveat on every
+        # Emitted by code, not by prompt â€” CLAUDE.md requires this caveat on every
         # opp-count and ASP figure, and a prompt instruction degrades over a session.
         run.caveat("invariant-10-opportunities-unit")
         if grain in ("Region", "Geo"):
@@ -109,7 +113,7 @@ async def pipe_create_targets(args):
 
     body = df.to_string(index=False)
     return _ok(
-        f"Pipe Create TARGETS — {total['quarter']}, grain={grain}"
+        f"Pipe Create TARGETS â€” {total['quarter']}, grain={grain}"
         + (f", key={key}" if key else "")
         + f"\nQuarter target: ${total['pipe_target']:,.0f} | "
           f"{total['opp_target']:,.0f} opps | ASP ${total['asp']:,.0f}\n\n"
@@ -143,10 +147,99 @@ async def show_run(args):
     return _ok(json.dumps(m, indent=2))
 
 
+@tool("azure_login", "Sign in to Azure so Synapse queries can run. Launches `az login`, which opens your browser for MFA. Use when az_login_status reports you are not signed in.", {})
+async def azure_login(args):
+    import asyncio
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "az", "login", "--only-show-errors",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError:
+        return _ok("Azure CLI is not installed or not on PATH. Install it, then retry.")
+    try:
+        # az login authenticates through a BROWSER, not a terminal prompt â€” which is
+        # why it works from a subprocess. MFA lands in the user's browser window.
+        _, err = await asyncio.wait_for(proc.communicate(), timeout=300)
+    except asyncio.TimeoutError:
+        proc.kill()
+        return _ok("`az login` timed out after 5 minutes â€” the browser sign-in was not completed.")
+    if proc.returncode != 0:
+        return _ok(f"`az login` failed:\n{(err or b'').decode(errors='replace')[:600]}")
+    return _ok("Signed in to Azure. Synapse queries can now run.")
+
+
+@tool(
+    "query",
+    "Compose and run a read-only SQL query against Synapse for analysis the four "
+    "standard report queries cannot answer â€” e.g. win rates, sales cycle, or "
+    "maturation curves over a chosen window. SELECT/WITH only, against tables "
+    "documented in docs/tables/. Read the relevant docs/tables/ contract and "
+    "docs/sql/conventions.md BEFORE composing. The user sees and approves the exact "
+    "SQL before it runs. Results are saved to a run with lineage.",
+    {"sql": str, "purpose": str, "max_rows": int},
+)
+async def query(args):
+    sql = (args.get("sql") or "").strip()
+    purpose = (args.get("purpose") or "").strip() or "ad-hoc analysis"
+    max_rows = int(args.get("max_rows") or 50_000)
+
+    try:
+        sqlguard.assert_read_only(sql, "query")
+    except sqlguard.UnsafeSQL as e:
+        return _ok(f"Refused: {e}\n\nThe query was not run. Rewrite it as a read against "
+                   f"documented tables, or ask the user to extend the allowlist.")
+    if max_rows > sqlguard.MAX_ROWS:
+        max_rows = sqlguard.MAX_ROWS
+
+    from pipeline import pull  # lazy â€” pyodbc/azure-identity are pull-only deps
+    import pandas as pd
+
+    try:
+        conn = pull.get_conn()
+    except Exception as e:
+        return _ok(f"Could not connect: {type(e).__name__}: {e}\n"
+                   f"Check VPN, then run azure_login. az_login_status distinguishes the two.")
+    try:
+        df = pd.read_sql(sql, conn)
+    except Exception as e:
+        return _ok(f"Query failed: {type(e).__name__}: {e}")
+    finally:
+        conn.close()
+
+    truncated = len(df) > max_rows
+    if truncated:
+        df = df.head(max_rows)
+
+    with lineage.Run() as run:
+        out = run.dir / "query_result.csv"
+        df.to_csv(out, index=False)
+        (run.dir / "query.sql").write_text(sql, encoding="utf-8")
+        run.add_output(out, rows=len(df)).add_output(run.dir / "query.sql")
+        run.headline(purpose=purpose, rows=len(df), columns=list(df.columns)[:20])
+        run.warn("composed-query-not-a-standard-report")
+        if truncated:
+            run.warn("result-truncated")
+        run_dir = run.dir
+
+    head = df.head(30).to_string(index=False) if len(df) else "(no rows)"
+    return _ok(
+        f"{purpose}\n{len(df):,} rows x {len(df.columns)} columns"
+        + (f"  (TRUNCATED at {max_rows:,})" if truncated else "")
+        + f"\n\n{head}"
+        + ("\n... (first 30 rows shown; full result in the run)" if len(df) > 30 else "")
+        + f"\n\nThis was a composed query, not a standard report â€” state that when reporting "
+          f"figures from it.\nRun stored: {run_dir}"
+    )
+
+
 GTM_TOOLS = [
     az_login_status,
+    azure_login,
     list_queries,
     run_pull,
+    query,
     pipe_create_targets,
     list_runs,
     show_run,

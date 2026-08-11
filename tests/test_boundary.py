@@ -20,22 +20,33 @@ def test_unknown_query_is_rejected():
         queries.get("anything_else")
 
 
-def test_no_tool_accepts_free_text_sql():
-    """The narrow interface IS the security model.
+def test_exactly_one_tool_accepts_sql_and_it_is_guarded():
+    """The agent composes SQL by design (2026-08-10 decision), so the control moved.
 
-    This fails the day someone adds an ad-hoc query tool for convenience —
-    including a future me. Do not relax it; add a named query instead.
+    It is no longer "no tool takes SQL" — it is "exactly one does, it validates
+    before executing, and it is never auto-approved". This fails if a second
+    SQL-accepting tool appears, or if the one that exists stops validating.
     """
-    for t in tools.GTM_TOOLS:
-        schema = getattr(t, "input_schema", None) or {}
-        names = schema if isinstance(schema, dict) else {}
-        for param in names:
-            assert "sql" not in str(param).lower(), (
-                f"tool {t.name!r} exposes a SQL-shaped parameter {param!r}. "
-                "No tool may accept SQL text."
-            )
-        src = inspect.getsource(t.handler) if hasattr(t, "handler") else ""
-        assert "read_sql(args" not in src
+    sql_tools = [
+        t for t in tools.GTM_TOOLS
+        if any("sql" in str(p).lower() for p in (getattr(t, "input_schema", None) or {}))
+    ]
+    assert [t.name for t in sql_tools] == ["query"], (
+        f"expected exactly one SQL-accepting tool, found {[t.name for t in sql_tools]}"
+    )
+
+    src = inspect.getsource(sql_tools[0].handler)
+    assert "assert_read_only" in src, "the query tool must validate before executing"
+    assert src.index("assert_read_only") < src.index("read_sql"), (
+        "validation must happen BEFORE execution"
+    )
+
+
+def test_sql_tool_is_never_auto_approved():
+    """Every composed query is shown to the user and approved before it runs."""
+    from gtm_ui.session import AUTO_ALLOW
+    for name in ("mcp__gtm__query", "mcp__gtm__run_pull", "mcp__gtm__azure_login"):
+        assert name not in AUTO_ALLOW, f"{name} must require explicit approval"
 
 
 @pytest.mark.parametrize("name", list(queries.REGISTRY))
@@ -61,8 +72,43 @@ def test_unsafe_sql_rejected(bad):
 
 def test_string_literals_do_not_trip_keywords():
     """A legitimate value must not be mistaken for a keyword."""
-    sql = "SELECT * FROM t WHERE Raw_Stage NOT IN ('Closed - Duplicate', 'Created')"
+    sql = ("SELECT * FROM [sfdc_trf].[opportunity_live] "
+           "WHERE StageName NOT IN ('Closed - Duplicate', 'Created')")
     assert sqlguard.assert_read_only(sql)
+
+
+# --- the table allowlist ----------------------------------------------------
+
+def test_composed_analytical_query_is_allowed():
+    """Real work must pass: CTEs, joins, aggregates over a chosen window."""
+    sql = """
+    WITH cohort AS (
+        SELECT o.Id, o.CreatedDate, o.CloseDate, o.StageName, o.Bookings_Team_Static
+        FROM [sfdc_trf].[opportunity_live] o
+        WHERE o.IsDeleted = 0 AND o.CreatedDate >= '2026-01-01'
+    )
+    SELECT c.Bookings_Team_Static, COUNT(*) AS n
+    FROM cohort c
+    JOIN [sharepoint].[Map_Booking_Team_Static_live] b
+      ON b.Bookings_Team_Static = c.Bookings_Team_Static
+    GROUP BY c.Bookings_Team_Static
+    """
+    assert sqlguard.assert_read_only(sql)
+
+
+def test_cte_name_is_not_mistaken_for_a_table():
+    assert "cohort" in sqlguard.cte_names("WITH cohort AS (SELECT 1) SELECT * FROM cohort")
+
+
+def test_undocumented_table_is_refused():
+    """Querying without a documented contract is refused, even read-only."""
+    with pytest.raises(sqlguard.UnsafeSQL, match="not documented"):
+        sqlguard.assert_read_only("SELECT * FROM [dbo].[secret_payroll]")
+
+
+@pytest.mark.parametrize("t", ["sfdc_trf.opportunity_live", "rep.trf_opp_daily_snapshot_new"])
+def test_allowlist_covers_the_tables_the_derivation_needs(t):
+    assert t in sqlguard.ALLOWED_TABLES
 
 
 # --- hooks ------------------------------------------------------------------

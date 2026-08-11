@@ -150,3 +150,10 @@ td.null{color:var(--dim)}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:2px solid var(--bg)}
 ::-webkit-scrollbar-track{background:transparent}
+
+/* SQL in the approval card — you cannot approve what you cannot read. */
+.perm pre.sql{
+  max-height:340px;font:11.5px/1.55 var(--mono);white-space:pre;tab-size:2;
+  border-left:3px solid var(--warn)
+}
+.perm .why em{color:var(--fg);font-style:normal;font-weight:550}
