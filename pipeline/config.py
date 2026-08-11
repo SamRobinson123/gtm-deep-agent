@@ -49,6 +49,17 @@ QUARTER_START = QUARTER_STARTS[0]
 QUARTER_END = q_end(QUARTER_START)
 SNAP_END = q_end(QUARTER_STARTS[-1])
 
+# Historic snapshot window — slip only. Deliberately SEPARATE from
+# PRE_QUARTER_BUFFER_START: that buffer sizes the in-flight feed and invariant 5's
+# actuals anchoring depends on its exact value, so it must not be widened to serve
+# a slip history. Covers Q3 FY25 so the current quarter's slip can be measured
+# from the equivalent point in the prior year rather than from a quarter start.
+# Starts at the Q3 FY25 QUARTER START, not later: the whole point is to contrast
+# slip measured from the quarter start against slip from the equivalent
+# point-in-time, and a window opening mid-quarter cannot show the first of those.
+HIST_SNAP_START = "2025-07-01"
+HIST_SNAP_END = "2025-09-30"
+
 # pull.py grabs this many days of snapshot history BEFORE QUARTER_START so week 1 can
 # anchor to the true last-snapshot-of-prior-quarter baseline instead of the first
 # in-quarter snapshot. Some opps enter the daily snapshot feed 1-4 days late (created

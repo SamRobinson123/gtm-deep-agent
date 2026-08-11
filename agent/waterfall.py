@@ -458,7 +458,8 @@ def equivalent_point(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
     return pd.Timestamp(prior_quarter_start) + offset
 
 
-def slip(quarter_start, grain="Territory", from_point=None) -> pd.DataFrame:
+def slip(quarter_start, grain="Territory", from_point=None,
+         snapshot_file="snapshot.parquet") -> pd.DataFrame:
     """Of the pipe OPEN at the start of a historic quarter, how much neither closed
     nor was won, and moved to a later quarter.
 
@@ -478,7 +479,7 @@ def slip(quarter_start, grain="Territory", from_point=None) -> pd.DataFrame:
     analysis used the same anchor is unknown and is a plausible source of
     disagreement.
     """
-    snap = _require("snapshot.parquet")
+    snap = _require(snapshot_file)
     bts = _require("bts.parquet")
 
     q_start = pd.Timestamp(quarter_start)
@@ -649,7 +650,8 @@ def closed_won_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
 
 
 def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territory",
-                           window=None, as_of=None) -> pd.Series:
+                           window=None, as_of=None, slip_from_points=None,
+                           slip_snapshot_file="snapshot.parquet") -> pd.Series:
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
 
         expected = open_pipe_in_quarter x (1 - slip_rate) x in_quarter_win_rate
@@ -667,10 +669,17 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
     rates = win_rates(sku, window, grain)
     open_pipe = open_pipe_at(quarter_start, grain, as_of=as_of)
 
+    # slip_from_points maps a historic quarter -> the point to measure from, so a
+    # mid-quarter run compares like with like (W7-to-end against W7-to-end). The
+    # population still open at W7 is enriched in deals that do not close, so its
+    # slip RATE is higher than the quarter-start rate even though fewer dollars
+    # move. Applying a quarter-start rate to a W7 balance mismatches populations.
+    points = slip_from_points or {}
     frames = []
     for q in slip_quarters:
         try:
-            frames.append(slip(q, grain)["slip_rate"])
+            frames.append(slip(q, grain, from_point=points.get(q),
+                               snapshot_file=slip_snapshot_file)["slip_rate"])
         except MissingData:
             raise
     if not frames:

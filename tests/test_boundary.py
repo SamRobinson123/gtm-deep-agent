@@ -11,8 +11,25 @@ from pipeline import queries
 
 # --- the security model -----------------------------------------------------
 
-def test_registry_is_exactly_four():
-    assert set(queries.QUERY_NAMES) == {"sku_nacv", "snapshot", "opp_ages", "bts"}
+def test_registry_is_exactly_the_approved_set():
+    """The registry is the security boundary — this fails whenever it changes.
+
+    `snapshot_hist` was added 2026-08-11 with the user's explicit approval, to
+    measure slip against the prior year. It reads the SAME table, columns and
+    filters as `snapshot`; only the date window differs. Widening `snapshot`
+    itself was rejected because invariant 5's actuals anchoring depends on that
+    window starting at the pre-quarter buffer.
+    """
+    assert set(queries.QUERY_NAMES) == {
+        "sku_nacv", "snapshot", "snapshot_hist", "opp_ages", "bts"}
+
+
+def test_historic_snapshot_query_differs_from_the_live_one_only_by_window():
+    """Guards the justification above: if snapshot_hist ever grows a different
+    table, column set or filter, this is no longer a windowing variant."""
+    import re
+    norm = lambda s: re.sub(r"'[\d-]{10}'", "'DATE'", " ".join(s.split()))
+    assert norm(queries.SNAP_HIST_SQL) == norm(queries.SNAP_SQL)
 
 
 def test_unknown_query_is_rejected():

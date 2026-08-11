@@ -309,11 +309,16 @@ async def derive_pipe_create_target(args):
     # bookings from pipe that already exists, which the goal seek subtracts. Without
     # it the gap is the full bookings target and required create is overstated.
     existing, slip_note = None, ""
-    slip_qs = args.get("slip_quarters") or "Q1 FY26, Q2 FY26"
+    # Prior-year same quarter, measured from the equivalent point in that quarter.
+    # Mid-quarter this is the like-for-like comparison; see equivalent_point().
+    slip_qs = args.get("slip_quarters") or "Q3 FY25"
+    as_of = args.get("as_of") or str(pd.Timestamp.today().date())
     try:
         sq = [targets.resolve_quarter(q.strip()) for q in slip_qs.replace(";", ",").split(",") if q.strip()]
-        existing = {q: waterfall.existing_pipe_bookings(q, sq, sku=sku, grain=grain,
-                                                        window=window) for q in qs}
+        points = {h: waterfall.equivalent_point(qs[0], as_of, h) for h in sq}
+        existing = {q: waterfall.existing_pipe_bookings(
+            q, sq, sku=sku, grain=grain, window=window,
+            slip_from_points=points, slip_snapshot_file="snapshot_hist.parquet") for q in qs}
         first = existing[qs[0]]
         slip_note = (f"Slip measured on {', '.join(config.fq_label(q) for q in sq)} — "
                      f"mean slip rate {first.attrs.get('mean_slip_rate'):.1%}, "
