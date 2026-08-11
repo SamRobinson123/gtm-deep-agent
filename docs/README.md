@@ -48,6 +48,7 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | **Anything involving targets, attainment, or ASP** | [`tables/target-monthly.md`](tables/target-monthly.md) — mandatory load recipe, whitespace and case-collision gotchas |
 | Per-AE targets, AE capacity, pipeline per AE, headcount | [`tables/headcount.md`](tables/headcount.md) → [`tables/target-monthly.md`](tables/target-monthly.md) |
 | **Where the pipe create TARGET comes from** — waterfall, sales cycle curves, win rates | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — reconstructed from the legacy workbook, unconfirmed |
+| **Slip** — how much moves out, **where it lands**, serial slip, tracing one opp | [`analysis/slip.md`](analysis/slip.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
 | Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
 | Win probability model — design decisions | [`models/win-probability-design.md`](models/win-probability-design.md) |
 | Win probability model — writing or modifying code | [`models/win-probability-design.md`](models/win-probability-design.md) → [`models/implementation.md`](models/implementation.md) |
@@ -116,6 +117,12 @@ README.md  (you are here)
 │                                     hands off to → analysis/gtm-dashboard.md (integration)
 │
 ├── analysis/
+│   ├── slip.md             ← what slip is, how much moves, WHERE IT LANDS
+│   │                          (destination curves by quarter offset), serial
+│   │                          slip, value drift, opp-level tracing. The
+│   │                          destination half is measured but NOT in the model.
+│   │                          reads from → tables/opp-daily-snapshot.md
+│   │                          feeds → analysis/pipe-create-waterfall.md (Step 2)
 │   ├── pipe-create-waterfall.md ← how the pipe create TARGET is derived: sales cycle
 │   │                               weights Q0..Q+8, win rates, bookings roll-up.
 │   │                               RECONSTRUCTED from the legacy xlsm, unconfirmed.

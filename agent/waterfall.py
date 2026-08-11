@@ -591,6 +591,99 @@ def equivalent_point(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
     return pd.Timestamp(prior_quarter_start) + offset
 
 
+def classify_outcomes(snap: pd.DataFrame, q_start, q_end, anchor) -> pd.DataFrame:
+    """Partition the pipe open at `anchor` into won / lost / slipped / held.
+
+    One opp per row, carrying its anchor value, its end stage and its end
+    CloseDate — so a caller can aggregate a rate, follow where the slipped ones
+    landed, or trace a single opp, all off the same classification.
+
+    `held` is the residual: still open, but its CloseDate did NOT move past the
+    quarter end. Slip is specifically the ones that MOVED. The won/lost exclusion
+    matters — a won deal whose close date shifted would otherwise count as slip
+    and badly overstate it.
+
+    Shared by slip() and slip_destinations() on purpose. A second copy of this
+    classification would drift, exactly as the duplicated slip assembly in
+    tools.py did.
+    """
+    def state_at(cutoff):
+        d = snap[snap["snapshot_date"] <= cutoff]
+        return d.sort_values("snapshot_date").groupby("Opp_Id").last()
+
+    start, end = state_at(anchor), state_at(q_end)
+
+    open_start = start[
+        start["Raw_Stage"].notna()
+        & ~start["Raw_Stage"].astype(str).str.contains("Closed", case=False, na=False)
+        & start["CloseDate"].between(q_start, q_end)
+    ]
+
+    cols = [c for c in ("value", "Bookings_Team_static", "CloseDate") if c in open_start.columns]
+    j = open_start[cols].join(
+        end[["Raw_Stage", "CloseDate"]].rename(
+            columns={"Raw_Stage": "end_stage", "CloseDate": "end_close"}), how="left")
+
+    st = j["end_stage"].astype(str)
+    won = st.str.contains("Closed Won|Closed/Pending", case=False, na=False)
+    closed = st.str.contains("Closed", case=False, na=False) & ~won
+    moved = (~won) & (~closed) & (j["end_close"] > pd.Timestamp(q_end))
+
+    j["outcome"] = "held"
+    j.loc[won, "outcome"] = "won"
+    j.loc[closed, "outcome"] = "lost"
+    j.loc[moved, "outcome"] = "slipped"
+    return j
+
+
+def slip_destinations(quarter_start, from_point=None,
+                      snapshot_file="snapshot_hist.parquet") -> pd.Series:
+    """Of the pipe that slipped OUT of this quarter, which quarter did it land in.
+
+    Returned as shares by quarter offset (1 = the next quarter), summing to 1.0,
+    with the dollar total on `.attrs`.
+
+    This is the half of slip the model does not have. `slip()` says how much
+    left; this says where it went — and slipped pipe becomes the destination
+    quarter's open pipe, which is the workbook's `In Q Inflow` / `Pre Q Inflow`.
+
+    MEASUREMENT ONLY. Nothing in derive_targets() calls this, and no target
+    moves because of it.
+    """
+    snap = _require(snapshot_file)
+    q_start = pd.Timestamp(quarter_start)
+    q_end = pd.Timestamp(config.q_end(quarter_start))
+    anchor = pd.Timestamp(from_point) if from_point is not None else q_start
+
+    s = snap.copy()
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"], errors="coerce")
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
+    s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
+
+    j = classify_outcomes(s, q_start, q_end, anchor)
+    sl = j[j["outcome"] == "slipped"].copy()
+    if sl.empty:
+        out = pd.Series(dtype=float, name="share")
+        out.attrs["slipped_value"] = 0.0
+        return out
+
+    base = quarter_index(quarter_start)
+    # Offset by the quarter the new CloseDate falls in, not by days: the model
+    # thinks in quarter offsets everywhere else.
+    sl["offset"] = sl["end_close"].apply(
+        lambda d: quarter_index(d.normalize().replace(day=1)) if pd.notna(d) else None) - base
+
+    dollars = sl.groupby("offset")["value"].sum().sort_index()
+    out = (dollars / dollars.sum()).rename("share")
+    out.index.name = "quarter_offset"
+    out.attrs["slipped_value"] = float(dollars.sum())
+    out.attrs["dollars"] = dollars
+    out.attrs["opps"] = int(len(sl))
+    out.attrs["quarter"] = config.fq_label(quarter_start)
+    out.attrs["from_point"] = str(anchor.date())
+    return out
+
+
 def slip(quarter_start, grain="Territory", from_point=None,
          snapshot_file="snapshot.parquet") -> pd.DataFrame:
     """Of the pipe OPEN at the start of a historic quarter, how much neither closed
@@ -660,32 +753,7 @@ def slip(quarter_start, grain="Territory", from_point=None,
             f"config.HIST_SNAP_WINDOWS and re-pull snapshot_hist."
         )
 
-    def state_at(cutoff):
-        d = s[s["snapshot_date"] <= cutoff]
-        return d.sort_values("snapshot_date").groupby("Opp_Id").last()
-
-    start = state_at(anchor)
-    end = state_at(q_end)
-
-    open_start = start[
-        start["Raw_Stage"].notna()
-        & ~start["Raw_Stage"].astype(str).str.contains("Closed", case=False, na=False)
-        & start["CloseDate"].between(q_start, q_end)
-    ]
-
-    j = open_start[["value", "Bookings_Team_static", "CloseDate"]].join(
-        end[["Raw_Stage", "CloseDate"]].rename(
-            columns={"Raw_Stage": "end_stage", "CloseDate": "end_close"}), how="left")
-
-    st = j["end_stage"].astype(str)
-    won = st.str.contains("Closed Won|Closed/Pending", case=False, na=False)
-    closed = st.str.contains("Closed", case=False, na=False) & ~won
-    moved = (~won) & (~closed) & (j["end_close"] > q_end)
-
-    j["outcome"] = "held"
-    j.loc[won, "outcome"] = "won"
-    j.loc[closed, "outcome"] = "lost"
-    j.loc[moved, "outcome"] = "slipped"
+    j = classify_outcomes(s, q_start, q_end, anchor)
 
     b = bts.copy()
     b["_key"] = b["Bookings_Team_Static"].astype(str).str.strip().str.lower()

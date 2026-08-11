@@ -425,3 +425,76 @@ def test_a_quarter_falling_in_a_gap_between_pull_windows_raises(tmp_path, monkey
 
     # A quarter inside a window still works.
     w.slip("2025-07-01", "Territory", snapshot_file="gappy.parquet")
+
+
+# --- slip destinations --------------------------------------------------------
+
+def _snap_frame(rows):
+    """Minimal snapshot frame: one row per (opp, snapshot_date)."""
+    return pd.DataFrame(rows, columns=[
+        "Opp_Id", "snapshot_date", "Raw_Stage", "CloseDate", "value", "Bookings_Team_static"])
+
+
+def _slip_fixture():
+    """Four opps open at Q3 FY25 start, each ending differently.
+
+    o_next  slips one quarter   o_far   slips three
+    o_won   closes won          o_lost  closes lost
+    """
+    s, e = pd.Timestamp("2025-07-01"), pd.Timestamp("2025-09-30")
+    rows = []
+    for opp, end_stage, end_close, val in [
+        ("o_next", "Stage 3",     pd.Timestamp("2025-11-15"), 300.0),
+        ("o_far",  "Stage 3",     pd.Timestamp("2026-05-15"), 100.0),
+        ("o_won",  "Closed Won",  pd.Timestamp("2025-08-15"), 999.0),
+        ("o_lost", "Closed Lost", pd.Timestamp("2025-08-15"), 888.0),
+    ]:
+        rows.append([opp, s, "Stage 3", pd.Timestamp("2025-08-15"), val, "T1"])
+        rows.append([opp, e, end_stage, end_close, val, "T1"])
+    return _snap_frame(rows)
+
+
+def test_slip_destinations_splits_by_quarter_offset(monkeypatch, tmp_path):
+    """Where the slipped pipe LANDED — the half of slip the model does not have."""
+    from pipeline import config as cfg
+    _slip_fixture().rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    d = w.slip_destinations("2025-07-01", snapshot_file="s.parquet")
+
+    # $300 to Q+1, $100 to Q+3. Won and lost are not slip.
+    assert d.attrs["slipped_value"] == pytest.approx(400.0)
+    assert d.attrs["opps"] == 2
+    assert d[1] == pytest.approx(0.75)
+    assert d[3] == pytest.approx(0.25)
+    assert d.sum() == pytest.approx(1.0)
+
+
+def test_a_won_deal_whose_close_date_moved_is_not_slip(monkeypatch, tmp_path):
+    """The won/lost exclusion is what stops slip being wildly overstated."""
+    from pipeline import config as cfg
+    s, e = pd.Timestamp("2025-07-01"), pd.Timestamp("2025-09-30")
+    _snap_frame([
+        ["o_won", s, "Stage 3", pd.Timestamp("2025-08-15"), 500.0, "T1"],
+        # closed won, but the close date landed in a later quarter
+        ["o_won", e, "Closed Won", pd.Timestamp("2025-11-01"), 500.0, "T1"],
+    ]).rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    d = w.slip_destinations("2025-07-01", snapshot_file="s.parquet")
+    assert d.attrs["slipped_value"] == 0.0
+
+
+def test_slip_and_slip_destinations_agree_on_what_slipped(monkeypatch, tmp_path):
+    """Both go through classify_outcomes, so the totals must match. If they ever
+    diverge, one of them grew its own copy of the classification."""
+    from pipeline import config as cfg
+    f = _slip_fixture().rename(columns={"value": "Cal_IACV"})
+    f.to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    g = w.slip("2025-07-01", "Territory", snapshot_file="s.parquet")
+    d = w.slip_destinations("2025-07-01", snapshot_file="s.parquet")
+    assert g["slipped"].sum() == pytest.approx(d.attrs["slipped_value"])

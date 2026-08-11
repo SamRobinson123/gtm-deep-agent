@@ -92,17 +92,27 @@ a longer cycle pushes weight into later quarters, so more pipe must be created
 Definition given by the Strategic Analytics lead, 2026-08-10.
 
 **Slip = open pipe that neither closed nor was won, and moved to a different
-quarter.** Measured on a *historic* quarter so the outcome is known:
+quarter.** Measured on a *historic* quarter so the outcome is known.
 
-1. Take the **open pipe at the beginning of the quarter** (e.g. Q1) from the
-   snapshot feed.
-2. Follow that same pipe forward to the end of the quarter.
-3. Partition it: reached `Closed`, reached `Closed Won`, or **neither** — still
-   open with its `CloseDate` moved into a later quarter. **That last bucket is
-   slip**, and which quarter it landed in matters.
+> **Slip has its own context file: [`slip.md`](slip.md).** It holds the
+> measurement recipe, the anchoring rules, the **destination curves** (where the
+> slipped pipe lands, by quarter offset), serial slip, value drift, and how to
+> trace a single opportunity. Read it before changing anything slip-related; only
+> the summary needed to follow the waterfall is repeated here.
 
-This is what populates `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
-`Pre Q Outflow`.
+Three headlines from that file, because they bear directly on this derivation:
+
+- **Slip is where the destination matters.** Q3 FY25 sent 80% of slipped dollars
+  to Q+1; Q4 FY25 sent only 41%, pushing 43% out to Q+2 across the calendar year
+  boundary. The destination is far more seasonal than the slip *rate*, which
+  moved only 52.6%–58.4% over the same four quarters.
+- **Slip is serial.** 55% of once-slipped pipe slips again in its destination
+  quarter, and once-slipped pipe wins at only 13.1% — well under the 0.158 mean
+  `later` rate this model applies to all pre-existing pipe.
+- **Only the outflow half is implemented.** These four columns are what slip
+  populates in the workbook — `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
+  `Pre Q Outflow` — and `derive_targets()` has **no inflow term at all**. Slipped
+  pipe is subtracted from the quarter it left and never arrives anywhere.
 
 **Slip and sales cycle are different measurements, not two names for one thing:**
 
@@ -120,8 +130,12 @@ This is what populates `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
 late. Whether the Excel slip analysis uses the same buffered anchor is
 **unknown**, and is a plausible source of disagreement between the two.
 
-*Not verified:* no code implementing slip exists in the corpus; the workbook
-carries results rather than the calculation.
+*Implementation status (updated 2026-08-11):* slip IS now implemented —
+`agent/waterfall.py::slip()` for the rate and `slip_destinations()` for where it
+lands. The workbook still carries only results, not its own calculation, so the
+two cannot be reconciled line by line. **The destination half is measured but
+deliberately not wired into `derive_targets()`;** see the open questions in
+[`slip.md`](slip.md).
 
 ### Step 2b — Splits come from `sku_nacv_fact`
 
