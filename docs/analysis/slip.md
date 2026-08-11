@@ -44,6 +44,33 @@ those same opps to quarter end. Partition:
 deal whose close date shifted would otherwise count as slip and badly overstate
 it. `held` is the residual — open but not yet pushed.
 
+### The stage mapping is a lookup, not a substring test
+
+From the model owner's `Slip Assumption.ipynb` (2026-08-11). This is
+authoritative and lives in `agent/waterfall.py` as `WON_STAGES` / `LOST_STAGES` /
+`OTHER_STAGES` / `OPEN_STAGES`:
+
+| Outcome | `Raw_Stage` values |
+|---|---|
+| **Closed Won** | `Closed Won`, `Stage 5 - Closed Won`, `6 - Closed/Pending` |
+| **Closed** (lost) | `Closed Lost`, **`Closed Deferred`** |
+| **Other** — excluded entirely | `Closed - Duplicate`, `Stage 6 - Closed - Admin`, `Stage 7 - Churned`, `Opportunity Rejected`, `0 - First Interaction` |
+| **Open** | everything else |
+
+Two traps this closes:
+
+- **`Closed Deferred` is a LOSS, not slip.** It is a decided outcome. Counting it
+  as still-open pipe that moved would overstate slip substantially — it is the
+  third most common stage in the feed (3.8M rows).
+- **`Stage 4 - Closed Pending` is OPEN**, despite containing "Closed". A
+  `contains("Closed")` rule books it as lost. That rule was in this codebase until
+  2026-08-11; the mapping is now explicit, and an unrecognised stage is recorded
+  in `attrs["unmapped_stages"]` rather than silently becoming open pipe.
+
+`OTHER_STAGES` is also filtered at pull time by `config.EXCLUDED_STAGES`, so
+those rows never reach the classifier. The list is duplicated in the model
+deliberately, so the rule survives a change to the pull.
+
 Slip is **not** the sales cycle. They act on different populations and answer
 different questions; see the comparison table in
 [`pipe-create-waterfall.md`](pipe-create-waterfall.md) Step 2. In short: sales
@@ -167,9 +194,18 @@ Q3 FY25's slipped opps, valued at both ends of the quarter:
 | **Drift** | **+$1,809,205 (+3.0%)** |
 | Opps whose value changed | 360 of 687 |
 
-Slipped opps get re-scoped as they move. Any destination model has to state
-**which valuation it carries forward** — the value at the anchor, or the value
-at the moment it slipped. They differ by 3% in aggregate and far more per opp.
+Slipped opps get re-scoped as they move.
+
+> **Decision, Strategic Analytics lead 2026-08-11: do not apply the +3%.** The
+> forecast carries the **value at the anchor** — the pipe as it stands when the
+> assumption is made. The drift is a description of what happened to those opps,
+> not an uplift to apply forward. Re-scoping is a real effect but it is not a
+> reliable one, and building a +3% into a forecast would inflate every future
+> quarter by construction.
+
+Recorded here because the measurement is worth knowing even though it is not
+used: it means a destination figure taken at quarter end is 3% larger than the
+same pipe measured at the anchor, and the two must not be mixed in one table.
 
 ---
 
@@ -238,6 +274,69 @@ re-pull `snapshot_hist`.
 
 ---
 
+## The owner's notebook — `Slip Assumption.ipynb`
+
+Reviewed 2026-08-11. It is the origin of the stage mapping above, and it differs
+from this implementation in four ways that are worth settling.
+
+### 1. It measures END-OF-QUARTER slip, not whole-quarter slip
+
+The notebook takes the pipe due to close in the **last ~2 weeks** of a quarter,
+as seen from a snapshot shortly before, and checks how much pushed past quarter
+end. That is a different and complementary question to the one `slip()` answers
+(all pipe open at an anchor, dated to close in the quarter).
+
+Both are legitimate. End-of-quarter slip is the sharper operating signal — it is
+the pipe a quarter is actually relying on. Whole-quarter slip is what the
+derivation needs, because the derivation is haircutting the whole open base.
+**They are not interchangeable and should never be quoted as the same number.**
+
+### 2. The 80.0% figure in the notebook does not measure slip
+
+Traced 2026-08-11. The population cell selects, from the **2025**-03-16 snapshot,
+opps with `CloseDate` between **2026**-03-19 and **2026**-03-31 — a year out. The
+slip test then asks whether `CloseDate > 2025-03-31`, which is true for that
+entire population by construction, roughly twelve months over.
+
+So 22 of 22 opps "slipped", and the 20% shortfall is the single opp missing from
+the 4/1 snapshot (23 → 22), not pipe that held. **The 80.0% is an artifact of the
+year mismatch.** The surrounding SQL also filters `snapshot_date` to 2026 while
+the loaded frame contains 2025 dates, so `df_main` predates that cell.
+
+Reading the intent, `2026` should be `2025` in both bounds. Re-run that way it
+would be a genuine end-of-quarter slip measurement — worth doing, and worth
+comparing against the 58.4% whole-quarter figure.
+
+*(The coincidence that our Q3 FY25 destination curve also sends 80% to Q+1 is
+unrelated. Different populations, different questions.)*
+
+### 3. Value column — `Total_NACV` vs `Cal_IACV`. **Unresolved.**
+
+The notebook values pipe with `Total_NACV`. This implementation uses `Cal_IACV`,
+and `Total_NACV` **is not pulled** — it is not in `SNAP_SQL`, so it is absent from
+`snapshot.parquet` and `snapshot_hist.parquet`.
+
+Every dollar figure in this file is therefore on `Cal_IACV`. Whether that agrees
+with `Total_NACV` is **untested**, and root `docs/README.md` hard rule 3 says
+never use `Amount` and prefer `Total_ARR__c` / `NACV__c`, which points toward the
+notebook's choice. Settling this needs a decision and a re-pull; until then the
+figures here are internally consistent but not reconciled to the notebook.
+
+### 4. Snapshot cadence and close-date bound
+
+| | Notebook | Here |
+|---|---|---|
+| Cadence | `IsQuarterWeekStartDate = 1` — weekly | every daily snapshot |
+| Close-date bound | `CloseDate BETWEEN QuarterStartDate AND Next2QtrEndDate` | unbounded |
+| Meetings | `Stage_Pipe_Category <> 'Meeting'` and `NOT NULL` | not filtered (532 rows of 19.9M) |
+
+The close-date bound matters most: capping at `Next2QtrEndDate` would truncate the
+destination curve at roughly Q+2 and hide the Q+3/Q+4 tail this file reports. The
+weekly cadence would cut the pull from 19.9M rows to roughly a seventh at no loss
+for slip, which only ever reads two dates per quarter.
+
+---
+
 ## Stated assumptions vs measured facts
 
 **Measured** (reproducible from the functions above): every table in this file.
@@ -249,7 +348,9 @@ choices, not established facts:
    year earlier rather than the most recent completed quarter.
 2. **Q1–Q2 FY26 are the recency alternative**, carried so the two readings can be
    compared. The docs flag both windows as unestablished.
-3. Mid-quarter, the **equivalent point-in-time** is the like-for-like anchor.
+4. Mid-quarter, the **equivalent point-in-time** is the like-for-like anchor.
+5. Pipe is carried at its **anchor valuation**; the +3% re-scoping drift is
+   measured but not applied.
 
 ---
 
@@ -258,7 +359,8 @@ choices, not established facts:
 1. ~~Should destination be fitted per quarter-of-year?~~ **Decided 2026-08-11:
    yes.** Each quarter is forecast from the same quarter a year earlier, rate and
    destination together. Pooling is explicitly rejected.
-2. **Which valuation carries** — value at anchor, or value at the moment of slip?
+2. ~~Which valuation carries?~~ **Decided 2026-08-11: the value at the anchor.**
+   The +3% drift is not applied forward.
 3. **Should serial slip compound**, or be modelled directly as a single
    multi-quarter distribution measured over a longer horizon? The 55% re-slip
    rate means a one-hop curve understates travel.

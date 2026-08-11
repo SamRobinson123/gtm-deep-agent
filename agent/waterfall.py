@@ -38,6 +38,26 @@ from pipeline import config
 
 # Stage values emitted by SKU_SQL's CASE. 'Closed' means Closed Lost/Deferred.
 WON, LOST, OPEN = "Closed Won", "Closed", "Open"
+
+# Raw_Stage -> outcome, taken verbatim from the model owner's `Slip Assumption`
+# notebook (2026-08-11). This is the authoritative mapping; do NOT replace it with
+# a substring rule. "Stage 4 - Closed Pending" is the case that proves the point —
+# it contains "Closed" but is an OPEN stage, and a `contains("Closed")` test
+# silently books it as lost.
+WON_STAGES = frozenset({"6 - Closed/Pending", "Closed Won", "Stage 5 - Closed Won"})
+LOST_STAGES = frozenset({"Closed Deferred", "Closed Lost"})
+# Neither open nor decided — excluded from the population entirely. pipeline's
+# EXCLUDED_STAGES already filters these at pull time; listed here so the rule
+# survives a change to the pull.
+OTHER_STAGES = frozenset({"Closed - Duplicate", "Stage 6 - Closed - Admin",
+                          "Stage 7 - Churned", "Opportunity Rejected",
+                          "0 - First Interaction"})
+OPEN_STAGES = frozenset({
+    "0. Meeting Set", "1 - Discovery", "2 - Qualification Status",
+    "3 - Executive Presentation", "4 - Technical Evaluation",
+    "5 - Negotiation / Business Procurement", "Stage 1 - Actively Seeking DIscussion",
+    "Stage 2 - In Discussion", "Stage 3 - Expected", "Stage 4 - Closed Pending",
+})
 MAX_OFFSET = 8  # Q0..Q+8, matching the workbook's weight columns
 
 GRAIN_COLS = {
@@ -625,8 +645,18 @@ def classify_outcomes(snap: pd.DataFrame, q_start, q_end, anchor) -> pd.DataFram
             columns={"Raw_Stage": "end_stage", "CloseDate": "end_close"}), how="left")
 
     st = j["end_stage"].astype(str)
-    won = st.str.contains("Closed Won|Closed/Pending", case=False, na=False)
-    closed = st.str.contains("Closed", case=False, na=False) & ~won
+    won = st.isin(WON_STAGES)
+    closed = st.isin(LOST_STAGES)
+    # Unknown stages: fall back to the substring rule rather than silently
+    # calling them Open, and record them so a new stage value is visible instead
+    # of quietly reclassifying pipe.
+    known = won | closed | st.isin(OTHER_STAGES) | st.isin(OPEN_STAGES)
+    if (~known).any():
+        maybe_won = (~known) & st.str.contains("Closed Won|Closed/Pending", case=False, na=False)
+        maybe_lost = (~known) & st.str.contains("Closed", case=False, na=False) & ~maybe_won
+        won, closed = won | maybe_won, closed | maybe_lost
+        j.attrs["unmapped_stages"] = sorted(st[~known].unique())
+
     moved = (~won) & (~closed) & (j["end_close"] > pd.Timestamp(q_end))
 
     j["outcome"] = "held"

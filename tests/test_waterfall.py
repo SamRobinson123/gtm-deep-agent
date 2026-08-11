@@ -536,3 +536,25 @@ def test_slip_forecast_without_open_pipe_returns_the_shares(monkeypatch, tmp_pat
 
     f = w.slip_forecast("2026-07-01", grain="Territory", snapshot_file="s.parquet")
     assert f.loc["T1", "to_Q+1"] == pytest.approx(0.75)
+
+
+def test_closed_pending_is_an_open_stage_not_a_loss():
+    """From the model owner's Slip Assumption notebook: the stage mapping is a
+    lookup, not a substring test. 'Stage 4 - Closed Pending' contains "Closed"
+    but is OPEN — a contains() rule books it as lost."""
+    assert "Stage 4 - Closed Pending" in w.OPEN_STAGES
+    assert "Stage 4 - Closed Pending" not in w.LOST_STAGES
+    assert "Closed Deferred" in w.LOST_STAGES        # deferred is a loss, not slip
+    assert "6 - Closed/Pending" in w.WON_STAGES
+
+
+def test_an_unmapped_stage_is_recorded_rather_than_silently_opened(monkeypatch, tmp_path):
+    """A new Raw_Stage value must not quietly become open pipe."""
+    from pipeline import config as cfg
+    s, e = pd.Timestamp("2025-07-01"), pd.Timestamp("2025-09-30")
+    snap = pd.DataFrame([
+        ["o1", s, "1 - Discovery", pd.Timestamp("2025-08-15"), 100.0, "T1"],
+        ["o1", e, "Brand New Stage", pd.Timestamp("2025-11-01"), 100.0, "T1"],
+    ], columns=["Opp_Id", "snapshot_date", "Raw_Stage", "CloseDate", "value", "Bookings_Team_static"])
+    j = w.classify_outcomes(snap, s, e, s)
+    assert j.attrs["unmapped_stages"] == ["Brand New Stage"]
