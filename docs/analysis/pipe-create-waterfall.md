@@ -1,12 +1,17 @@
 # Pipe Create waterfall — how the target is derived
 
 **Source:** `data/legacy/Pipeline Creation Quarter Product V20.xlsm`,
-sheet `Pipeline Waterfall (Quarterly)` (1,785 x 49)
-**Status:** **RECONSTRUCTED FROM FORMULAS — not confirmed by an owner.**
-**Not implemented in Python.** Nothing in `pipeline/` reproduces this.
+sheet `Pipeline Waterfall (Quarterly)` (1,785 x 49), plus the Python rebuild.
+**Status:** **IMPLEMENTED** in `agent/waterfall.py::derive_targets()`. The
+workbook's *column contract* is still reconstructed from cell formulas and is
+marked as such below; the *derivation logic* has been explained by the Strategic
+Analytics lead and rebuilt.
+**Derived totals are NOT reconciled to published.** Treat them as the model's own
+answer under the stated assumptions, not as a replacement for a published target.
 
-Read with [`../tables/target-monthly.md`](../tables/target-monthly.md) and
-[`../reference/legacy-pipe-create-xlsm.md`](../reference/legacy-pipe-create-xlsm.md).
+Read with [`slip.md`](slip.md) (the movement half — read it before touching
+anything slip-related), [`../tables/target-monthly.md`](../tables/target-monthly.md)
+and [`../reference/legacy-pipe-create-xlsm.md`](../reference/legacy-pipe-create-xlsm.md).
 
 ---
 
@@ -38,6 +43,80 @@ Pipe Create (input)
 > Strategic Analytics lead** on 2026-08-10 and is marked separately.
 > Where any of it disagrees with the Python model, surface the discrepancy —
 > do not reconcile.
+
+---
+
+## THE MODEL AS IT STANDS — 2026-08-11
+
+The single place to read what the Python actually computes. Everything below this
+section is either the workbook contract or the history of how each piece was
+settled.
+
+### The solve, per grain key, per quarter, in chronological order
+
+```
+  bookings target                                    GIVEN   Target_Monthly.csv
+− closed won to date                              MEASURED   snapshot
+− expected bookings from existing pipe            MODELLED   see below
+− sales cycle tail from earlier quarters          MODELLED   earlier quarters in this solve
+= gap
+÷ yield per dollar created  = Q0 weight × In Q win rate
+= required pipe create
+→ pipe create target = max(required, historic floor)
+```
+
+### The existing-pipe term, in the order things happen in the world
+
+```
+adjusted = open_pipe × (1 − Pre Q slip) + slip_inflow
+expected = adjusted  × (1 − In Q slip)  × Pre Q win rate
+```
+
+| # | Term | Where it comes from |
+|---|---|---|
+| 1 | `open_pipe` | `open_pipe_at()` — snapshot, open, `CloseDate` in the quarter |
+| 2 | Pre Q slip | `pre_q_slip()` — prior-year quarter at the **same lead time**. **Zero for the quarter in flight**: it has already happened and is inside the observed balance |
+| 3 | `slip_inflow` | `slip_inflow()` — existing open pipe pushed out of an earlier quarter in this solve, landing here. Added *after* the Pre Q haircut, so it escapes it; still exposed to In Q slip |
+| 4 | In Q slip | `slip()` — prior-year quarter, anchored at the equivalent point in flight |
+| 5 | Pre Q win rate | `win_rates()["pre_q"]` |
+
+### Terminology — not negotiable
+
+| Name | Meaning |
+|---|---|
+| **In Q win rate** | closed in the SAME quarter it was created |
+| **Pre Q win rate** | closed in a LATER quarter than created — pipe that existed before the quarter it books in |
+| **In Q slip** | slip occurring **during** the quarter |
+| **Pre Q slip** | slip occurring **before** the quarter opens |
+
+In Q / Pre Q is one axis applied to two quantities: win rates to *conversion*,
+slip to *movement*. `later` / `later_win_rate` was an internal coinage for the
+Pre Q win rate and was **retired 2026-08-11**.
+
+### Two regimes — which one you are in changes what is correct
+
+| | In flight / near term | Annual planning |
+|---|---|---|
+| Existing pipe | **observed** in the snapshot | nothing to observe |
+| Pre Q slip | already happened → **zero** | must be modelled |
+| Sales cycle tail into the first quarter | **zero, and correct** — prior-quarter creates due now are already in the observed open pipe | must be modelled from prior creates |
+| Solve window | the quarters you care about | must run from Q1 forward |
+
+**The workbook is built for the second regime**, which is why it reaches back 8
+quarters. Applying its structure to an in-flight run double-counts.
+
+### What is deliberately NOT done
+
+- **The composition of the existing-pipe term is not "corrected".** Measured
+  conversion of mid-quarter open pipe is 11.9–15.6%; the composed formula gives
+  5.5–7.1%. **Decided 2026-08-11: leave it.** See "the composition stays as it
+  is" below.
+- **Slipped pipe earns the general Pre Q win rate**, not the 13.1% that
+  once-slipped pipe was measured winning at.
+- **Serial slip does not compound** — one hop only.
+- **Value drift is not applied.** Pipe carries its anchor valuation.
+- **Untargeted pipe is excluded**, correctly — inactive teams carry no target.
+  Reported as a note, not silently dropped.
 
 ---
 
@@ -108,11 +187,14 @@ Three headlines from that file, because they bear directly on this derivation:
   moved only 52.6%–58.4% over the same four quarters.
 - **Slip is serial.** 55% of once-slipped pipe slips again in its destination
   quarter, and once-slipped pipe wins at only 13.1% — well under the 0.158 mean
-  Pre Q win rate this model applies to all pre-existing pipe.
-- **Only the outflow half is implemented.** These four columns are what slip
+  Pre Q win rate this model applies to all pre-existing pipe. Applying the lower
+  rate to slipped pipe specifically is **open**, not done.
+- **Both halves are implemented (2026-08-11).** These four columns are what slip
   populates in the workbook — `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
-  `Pre Q Outflow` — and `derive_targets()` has **no inflow term at all**. Slipped
-  pipe is subtracted from the quarter it left and never arrives anywhere.
+  `Pre Q Outflow`. `slip()` and `pre_q_slip()` are the outflows; `slip_inflow()`
+  is the inflow, and it forwards **existing open pipe only, never `create`** —
+  newly created pipe already reaches later quarters through the sales cycle
+  curve, so routing it through slip as well would double-count.
 
 **Slip and sales cycle are different measurements, not two names for one thing:**
 
@@ -130,12 +212,16 @@ Three headlines from that file, because they bear directly on this derivation:
 late. Whether the Excel slip analysis uses the same buffered anchor is
 **unknown**, and is a plausible source of disagreement between the two.
 
-*Implementation status (updated 2026-08-11):* slip IS now implemented —
-`agent/waterfall.py::slip()` for the rate and `slip_destinations()` for where it
-lands. The workbook still carries only results, not its own calculation, so the
-two cannot be reconciled line by line. **The destination half is measured but
-deliberately not wired into `derive_targets()`;** see the open questions in
-[`slip.md`](slip.md).
+*Implementation status (2026-08-11):* fully implemented — `slip()` for the In Q
+rate, `pre_q_slip()` for the Pre Q rate, `slip_destinations()` for where it
+lands, and `slip_inflow()` to deliver it. The workbook carries only results, not
+its own calculation, so the two still cannot be reconciled line by line.
+
+**Pre Q and In Q slip are a TIMING split, not a create-date split** — both act on
+existing open pipe. The sales cycle curve is the separate mechanism and governs
+newly created pipe only, which is exactly what keeps the two from
+double-counting: `derive_targets()` multiplies the curve by `create` and never by
+`existing`. See [`slip.md`](slip.md) for the full treatment.
 
 ### Step 2b — Splits come from `sku_nacv_fact`
 
@@ -362,13 +448,17 @@ GIVEN (input)                    COMPUTED FROM SOURCE
 bookings target                  sku_nacv_fact
   from finance/planning            ├─ sales cycle (create→close, QUARTER offsets)
   today: Target_Monthly.csv        │    → sales cycle weights Q0…Q+8
-  Target_Type = 'Bookings'         ├─ win rates (in-quarter vs later)
+  Target_Type = 'Bookings'         ├─ win rates (In Q vs Pre Q)      
                                    └─ historical mix → splits
                                  trf_opp_daily_snapshot_new
-                                   └─ slip: open at quarter start, neither
-                                      closed nor won, moved quarter
+                                   ├─ In Q slip: moved out DURING the quarter
+                                   ├─ Pre Q slip: moved out BEFORE it opened
+                                   └─ destinations: which quarter it landed in
         ↓
-bookings target − expected bookings from existing pipe (slip- and win-rate-adjusted)
+bookings target
+  − closed won to date
+  − (open pipe x (1 - Pre Q slip) + slip inflow) x (1 - In Q slip) x Pre Q win rate
+  − sales cycle tail from earlier quarters IN THIS SOLVE
         ↓  goal seek
 REQUIRED PIPE CREATE   ← the answer
         ↓  splits + renaming applied downstream
@@ -479,18 +569,19 @@ possibly a scenario or a superseded assumption. **Do not use.**
 
 ---
 
-## The starting tail — open, and it dominates the answer
+## The starting tail — RESOLVED
 
-**Found 2026-08-11 while rebuilding this in Python.**
+**Found 2026-08-11 while rebuilding this in Python, and settled the same day.**
 
 Every quarter's `AP` is fed by `S` from up to **8 preceding quarters** of the same
 Territory x Product. A rebuild that solves only Q3 and Q4 FY26 starts with an
 empty tail, so Q3 receives nothing from Q1/Q2 FY26 and its whole target falls on
 its own in-quarter create at ~7% yield.
 
-`agent/waterfall.py` approximates that starting tail with
-`expected_from_existing_pipe` = open pipe in the quarter x (1 − slip) x pre-Q win
-rate. **The two are not the same population:**
+`agent/waterfall.py` supplies that starting tail through
+`expected_from_existing_pipe` instead. **The two are not the same population —
+and for an in-flight run the snapshot view is the better one, because it is
+observed rather than modelled:**
 
 | | Workbook `AP` | `expected_from_existing_pipe` |
 |---|---|---|
@@ -612,24 +703,25 @@ stale too and join via `Target_Monthly.csv` as canonical.
    The per-product fitting question is resolved too: `sku_nacv_fact` is
    product-grain, which is exactly what yields Territory x Product curves.
 
-2a. **Possible double-count — unresolved, and it biases pipe create upward.**
-   The sales cycle curve is fitted on *actual historical close dates*, which
-   already embed every slip those deals experienced: a deal created in Q1 that
-   slipped twice and closed in Q4 appears in the curve at `Q+3`, not as `Q+1`
-   plus two slips. So slip behaviour is **already inside the sales cycle curve**.
-   Applying a separate slip term on top is only legitimate if the two act on
-   genuinely disjoint populations — new creation vs the pre-existing open base.
-   On the face of it they do, but an opp created *within* the quarter that then
-   slips could fall into both. **Testable** once create dates are pulled: check
-   whether the fitted curve already reproduces observed slip. If it does, the
-   separate slip term is redundant and inflates required pipe create.
+2a. ~~Possible double-count between the sales cycle curve and slip.~~
+   **ANSWERED 2026-08-11.** The populations are disjoint by construction and the
+   code enforces it: `derive_targets()` multiplies the sales cycle curve by
+   `create` and **never** by `existing`, and `slip_inflow()` forwards `existing`
+   and **never** `create`. The curve does embed historical slip — a deal created
+   in Q1 that slipped twice and closed in Q4 sits at `Q+3` — but that is the
+   correct behaviour for *newly created* pipe, which is the only thing the curve
+   is applied to. Slip is applied to the pre-existing open base, which the curve
+   never touches. **This constraint is the one to preserve** if either mechanism
+   is ever extended.
 3. **What time window fits the curves?** Trailing how many quarters? A curve
    fitted on a period containing a pricing or packaging change would misstate
    sales cycle. Not established.
-4. **Does the slip analysis use a pre-quarter buffer?** The Python pipeline does,
-   per root `CLAUDE.md` invariant 5. If the Excel slip analysis anchors on the
-   first in-quarter snapshot without a buffer, the two disagree on starting pipe
-   by construction. **This is the most likely source of a reconciliation gap.**
+4. **Does the slip analysis use a pre-quarter buffer?** Still **unknown** for the
+   Excel side. Ours anchors at the latest snapshot at or before the quarter start
+   (or the equivalent point in flight), not against invariant 5's buffer — see
+   the anchoring caveat on `slip()`. A remaining candidate for a reconciliation
+   gap, though a smaller one than it looked: the anchoring *point* was shown to
+   matter more than the buffer (58.4% at quarter start vs 63.9% at W7).
 5. ~~How is the multi-quarter coupling solved?~~ **Answered 2026-08-10:**
    chronological forward substitution. The system is triangular because every link
    is linear, so it solves exactly without iteration. See Step 4.
@@ -638,15 +730,23 @@ stale too and join via `Target_Monthly.csv` as canonical.
    `Difference` by changing `Pipe Create`, wrapped in floor clamps. The relation
    is linear, so a closed form replaces it exactly. See Step 3.
 6. **Are win rates fitted or set?** Their precision (`0.43393573125`) suggests
-   computed, but the computation is not in this sheet. **They must be recomputed
-   from `sku_nacv_fact` per window, not copied** — a stored win rate is stale the
-   moment the period moves.
+   computed, but the computation is not in this sheet. We recompute them from
+   `sku_nacv_fact` per window rather than copying, since a stored rate is stale
+   the moment the period moves. **What is settled: the stated assumptions are the
+   owner's and are not to be revised to close a gap** — see the DECIDED block
+   above. Report a discrepancy; do not act on it.
 7. **What are AV/AW for?**
 8. **Should floors ever be overridden?** The macro pins `New Logo` and
    `EMEA Corporate` and hard-locks Q4-2025. These are situational workarounds and
    are **not** to be reproduced — but whether *some* override mechanism is needed
    is unresolved.
-8. **Should this be reimplemented in Python?** It is the only artifact connecting
-   bookings targets to pipe create targets. The Python pipeline currently
-   consumes the target as a given and can neither explain nor re-derive it, so it
-   cannot answer "is this target achievable?" — only "did we hit it?".
+9. ~~Should this be reimplemented in Python?~~ **Done, 2026-08-10/11.**
+   `agent/waterfall.py::derive_targets()`. It can now answer "what does this
+   target require?" as well as "did we hit it?". **Still open is reconciliation:**
+   derived totals sit well above published, and the terms that would explain it
+   have been ruled out one at a time — yield (fixed), the `$0` sales cycle tail
+   (correct as-is), Pre Q slip and slip inflow (built, and they roughly cancel),
+   unmapped pipe (inactive teams, correctly excluded). The largest *measured*
+   contributor is the conservatism of the existing-pipe composition, which is a
+   stated assumption and stays. Treat the gap as unexplained rather than
+   attributing it to any of the settled items.
