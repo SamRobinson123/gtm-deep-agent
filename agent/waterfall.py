@@ -30,6 +30,7 @@ data/bts.parquet. Slip additionally needs data/snapshot.parquet.
 """
 from __future__ import annotations
 
+import functools
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -76,6 +77,22 @@ class MissingData(RuntimeError):
 # loading
 # --------------------------------------------------------------------------
 
+@functools.lru_cache(maxsize=8)
+def _read_parquet_cached(path: str, mtime: float, size: int) -> pd.DataFrame:
+    """Read a parquet once per (path, mtime, size).
+
+    snapshot_hist.parquet is 74 MB / 19.9M rows, and a single derivation calls
+    slip(), pre_q_slip(), slip_destinations() and slip_inflow() across two
+    quarters — a dozen reads of the same file, which is what made a derivation
+    take minutes rather than seconds.
+
+    Keyed on mtime and size, not just the name: tests monkeypatch config.DATA to
+    a fresh tmp_path per test and reuse filenames like "s.parquet", so a
+    name-only key would serve one test's fixture to another.
+    """
+    return pd.read_parquet(path)
+
+
 def _require(name: str) -> pd.DataFrame:
     path = config.DATA / name
     if not path.exists():
@@ -83,7 +100,10 @@ def _require(name: str) -> pd.DataFrame:
             f"{path} not found. Pull it first (run_pull), which needs VPN and a live "
             f"`az login`. Nothing here can be computed from the targets CSV alone."
         )
-    return pd.read_parquet(path)
+    st = path.stat()
+    # Copy: callers mutate (assign columns, sort). Handing out the cached frame
+    # would let one caller corrupt the next one's input.
+    return _read_parquet_cached(str(path), st.st_mtime, st.st_size).copy()
 
 
 def load_sku(grain: str = "Territory") -> pd.DataFrame:

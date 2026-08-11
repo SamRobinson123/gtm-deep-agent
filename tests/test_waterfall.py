@@ -810,3 +810,25 @@ def test_existing_pipe_carries_its_open_pipe_for_orphan_reporting():
     orphan = keys.difference(solved)
     assert list(orphan) == ["Unassigned"]
     assert attrs["open_pipe"].reindex(orphan).sum() == pytest.approx(500.0)
+
+
+def test_parquet_cache_is_keyed_on_content_not_just_name(tmp_path, monkeypatch):
+    """Two fixtures can share a filename across tests. Keying the cache on the
+    name alone would serve one test's data to another — so mtime and size are
+    part of the key, and the caller always gets a copy it may mutate."""
+    from pipeline import config as cfg
+    import time
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    pd.DataFrame({"a": [1]}).to_parquet(tmp_path / "same_name.parquet")
+    first = w._require("same_name.parquet")
+    assert list(first["a"]) == [1]
+
+    time.sleep(0.01)
+    pd.DataFrame({"a": [2]}).to_parquet(tmp_path / "same_name.parquet")
+    assert list(w._require("same_name.parquet")["a"]) == [2]
+
+    # mutating what we got back must not poison the cache
+    again = w._require("same_name.parquet")
+    again["a"] = 999
+    assert list(w._require("same_name.parquet")["a"]) == [2]

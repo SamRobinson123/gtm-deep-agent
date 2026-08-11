@@ -142,7 +142,7 @@ async def pipe_create_targets(args):
 
 
 async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
-                        as_of: str | None = None):
+                        as_of: str | None = None, window=None):
     """Assemble the derivation inputs and solve. Shared by the derive tool and the
     what-if, so an override is evaluated against exactly the same inputs as the
     baseline — two separate assembly paths would drift and make the delta a lie.
@@ -201,7 +201,7 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
             existing[q] = waterfall.existing_pipe_bookings(
                 q, [h], sku=sku, grain=grain,
                 slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
-                slip_snapshot_file="snapshot_hist.parquet",
+                window=window, slip_snapshot_file="snapshot_hist.parquet",
                 pre_q_slip_rate=pq, slip_inflow_pipe=inflow)
         except Exception as e:
             notes.append(f"SLIP NOT INCLUDED for {config.fq_label(q)} "
@@ -237,7 +237,7 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     except Exception as e:
         notes.append(f"CLOSED WON NOT INCLUDED — {type(e).__name__}: {e}")
 
-    df = waterfall.derive_targets(sku, book, qs, grain=grain,
+    df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window,
                                   existing_pipe_bookings=existing, closed_won=won,
                                   overrides=overrides)
     return waterfall.flag_outliers(df, grain), notes
@@ -464,71 +464,26 @@ async def derive_pipe_create_target(args):
     if args.get("window_start") and args.get("window_end"):
         window = (args["window_start"], args["window_end"])
 
+    # Fail early with a readable message rather than deep inside the assembly.
+    # _derive_frame loads this again; the second read is cached by pandas' parquet
+    # reader and the clearer error is worth it.
     try:
-        sku = waterfall.load_sku(grain)
+        waterfall.load_sku(grain)
     except waterfall.MissingData as e:
         return _ok(f"Cannot derive: {e}")
-
-    # The bookings target is the GIVEN input. Today it is readable from the
-    # Bookings rows; it is a parameter because it will be supplied directly.
-    # Per quarter, not qs[0] reused: Q3 and Q4 carry materially different bookings
-    # targets, and applying the first quarter's to all of them understates the rest.
-    try:
-        book = {q: config._target_by_team("Bookings", q).sum(axis=1) for q in qs}
-    except Exception as e:
-        return _ok(f"Could not read the given bookings target: {type(e).__name__}: {e}")
 
     if grain != "Territory":
         return _ok("Bookings targets are keyed by territory. Use grain='Territory' "
                    "until a mapping to Region/Geo keys is agreed.")
 
-    # Slip is part of the assumptions, not an optional extra: it supplies expected
-    # bookings from pipe that already exists, which the goal seek subtracts. Without
-    # it the gap is the full bookings target and required create is overstated.
-    #
-    # Measured PER QUARTER on the same quarter a year earlier — Q3 FY26 from
-    # Q3 FY25, Q4 FY26 from Q4 FY25 — because slip is seasonal. One window applied
-    # to every quarter imports the wrong shape. This is the same assembly the
-    # what-if uses; keeping two copies is how they drift.
-    as_of = args.get("as_of") or str(pd.Timestamp.today().date())
-    existing, slip_lines = {}, []
-    for q in qs:
-        h = waterfall.prior_year_quarter(q)
-        try:
-            e = waterfall.existing_pipe_bookings(
-                q, [h], sku=sku, grain=grain, window=window,
-                slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
-                slip_snapshot_file="snapshot_hist.parquet")
-            existing[q] = e
-            slip_lines.append(
-                f"  {config.fq_label(q)} <- {config.fq_label(h)}: mean slip "
-                f"{e.attrs.get('mean_slip_rate'):.1%}, anchored "
-                f"{waterfall.slip_anchor(q, as_of, h):%Y-%m-%d}")
-        except Exception as ex:
-            slip_lines.append(
-                f"  {config.fq_label(q)} <- {config.fq_label(h)}: SLIP NOT INCLUDED "
-                f"({type(ex).__name__}: {str(ex)[:120]}). Expected bookings from existing "
-                f"pipe is zero for this quarter, which OVERSTATES its required create.")
-    slip_note = "Slip, per quarter, from the same quarter a year earlier:\n" + "\n".join(slip_lines)
-    existing = existing or None
-
-    # Already-won bookings are banked: pipe create only covers what is left. For an
-    # in-flight quarter this is the largest single term.
-    won, won_note = None, ""
+    # ONE assembly path, shared with the what-if and the UI. This function used to
+    # keep its own copy "so the what-if compares like with like" — and then the
+    # copy drifted: pre_q_slip() and slip_inflow() were added to _derive_frame on
+    # 2026-08-11 and this path silently kept returning the old numbers. A comment
+    # saying "keeping two copies is how they drift" does not prevent the drift.
     try:
-        won = {q: waterfall.closed_won_at(q, grain=grain) for q in qs}
-        won_note = "Closed Won included: " + ", ".join(
-            f"{config.fq_label(q)} ${won[q].sum():,.0f}" for q in qs) + "."
-    except waterfall.MissingData as e:
-        won_note = (f"CLOSED WON NOT INCLUDED — {e} An in-flight quarter's banked "
-                    f"bookings are therefore treated as still to be created, which "
-                    f"OVERSTATES the required create.")
-    except Exception as e:
-        won_note = f"CLOSED WON NOT INCLUDED — {type(e).__name__}: {e}. Required create is overstated."
-
-    try:
-        df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window,
-                                      existing_pipe_bookings=existing, closed_won=won)
+        df, notes = await _derive_frame(raw, grain=grain, as_of=args.get("as_of"),
+                                        window=window)
         summary = waterfall.summarize(df)
     except Exception as e:
         return _ok(f"Derivation failed: {type(e).__name__}: {e}")
@@ -569,10 +524,8 @@ async def derive_pipe_create_target(args):
         "",
         df.head(25).to_string(index=False),
     ]
-    if slip_note:
-        lines += ["", slip_note]
-    if won_note:
-        lines += ["", won_note]
+    if notes:
+        lines += ["", "Assumptions and exclusions:"] + [f"  {n}" for n in notes]
     lines += ["", "This is a derived figure, not the published target. State that when reporting it.",
               f"Run stored: {run_dir}"]
     return _ok("\n".join(lines))
