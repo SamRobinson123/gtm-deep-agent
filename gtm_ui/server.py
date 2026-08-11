@@ -104,6 +104,31 @@ async def run_file(run_id: str, name: str):
     return FileResponse(target, media_type=media, filename=target.name)
 
 
+# Column names that have been renamed since runs were first written. Runs are
+# immutable lineage artifacts and older ones must stay readable, so stored CSVs
+# are migrated forward on read rather than rewritten on disk.
+LEGACY_COLUMNS = {
+    "maturation_tail_from_earlier_quarters": "sales_cycle_tail_from_earlier_quarters",
+}
+
+
+def load_derivation(run_id: str):
+    """Read a run's derivation, mapping legacy column names forward.
+
+    Both derivation endpoints go through here. Reading the CSV directly means a
+    rename either raises (the lookup fails) or, worse, silently drops the column
+    from a filtered list and shows an incomplete waterfall.
+    """
+    import pandas as pd
+
+    path = (config.RUNS / run_id).resolve() / "derived_pipe_create.csv"
+    if not path.is_file():
+        raise HTTPException(404, "this run has no derivation")
+    df = pd.read_csv(path)
+    renamed = {a: b for a, b in LEGACY_COLUMNS.items() if a in df.columns}
+    return df.rename(columns=renamed), sorted(renamed.values())
+
+
 @app.get("/api/runs/{run_id}/derivation")
 async def run_derivation(run_id: str):
     """The logic chain behind a derived target, as ordered steps.
@@ -112,12 +137,7 @@ async def run_derivation(run_id: str):
     Provenance is part of the payload, not a presentation detail: a term that is
     measured, one that is modelled, and one that is missing must not look alike.
     """
-    import pandas as pd
-
-    path = (config.RUNS / run_id).resolve() / "derived_pipe_create.csv"
-    if not path.is_file():
-        raise HTTPException(404, "this run has no derivation")
-    df = pd.read_csv(path)
+    df, _ = load_derivation(run_id)
 
     def money(x):
         return float(round(x, 2))
@@ -180,7 +200,12 @@ async def run_derivation(run_id: str):
         ]
         out.append({"quarter": q, "rows": int(len(g)), "steps": steps})
 
-    manifest = lineage.load_manifest(run_id)
+    # The CSV is the substance; the manifest only adds provenance. A run whose
+    # manifest is missing or unreadable still has a chain worth showing.
+    try:
+        manifest = lineage.load_manifest(run_id)
+    except (FileNotFoundError, ValueError):
+        manifest = {}
     return {"run_id": run_id, "grain": manifest.get("grain", "Territory"),
             "quarters": out, "caveats": manifest.get("caveats", []),
             "warnings": manifest.get("warnings", [])}
@@ -193,15 +218,10 @@ async def run_waterfall(run_id: str):
     The aggregate ledger says what the number is; this says which territories
     made it that way and which of them rest on a questionable assumption.
     """
-    import pandas as pd
-
     from agent import waterfall as wf
 
-    path = (config.RUNS / run_id).resolve() / "derived_pipe_create.csv"
-    if not path.is_file():
-        raise HTTPException(404, "this run has no derivation")
-
-    df = wf.flag_outliers(pd.read_csv(path), "Territory")
+    raw, migrated = load_derivation(run_id)
+    df = wf.flag_outliers(raw, "Territory")
     df = df.replace({float("nan"): None})
     order = ["quarter", "Territory", "bookings_target", "closed_won",
              "expected_from_existing_pipe", "sales_cycle_tail_from_earlier_quarters",
@@ -219,8 +239,11 @@ async def run_waterfall(run_id: str):
             "flagged": int((g["outlier_flags"] != "").sum()),
             "total": float(g["pipe_create_target"].sum()),
         })
+    missing = [c for c in order if c not in df.columns]
     return {"run_id": run_id, "columns": cols, "quarters": quarters,
-            "overridable": list(wf.ASSUMPTIONS)}
+            "overridable": list(wf.ASSUMPTIONS),
+            # Say so rather than quietly showing a narrower table.
+            "migrated_columns": migrated, "missing_columns": missing}
 
 
 @app.get("/api/auth/status")
