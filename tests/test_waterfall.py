@@ -796,3 +796,17 @@ def test_the_existing_pipe_sequence_applies_the_terms_in_order():
     assert adjusted * (1 - in_q) * wr == pytest.approx(55.0)
     # if inflow were exposed to pre-Q slip too it would be 1040 -> 52.0
     assert (open_pipe + inflow) * (1 - pre_q) * (1 - in_q) * wr == pytest.approx(52.0)
+
+
+def test_existing_pipe_carries_its_open_pipe_for_orphan_reporting():
+    """The derivation reports open pipe on keys the solve will skip. That needs
+    the pre-haircut open pipe on .attrs — without it an unmapped booking team
+    disappears silently and the smaller existing term inflates required create."""
+    keys = pd.Index(["T1", "Unassigned"], name="Territory")
+    open_pipe = pd.Series([1000.0, 500.0], index=keys)
+    # the shape existing_pipe_bookings promises its caller
+    attrs = {"open_pipe": open_pipe}
+    solved = pd.Index(["T1"], name="Territory")
+    orphan = keys.difference(solved)
+    assert list(orphan) == ["Unassigned"]
+    assert attrs["open_pipe"].reindex(orphan).sum() == pytest.approx(500.0)

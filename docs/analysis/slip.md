@@ -662,10 +662,16 @@ choices, not established facts:
 9. **Should slipped pipe carry its own win rate?** Inflow currently earns the
    general `later` rate (0.158), but once-slipped pipe was measured winning at
    13.1%. Applying the lower rate would reduce what inflow contributes.
-10. **Unattributed pipe is dropped.** Territories with open pipe but no Bookings
-    target — `Unassigned` — are not solved, so their existing pipe silently
-    leaves the derivation ($248,899 of expected bookings for Q4 FY26). Pre-dates
-    this work; deciding where that pipe's target belongs is a modelling call.
+10. ~~Unattributed pipe is dropped silently.~~ **Traced 2026-08-11.** It is
+    entirely **`AMS Specialty`** — 5 opps, $892,135, all dated into Q4 FY26
+    ($248,899 of expected bookings). It has no row in `bts.parquet` because
+    `BTS_SQL` filters `ActiveTeam = 'Active'`, and no row in `Target_Monthly` or
+    `sku_nacv` either, so it has no target, no win rate and no floor. The
+    derivation now emits an `UNMAPPED PIPE DROPPED` note rather than losing it
+    silently. **The fix is a mapping-table edit** — add or reactivate the team in
+    `[sharepoint].[Map_Booking_Team_Static_live]` with a `BTS_Territory`, then
+    re-pull `bts`. Still open: whether it should be its own territory (no target,
+    so it would contribute nothing) or roll into an existing one.
 11. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
    inflow/outflow model, and it is deliberately **not** implemented yet — it
