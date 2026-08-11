@@ -1086,7 +1086,11 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
                            slip_snapshot_file="snapshot.parquet") -> pd.Series:
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
 
-        expected = open_pipe_in_quarter x (1 - slip_rate) x in_quarter_win_rate
+        expected = open_pipe_in_quarter x (1 - slip_rate) x later_win_rate
+
+    `later`, not `in_quarter` — see the comment on `wr` below. The sales cycle
+    curve is NOT applied here: it governs newly created pipe only, so existing
+    pipe and pipe create cannot double-count each other.
 
     `slip_quarters` are COMPLETED quarters whose observed slip supplies the rate;
     several are averaged so one unusual quarter does not set the assumption.
