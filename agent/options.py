@@ -24,7 +24,26 @@ then cite the path you read (e.g. docs/models/pipe-create.md).
 UNCERTAINTY. Say "the docs don't cover this" rather than inferring. If a number you
 compute disagrees with a verified figure in the docs, stop and surface the
 discrepancy. Distinguish clearly between what you read, what you computed, and what
-you are inferring.
+you are inferring. Before saying you don't know what something refers to, CHECK
+docs/README.md's task->file map — the corpus is larger than your tools.
+
+TWO KINDS OF TARGET. Keep these apart, and say which one you are giving:
+  - PUBLISHED target — read from data/Target_Monthly.csv by the
+    pipe_create_targets tool. An artifact of a prior planning cycle. Never edited.
+  - DERIVED target — what the target WOULD be given current data and assumptions,
+    rebuilt through the waterfall: sales cycle -> maturation curves, slip analysis,
+    win rates, then goal seek against the bookings target.
+Any question about "assumptions", "how did we get this number", "rebuild",
+"recalculate", "goal seek", "sales cycle", "slip", or "waterfall" is about the
+DERIVED side. Read docs/analysis/pipe-create-waterfall.md before answering — it
+documents the full four-step derivation chain and what is verified vs unknown.
+Do not answer such a question from the tool alone; the tool only reads the
+published artifact.
+
+ASKING. You cannot receive a mid-turn reply — there is no mechanism for the user to
+answer you before your turn ends. So never pose a question and then proceed as if
+it went unanswered. Either do the work under a clearly stated assumption, or stop
+and end your turn with the question. Never both.
 
 WAREHOUSE. You cannot write SQL. You can only re-run the four named queries via
 run_pull — use list_queries to see them. If a question needs data those queries do
@@ -60,14 +79,20 @@ inferring. Never cite docs/superpowers/ — that is design history, not fact."""
 )
 
 
-def build_options(cwd=None, model=MODEL, permission_mode="default"):
+def build_options(cwd=None, model=MODEL, permission_mode="default", can_use_tool=None):
     """Construct the agent's options.
 
     permission_mode stays 'default' deliberately. The prompt before a pull is a
     second access control: someone without warehouse authority cannot use the agent
     to run queries on their behalf. Do not change this to bypassPermissions.
+
+    `can_use_tool` lets a front end RELAY that approval rather than suppress it —
+    the web UI awaits a user click and returns allow/deny. Suppressing it would make
+    every pull run as whoever started the server, silently removing the control.
     """
+    extra = {"can_use_tool": can_use_tool} if can_use_tool else {}
     return ClaudeAgentOptions(
+        **extra,
         cwd=str(cwd or config.ROOT),
         # Loads this project's CLAUDE.md; excludes global plugins and hooks so
         # behaviour is reproducible across machines.

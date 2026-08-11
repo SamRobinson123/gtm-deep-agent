@@ -66,20 +66,29 @@ async def run_pull(args):
     return _ok(f"{name}: pulled {r['rows']:,} rows -> {r['path']}")
 
 
-@tool("pipe_create_targets", "Day-weighted Pipe Create TARGET allocation by week for a quarter, at Geo/Region/Territory/All grain. Targets only — actuals need the snapshot feed. Writes an immutable run with lineage.", {"grain": str, "key": str, "as_of": str})
+@tool("pipe_create_targets", "Day-weighted Pipe Create TARGET allocation by week, at Geo/Region/Territory/All grain, for ANY quarter present in Target_Monthly.csv (e.g. quarter='Q3 FY26' or '2026-10-01'). These are the PUBLISHED targets read from the CSV — to see how a target was derived from bookings and assumptions, read docs/analysis/pipe-create-waterfall.md. Writes an immutable run with lineage.", {"grain": str, "key": str, "as_of": str, "quarter": str})
 async def pipe_create_targets(args):
     grain = args.get("grain") or "All"
     key = args.get("key") or None
     as_of = args.get("as_of") or None
+    quarter = args.get("quarter") or None
     if grain not in ("All", "Geo", "Region", "Territory"):
         return _ok(f"Unknown grain {grain!r}. Use All, Geo, Region, or Territory.")
+
+    # Any quarter whose months exist in the CSV is computable. QUARTER_STARTS[0]
+    # governs the pre-quarter buffer for ACTUALS; it does not limit target reads.
     try:
-        df = targets.weekly_target_rows(grain=grain, key=key, as_of=as_of)
-        total = targets.quarter_total()
+        qs = targets.resolve_quarter(quarter)
+    except ValueError as e:
+        return _ok(str(e))
+
+    try:
+        df = targets.weekly_target_rows(grain=grain, key=key, as_of=as_of, quarter_start=qs)
+        total = targets.quarter_total(qs)
     except Exception as e:
         return _ok(f"Failed: {type(e).__name__}: {e}")
 
-    with lineage.Run() as run:
+    with lineage.Run(quarter_start=qs) as run:
         run.add_input(config.TARGET_MONTHLY_CSV)
         out = run.dir / "pipe_create_targets.csv"
         df.to_csv(out, index=False)

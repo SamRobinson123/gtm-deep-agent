@@ -18,6 +18,8 @@ GRAIN CAVEAT — read before trusting a Region or Geo number:
 """
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
 from pipeline import config
@@ -25,6 +27,38 @@ from pipeline import config
 GEO_COL = "Geo"
 REGION_COL = "GeoTerritory"
 TERRITORY_COL = config.TEAM_COL
+
+
+def resolve_quarter(q=None):
+    """Accept 'Q4 FY26', '2026-10-01', 'Q3', or None -> a quarter-start date string.
+
+    Any quarter whose month columns exist in Target_Monthly.csv is readable.
+    config.QUARTER_STARTS[0] governs the pre-quarter buffer for ACTUALS; it does not
+    limit which quarter's targets can be computed.
+    """
+    if not q:
+        return config.QUARTER_START
+    q = str(q).strip()
+    try:
+        return pd.Timestamp(q).strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        pass
+
+    m = re.match(r"Q([1-4])\s*(?:FY)?\s*(\d{2,4})?", q, re.I)
+    if not m:
+        raise ValueError(f"Cannot parse quarter {q!r}. Use 'Q4 FY26' or '2026-10-01'.")
+    qn = int(m.group(1))
+    yr = m.group(2)
+    year = pd.Timestamp(config.QUARTER_START).year if not yr else (2000 + int(yr) if len(yr) == 2 else int(yr))
+    start = f"{year}-{3 * (qn - 1) + 1:02d}-01"
+
+    have = set(config.targets_raw().columns)
+    missing = [c for c in config.month_columns(start) if c not in have]
+    if missing:
+        raise ValueError(f"{q}: Target_Monthly.csv has no columns {missing}. Available months are "
+                         f"{sorted(c for c in have if c.startswith('M2'))[0]}.."
+                         f"{sorted(c for c in have if c.startswith('M2'))[-1]}.")
+    return start
 
 
 def week_calendar(quarter_start=None, quarter_end=None, as_of=None):
