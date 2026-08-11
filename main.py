@@ -19,7 +19,13 @@ def preflight():
     """Fail at startup with a clear message rather than mid-conversation."""
     problems = []
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        problems.append("ANTHROPIC_API_KEY is not set — add it to .env")
+        # Not fatal. The SDK spawns the Claude Code CLI, which falls back to a
+        # claude.ai (Pro/Max) login when no key is set. A key, when present, always
+        # takes precedence — so an exhausted key SHADOWS working subscription auth.
+        problems.append(
+            "ANTHROPIC_API_KEY not set — using your claude.ai login (Pro/Max) instead. "
+            "Set it in .env to bill the API instead."
+        )
     from pipeline import config
     if not config.TARGET_MONTHLY_CSV.exists():
         problems.append(f"missing {config.TARGET_MONTHLY_CSV} — target figures will fail")
@@ -51,8 +57,6 @@ def cli():
 
     for p in preflight():
         print(f"[startup] {p}", file=sys.stderr)
-        if "ANTHROPIC_API_KEY" in p:
-            sys.exit(1)
 
     if args.question:
         anyio.run(lambda: one_shot(args.question, args.model))
