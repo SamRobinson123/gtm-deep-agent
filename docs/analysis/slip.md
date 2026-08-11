@@ -47,8 +47,10 @@ it. `held` is the residual — open but not yet pushed.
 ### The stage mapping is a lookup, not a substring test
 
 From the model owner's `Slip Assumption.ipynb` (2026-08-11). This is
-authoritative and lives in `agent/waterfall.py` as `WON_STAGES` / `LOST_STAGES` /
-`OTHER_STAGES` / `OPEN_STAGES`:
+authoritative. It is applied **in SQL** — the same `CASE` in `SKU_SQL`,
+`SNAP_SQL` and `SNAP_HIST_SQL`, so one mapping serves both sources — and mirrored
+in `agent/waterfall.py` (`WON_STAGES` / `LOST_STAGES` / `OTHER_STAGES` /
+`OPEN_STAGES`) for parquet cached before the column existed.
 
 | Outcome | `Raw_Stage` values |
 |---|---|
