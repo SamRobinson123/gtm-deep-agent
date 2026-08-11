@@ -10,9 +10,11 @@ data/
 *.parquet
 Target_Monthly.csv
 
-# Pipeline outputs and generated exports
+# Pipeline outputs, run lineage, and generated exports.
+# workspace/runs/ holds real GTM figures — never commit.
 output/
 workspace/exports/
+workspace/runs/
 
 # Python
 .venv/

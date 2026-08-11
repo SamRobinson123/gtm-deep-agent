@@ -53,8 +53,15 @@ This makes actuals reachable, so the deferrals below shrink accordingly.
 
 | Deferred | Why |
 |---|---|
-| `pipeline/pipe_create.py` | Materialize it after a successful pull, so it can be verified against real data rather than written blind. |
+| `pipeline/pipe_create.py` | Materialize it **after** a successful pull, so it is verified against real data rather than written blind. Ordering only — it is in v1. |
 | Writing xlsx / PNG to `workspace/exports/` | Nothing worth exporting until the model runs. |
+
+**No fixtures, ever.** Confirmed by the user 2026-08-10: the model runs on real
+data or it does not run. Synthetic snapshot data is not an acceptable substitute
+for testing the actuals path — a fixture that drifts from the real schema teaches
+the agent wrong things and produces numbers that look real. Tests cover the
+target path (real `Target_Monthly.csv`) and the boundaries; the actuals path is
+verified against a real pull.
 | A verifier subagent | Its job is re-deriving numbers. There are no numbers yet. |
 | Session persistence (`session_store`) | Adds state and failure modes before the loop itself is proven. |
 | Synapse / VPN access | Every v1 question is answerable offline from `docs/`. |
@@ -123,6 +130,7 @@ agent/loop.py         the REPL — read, send, stream, print. /exit and /new.
 agent/hooks.py        PreToolUse guards — read scope, and the Bash allowlist.
 agent/tools.py        scoped SDK tools: az_login_status, run_pull. No SQL param.
 agent/sqlguard.py     read-only assertion on rendered templates. Pure.
+agent/lineage.py      run_id, manifest assembly, hashing, index append. Pure + fs.
 pipeline/config.py    materialized from docs — quarters, paths, grain helpers.
 pipeline/queries.py   the four named report queries, verbatim from the docs.
 pipeline/pull.py      materialized from docs — Synapse → cached parquet.
@@ -147,7 +155,7 @@ the project.
 | `system_prompt` | `claude_code` preset + append | Required for `CLAUDE.md` to load — see gotcha above |
 | `allowed_tools` | `Read`, `Glob`, `Grep`, `Task`, `Bash`, and the three scoped tools | Read docs, delegate, check the Azure session, pull |
 | `disallowed_tools` | `Write`, `Edit`, `WebSearch`, `WebFetch` | The agent still cannot modify the repo, and answers still cannot come from the open web |
-| `permission_mode` | `default` | **Changed.** `bypassPermissions` was justified only while every tool was read-only. With `Bash` and a warehouse connection in scope, prompts are the point. |
+| `permission_mode` | `default` | **Changed, and confirmed by the user 2026-08-10.** `bypassPermissions` was justified only while every tool was read-only. The prompt is not just friction: it is a second control, ensuring a person without warehouse authority cannot use the agent to run queries on their behalf. Do not "optimize" it away. |
 | `can_use_tool` | callback | Requires confirmation before any pull that writes cached parquet — `CLAUDE.md` requires asking before writing pipeline outputs |
 
 `agents` carries the doc-retrieval definition; `hooks` carries the read-scope
@@ -248,6 +256,71 @@ trade-off and is the user's call, not a default worth guessing.
 
 ---
 
+## Run lineage — every model run is immutable and reviewable
+
+**Requirement (user, 2026-08-10):** when the model is run, the output must be
+stored with enough lineage that it can be reviewed later, **even after newer
+iterations exist**. A run is never overwritten.
+
+This also discharges the `CLAUDE.md` rule *"never overwrite an existing export"*
+and makes it structural rather than a naming convention.
+
+### Layout
+
+```
+workspace/runs/
+├── index.jsonl                     append-only, one line per run
+├── latest.json                     pointer to the most recent run_id
+└── 2026-08-10T175700Z_a3f9c1/      immutable once written
+    ├── manifest.json
+    ├── gtm_pipe_create.parquet
+    └── gtm_pipe_create.json
+```
+
+`run_id` is `<UTC timestamp>_<6-char random>`. A collision is a hard error, never
+an overwrite. **A run directory is written once and never modified** — corrections
+are new runs, so a superseded number stays reviewable alongside the one that
+replaced it.
+
+`latest.json` is a pointer *file*, not a symlink: symlinks on Windows require
+elevation or developer mode, and this must work without either.
+
+### `manifest.json`
+
+Enough to answer "why did this run produce this number?" without rerunning it.
+
+| Field | Purpose |
+|---|---|
+| `run_id`, `started_at`, `finished_at` | Identity and timing, UTC |
+| `git_commit`, `git_dirty` | Which code version. `git_dirty: true` means uncommitted edits — the number is not reproducible, and the manifest says so |
+| `quarter`, `quarter_start`, `quarter_end` | The grain being run |
+| `month_columns` | The **derived** `M2026xx` list — recorded as evidence invariant 1 was honored, not hardcoded |
+| `weeks`, `partial_weeks` | e.g. `14`, `[1, 14]` — invariant 3 made visible |
+| `inputs[]` | Path, **sha256**, size, mtime for `Target_Monthly.csv`, `snapshot.parquet`, `Headcount.xlsx` |
+| `code[]` | sha256 of `pipe_create.py`, `queries.py`, `config.py` |
+| `outputs[]` | Path, sha256, row count |
+| `headline` | QTD created, QTD target, attainment, opp count — the figures a reader checks first |
+| `caveats[]` | Machine-emitted, e.g. `invariant-10-opportunities-unit`, `apac-asia-age-sea-no-target` |
+| `warnings[]` | Data-quality conditions detected at runtime, e.g. `geoterritory-case-collision` |
+
+Input hashing is what makes lineage real. "The target file changed" is otherwise
+invisible, and two runs producing different numbers from an identically-named
+input is exactly the situation this must explain.
+
+### Why caveats are emitted by code
+
+Root `CLAUDE.md` requires the invariant-10 caveat to travel with every opp-count
+and ASP figure. A prompt instruction degrades over a long session; a `caveats[]`
+array written by the code that produced the number does not. The agent reads the
+manifest and reports what is in it.
+
+### Retention
+
+Runs are never auto-deleted. `workspace/exports/` is gitignored, so run history
+is local and unbounded — acceptable given each run is a few hundred KB.
+
+---
+
 ## Data flow
 
 ```
@@ -339,15 +412,32 @@ Written test-first, per `superpowers:test-driven-development`.
     the `CLAUDE.md` never-re-pull rule, made mechanical.
 22. `force=True` triggers the confirmation callback rather than pulling directly.
 
+**Unit — `agent/lineage.py`, no tokens, no network:**
+
+23. Two runs produce distinct `run_id`s, and writing into an existing run
+    directory raises rather than overwrites.
+24. `manifest.json` records the sha256 of every input; changing
+    `Target_Monthly.csv` by one byte changes the recorded hash.
+25. `git_dirty` is `true` when the working tree has uncommitted changes, and the
+    manifest is still written — a non-reproducible run is recorded as such, not
+    refused.
+26. `month_columns` in the manifest is derived from the quarter start and matches
+    what the model used.
+27. `caveats[]` contains `invariant-10-opportunities-unit` whenever the run
+    emits any opp-count or ASP figure.
+28. `index.jsonl` gains exactly one line per run and is never rewritten.
+29. `latest.json` points at the newest `run_id` and is a regular file, not a
+    symlink.
+
 **Integration — one live call:**
 
-23. Ask *"Why does Pipe Create have no CloseDate filter?"* and assert the response
+30. Ask *"Why does Pipe Create have no CloseDate filter?"* and assert the response
     cites `docs/models/pipe-create.md`. The answer is verifiably in the corpus
     (the module was written deliberately inverse to `coverage.py`), so this test
     proves the whole chain: `CLAUDE.md` loaded, routing followed, doc read,
     citation returned.
 
-Tests 9 and 23 prove the design — one for compute, one for retrieval. Tests
+Tests 9 and 30 prove the design — one for compute, one for retrieval. Tests
 10–14 turn five prose invariants into executable assertions, which is the point:
 an invariant that only lives in a markdown file degrades, while one with a test
 fails loudly. Tests 15–19 are the warehouse boundary and are written first.
@@ -378,7 +468,11 @@ v1 is done when:
 - The agent cannot write or edit repo files, cannot run arbitrary shell commands,
   and **cannot express any SQL statement at all** — its warehouse capability is
   limited to re-running the four named report queries.
-- All 23 tests pass.
+- Running the model writes an immutable `workspace/runs/<run_id>/` with a
+  manifest carrying input hashes, code hashes, git commit, derived month columns,
+  headline figures, and machine-emitted caveats — and a second run leaves the
+  first byte-for-byte intact.
+- All 30 tests pass.
 
 ## Unresolved, carried into implementation
 
