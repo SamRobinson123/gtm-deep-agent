@@ -210,6 +210,33 @@ def test_existing_pipe_bookings_may_also_differ_per_quarter():
     assert got["2026-10-01"] == pytest.approx(300_000.0)
 
 
+def test_closed_won_reduces_the_gap_it_does_not_need_creating_again():
+    """An in-flight quarter has already banked bookings. Those are not a gap for
+    pipe create to fill; leaving them out asks create to cover the whole target."""
+    sku = _tiny_sku()
+    bt = pd.Series({"T1": 1_000_000.0})
+
+    without = w.derive_targets(sku, bt, ["2026-07-01"], grain="Territory").iloc[0]
+    with_won = w.derive_targets(sku, bt, ["2026-07-01"], grain="Territory",
+                                closed_won=pd.Series({"T1": 400_000.0})).iloc[0]
+
+    assert with_won["closed_won"] == pytest.approx(400_000.0)
+    assert with_won["gap"] == pytest.approx(without["gap"] - 400_000.0)
+    assert with_won["required_by_gap"] < without["required_by_gap"]
+
+
+def test_closed_won_may_differ_per_quarter():
+    df = w.derive_targets(
+        _tiny_sku(), pd.Series({"T1": 1_000_000.0}), ["2026-07-01", "2026-10-01"],
+        grain="Territory",
+        closed_won={"2026-07-01": pd.Series({"T1": 400_000.0}),
+                    "2026-10-01": pd.Series({"T1": 0.0})},
+    )
+    got = dict(zip(df.quarter_start, df.closed_won))
+    assert got["2026-07-01"] == pytest.approx(400_000.0)
+    assert got["2026-10-01"] == pytest.approx(0.0)
+
+
 def test_summary_reports_how_much_is_floor_driven():
     df = w.derive_targets(_tiny_sku(), pd.Series({"T1": 1_000_000.0}),
                           ["2026-07-01"], grain="Territory")

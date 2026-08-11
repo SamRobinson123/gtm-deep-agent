@@ -306,6 +306,7 @@ def derive_targets(
     grain: str = "Territory",
     window=None,
     existing_pipe_bookings=None,
+    closed_won=None,
 ) -> pd.DataFrame:
     """Solve required pipe create per grain key, per quarter, in chronological order.
 
@@ -317,9 +318,21 @@ def derive_targets(
     solve; a single Series applied to both understates the larger quarter.
 
     `existing_pipe_bookings` — expected bookings from pipe already open, slip- and
-    win-rate-adjusted. Same two forms as `bookings_target`. Omitted means zero,
-    which OVERSTATES the required create; the result flags this so the number is
-    never mistaken for complete.
+    pre-Q-win-rate-adjusted. Same two forms as `bookings_target`. Omitted means
+    zero, which OVERSTATES the required create; the result flags this so the number
+    is never mistaken for complete.
+
+    `closed_won` — bookings already banked in the quarter. Same two forms. Matters
+    most for an in-flight quarter: half of Q3's bookings are already won by W7, and
+    omitting them asks pipe create to cover ground already taken.
+
+    The solve per key is:
+
+        gap      = bookings_target - closed_won - expected_from_existing_pipe - tail
+        required = gap / yield_per_dollar_of_new_pipe
+
+    so each term is bookings already accounted for, and only the residue is asked
+    of newly created pipe.
 
     Quarters are solved in order and each quarter's maturation tail is carried
     forward into later quarters, reducing their gap. Solving independently would
@@ -343,6 +356,7 @@ def derive_targets(
         floor = historic_floor(sku, qs, grain)
         q_target = _for_quarter(bookings_target, qs)
         q_existing = _for_quarter(existing_pipe_bookings, qs)
+        q_won = _for_quarter(closed_won, qs)
 
         for key in keys:
             crow = curve.loc[key]
@@ -354,9 +368,10 @@ def derive_targets(
             # No `or {}` fallback: these are Series, and `or` would call bool() on
             # them. The `is not None` guard is the whole check.
             existing = float(q_existing.get(key, 0.0)) if q_existing is not None else 0.0
+            won = float(q_won.get(key, 0.0)) if q_won is not None else 0.0
             tail = carried.get((key, qi), 0.0)
 
-            gap = target - existing - tail
+            gap = target - won - existing - tail
             required = (gap / yld) if (yld > 0 and gap > 0) else 0.0
 
             fl = float(floor.get(key, 0.0))
@@ -374,6 +389,7 @@ def derive_targets(
                 "quarter_start": qs,
                 grain: key,
                 "bookings_target": target,
+                "closed_won": won,
                 "expected_from_existing_pipe": existing,
                 "maturation_tail_from_earlier_quarters": tail,
                 "gap": gap,
@@ -539,6 +555,53 @@ def open_pipe_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
     return out
 
 
+def closed_won_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
+    """Bookings ALREADY WON in the given quarter, per grain key.
+
+    For an in-flight quarter this is the largest term in what the bookings target
+    has already been met by. It needs no win rate and no slip — it is banked. Pipe
+    create only has to cover what is left after it.
+
+    Counterpart to open_pipe_at: that function excludes every Closed stage, so
+    without this the won half of an in-flight quarter is invisible to the solve.
+    """
+    snap = _require("snapshot.parquet")
+    bts = _require("bts.parquet")
+
+    q_start = pd.Timestamp(quarter_start)
+    q_end = pd.Timestamp(config.q_end(quarter_start))
+
+    s = snap.copy()
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"], errors="coerce")
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
+    s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
+
+    cutoff = pd.Timestamp(as_of) if as_of is not None else s["snapshot_date"].max()
+    latest = s[s["snapshot_date"] <= cutoff].sort_values("snapshot_date").groupby("Opp_Id").last()
+
+    # "Closed Won" and "Stage 5 - Closed Won" both appear; "Closed Lost" and
+    # "Closed Deferred" must not match, so require Won as well as Closed.
+    won = latest[
+        latest["Raw_Stage"].astype(str).str.contains(r"Closed.*Won", case=False,
+                                                     na=False, regex=True)
+        & latest["CloseDate"].between(q_start, q_end)
+    ].copy()
+
+    b = bts.copy()
+    b["_key"] = b["Bookings_Team_Static"].astype(str).str.strip().str.lower()
+    b = b[["_key", "BTS_Geo", "BTS_Region", "BTS_Territory"]].drop_duplicates("_key")
+    won["_key"] = won["Bookings_Team_static"].astype(str).str.strip().str.lower()
+    won = won.merge(b, on="_key", how="left")
+    for c in ("BTS_Geo", "BTS_Region", "BTS_Territory"):
+        won[c] = won[c].fillna("Unassigned")
+    won["_g"] = _grain_key(won, grain)
+
+    out = won.groupby("_g")["value"].sum()
+    out.name = "closed_won"
+    out.attrs["as_of"] = str(pd.Timestamp(cutoff).date())
+    return out
+
+
 def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territory",
                            window=None, as_of=None) -> pd.Series:
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
@@ -570,8 +633,15 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
 
     keys = open_pipe.index
     sr = slip_rate.reindex(keys).fillna(slip_rate.mean() if len(slip_rate) else 0.0)
-    wr = rates["in_quarter"].reindex(keys).fillna(rates["in_quarter"].mean() if len(rates) else 0.0)
+    # The PRE-Q rate, not the in-quarter one. Pipe already open at quarter start was
+    # created in an earlier quarter, so its analogue is `later` — deals that closed
+    # in a quarter after the one that created them. Using in_quarter here applies a
+    # rate 3-4x too high (0.41-0.66 vs 0.11-0.21) and swamps the gap.
+    wr = rates["later"].reindex(keys).fillna(rates["later"].mean() if len(rates) else 0.0)
 
+    # Slip and win rate apply in sequence, not as alternatives: slip first removes
+    # what will push out of the quarter, giving the adjusted pipe; the pre-Q win
+    # rate then acts on what remains.
     out = open_pipe * (1.0 - sr) * wr
     out.name = "expected_bookings_from_existing_pipe"
     out.attrs["slip_quarters"] = list(slip_quarters)

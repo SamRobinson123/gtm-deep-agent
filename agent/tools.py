@@ -324,9 +324,23 @@ async def derive_pipe_create_target(args):
     except Exception as e:
         slip_note = f"SLIP NOT INCLUDED — {type(e).__name__}: {e}. Required create is overstated."
 
+    # Already-won bookings are banked: pipe create only covers what is left. For an
+    # in-flight quarter this is the largest single term.
+    won, won_note = None, ""
+    try:
+        won = {q: waterfall.closed_won_at(q, grain=grain) for q in qs}
+        won_note = "Closed Won included: " + ", ".join(
+            f"{config.fq_label(q)} ${won[q].sum():,.0f}" for q in qs) + "."
+    except waterfall.MissingData as e:
+        won_note = (f"CLOSED WON NOT INCLUDED — {e} An in-flight quarter's banked "
+                    f"bookings are therefore treated as still to be created, which "
+                    f"OVERSTATES the required create.")
+    except Exception as e:
+        won_note = f"CLOSED WON NOT INCLUDED — {type(e).__name__}: {e}. Required create is overstated."
+
     try:
         df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window,
-                                      existing_pipe_bookings=existing)
+                                      existing_pipe_bookings=existing, closed_won=won)
         summary = waterfall.summarize(df)
     except Exception as e:
         return _ok(f"Derivation failed: {type(e).__name__}: {e}")
@@ -369,6 +383,8 @@ async def derive_pipe_create_target(args):
     ]
     if slip_note:
         lines += ["", slip_note]
+    if won_note:
+        lines += ["", won_note]
     lines += ["", "This is a derived figure, not the published target. State that when reporting it.",
               f"Run stored: {run_dir}"]
     return _ok("\n".join(lines))
