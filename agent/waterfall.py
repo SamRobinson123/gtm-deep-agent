@@ -21,7 +21,7 @@ the call in `On Error Resume Next`, so a non-converging row silently keeps its o
 value. A closed form cannot fail that way.
 
 QUARTERS ARE COUPLED. Pipe created in Q_n matures into Q_n+1's bookings, so
-quarters are solved in chronological order with the maturation tail carried
+quarters are solved in chronological order with the sales cycle tail carried
 forward. Every link is linear, so the system is triangular and forward
 substitution is exact.
 
@@ -123,7 +123,7 @@ def _grain_key(df: pd.DataFrame, grain: str):
 
 
 # --------------------------------------------------------------------------
-# Step 1 — sales cycle -> maturation curve
+# Step 1 — sales cycle -> sales cycle curve
 # --------------------------------------------------------------------------
 
 def sales_cycle(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFrame:
@@ -159,7 +159,7 @@ def sales_cycle(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFra
     return out
 
 
-def maturation_curve(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFrame:
+def sales_cycle_weights(sku: pd.DataFrame, window=None, grain="Territory") -> pd.DataFrame:
     """Sales cycle normalised to shares summing to 1.0 per grain key.
 
     The workbook's stored vectors sum to 0.98-1.00 because they were rounded to two
@@ -323,6 +323,7 @@ def derive_targets(
     window=None,
     existing_pipe_bookings=None,
     closed_won=None,
+    overrides=None,
 ) -> pd.DataFrame:
     """Solve required pipe create per grain key, per quarter, in chronological order.
 
@@ -350,12 +351,12 @@ def derive_targets(
     so each term is bookings already accounted for, and only the residue is asked
     of newly created pipe.
 
-    Quarters are solved in order and each quarter's maturation tail is carried
+    Quarters are solved in order and each quarter's sales cycle tail is carried
     forward into later quarters, reducing their gap. Solving independently would
     overstate every quarter after the first.
     """
     quarter_starts = sorted(quarter_starts, key=lambda q: pd.Timestamp(q))
-    curve = maturation_curve(sku, window, grain)
+    curve = sales_cycle_weights(sku, window, grain)
     rates = win_rates(sku, window, grain)
 
     # Keys must span every quarter's targets — a territory carrying a target in Q4
@@ -378,23 +379,35 @@ def derive_targets(
             crow = curve.loc[key]
             in_q = rates.loc[key, "in_quarter"] if key in rates.index else None
             later = rates.loc[key, "later"] if key in rates.index else None
-            yld = yield_per_dollar(crow, in_q, later)
+            q0 = float(crow.get(0, 0.0))
+
+            # An override replaces a measured assumption and then flows through
+            # everything downstream — yield, gap, floor comparison, and the tail
+            # this quarter pushes into the next. Substituting only in the headline
+            # would give an answer that no longer reconciles with its own quarters.
+            ov = _override_for(overrides, qs, key)
+            in_q = ov.get("in_quarter_win_rate", in_q)
+            later = ov.get("later_win_rate", later)
+            q0 = ov.get("q0_weight", q0)
+
+            yld = q0 * float(in_q or 0.0)
 
             target = float(q_target.get(key, 0.0))
             # No `or {}` fallback: these are Series, and `or` would call bool() on
             # them. The `is not None` guard is the whole check.
             existing = float(q_existing.get(key, 0.0)) if q_existing is not None else 0.0
             won = float(q_won.get(key, 0.0)) if q_won is not None else 0.0
+            existing = ov.get("expected_from_existing_pipe", existing)
             tail = carried.get((key, qi), 0.0)
 
             gap = target - won - existing - tail
             required = (gap / yld) if (yld > 0 and gap > 0) else 0.0
 
-            fl = float(floor.get(key, 0.0))
+            fl = ov.get("historic_floor", float(floor.get(key, 0.0)))
             binding = "floor" if fl > required else ("gap" if required > 0 else "none")
             create = max(required, fl)
 
-            # Propagate this quarter's maturation tail into later quarters.
+            # Propagate this quarter's sales cycle tail into later quarters.
             for off in range(1, MAX_OFFSET + 1):
                 w = float(crow.get(off, 0.0))
                 if w:
@@ -407,7 +420,7 @@ def derive_targets(
                 "bookings_target": target,
                 "closed_won": won,
                 "expected_from_existing_pipe": existing,
-                "maturation_tail_from_earlier_quarters": tail,
+                "sales_cycle_tail_from_earlier_quarters": tail,
                 "gap": gap,
                 "yield_per_dollar": yld,
                 "required_by_gap": required,
@@ -416,13 +429,110 @@ def derive_targets(
                 "binding": binding,
                 "in_quarter_win_rate": in_q,
                 "later_win_rate": later,
-                "q0_weight": float(crow.get(0, 0.0)),
+                "q0_weight": q0,
+                # A what-if row must never be mistaken for a measured one.
+                "overridden": ",".join(sorted(ov)) if ov else "",
             })
 
     df = pd.DataFrame(out)
     df.attrs["existing_pipe_supplied"] = existing_pipe_bookings is not None
     df.attrs["window"] = window
     df.attrs["grain"] = grain
+    return df
+
+
+ASSUMPTIONS = ("in_quarter_win_rate", "later_win_rate", "q0_weight",
+               "expected_from_existing_pipe", "historic_floor")
+
+
+def _override_for(overrides, quarter_start, key) -> dict:
+    """Resolve overrides for one cell.
+
+    Accepts {key: {...}} to apply across every quarter, or
+    {quarter_start: {key: {...}}} to target one. A key that looks like a date is
+    read as a quarter; anything else is a grain key.
+    """
+    if not overrides:
+        return {}
+    out = {}
+    for k, v in overrides.items():
+        if not isinstance(v, dict):
+            continue
+        if k == quarter_start:                       # quarter-scoped block
+            out.update(v.get(key, {}) if isinstance(v.get(key), dict) else {})
+        elif k == key:                               # key-scoped, all quarters
+            out.update(v)
+    return {a: float(b) for a, b in out.items() if a in ASSUMPTIONS}
+
+
+def flag_outliers(df: pd.DataFrame, grain: str = "Territory") -> pd.DataFrame:
+    """Mark rows whose target is driven by a questionable assumption.
+
+    A target can be large for a good reason (the bookings number demands it) or
+    because an input is broken or extreme. Those look identical in a total, so
+    they are separated here and surfaced per row.
+
+    Each flag names the DRIVER, because the point is to let a reader challenge a
+    specific assumption rather than distrust the whole number.
+
+    Columns are `outlier_flags` / `outlier_reasons`, not `flags`: pandas already
+    owns `DataFrame.flags`, so a column of that name is unreachable by attribute
+    access and silently returns a pandas Flags object instead of the data.
+    """
+    df = df.copy()
+    flags, reasons = [], []
+
+    for q, g in df.groupby("quarter", sort=False):
+        med_in_q = g.loc[g["in_quarter_win_rate"] > 0, "in_quarter_win_rate"].median()
+        med_yield = g.loc[g["yield_per_dollar"] > 0, "yield_per_dollar"].median()
+        med_target = g.loc[g["pipe_create_target"] > 0, "pipe_create_target"].median()
+
+        for _, r in g.iterrows():
+            f, why = [], []
+
+            # No existing pipe at all, yet a target to hit — nothing is working for
+            # this team, so the whole bookings number falls on new creation.
+            if r["bookings_target"] > 0 and r["expected_from_existing_pipe"] <= 0:
+                f.append("no_existing_pipe")
+                why.append("No open pipe is expected to convert, so the entire bookings "
+                           "target falls on newly created pipe.")
+
+            # A low in-quarter win rate divides a small number into the gap, which
+            # inflates required create without anyone asking for more pipe.
+            if med_in_q and r["in_quarter_win_rate"] > 0 and r["in_quarter_win_rate"] < 0.5 * med_in_q:
+                f.append("low_in_q_win_rate")
+                why.append(f"In-quarter win rate {r['in_quarter_win_rate']:.1%} is well below "
+                           f"the {grain} median {med_in_q:.1%}. It is the divisor, so a low "
+                           f"rate raises this target.")
+
+            if med_yield and r["yield_per_dollar"] > 0 and r["yield_per_dollar"] < 0.5 * med_yield:
+                f.append("low_yield")
+                why.append(f"Yield {r['yield_per_dollar']:.4f} per dollar created is below "
+                           f"half the median {med_yield:.4f}, so every dollar of gap needs "
+                           f"more pipe here than elsewhere.")
+
+            if r["q0_weight"] <= 0:
+                f.append("no_q0_weight")
+                why.append("Nothing created here has ever closed in its own quarter, so the "
+                           "in-quarter yield is zero and the gap cannot be solved.")
+
+            if r["bookings_target"] <= 0 and r["pipe_create_target"] > 0:
+                f.append("target_without_bookings")
+                why.append("No bookings target, so this figure is the historic floor alone.")
+
+            if r["historic_floor"] <= 0:
+                f.append("no_floor")
+                why.append("No prior-year creation to floor against.")
+
+            if med_target and r["pipe_create_target"] > 5 * med_target:
+                f.append("outsized_target")
+                why.append(f"Target is more than 5x the {grain} median.")
+
+            flags.append(",".join(f))
+            reasons.append(" ".join(why))
+
+    df["outlier_flags"] = flags
+    df["outlier_reasons"] = reasons
     return df
 
 

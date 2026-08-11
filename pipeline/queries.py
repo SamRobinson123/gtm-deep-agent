@@ -59,7 +59,7 @@ SELECT
         ELSE 'Open'
     END                                                        AS Stage,
     N.StageName                                                AS Raw_Stage,
-    -- Create / discovery date. Required for sales cycle: the maturation curve is
+    -- Create / discovery date. Required for sales cycle: the sales cycle curve is
     -- the distribution of CreateDate -> CloseDate bucketed by QUARTER OFFSET.
     -- sku_nacv_fact is product-grain, which is what makes Territory x Product
     -- curves possible — opportunity-grain data cannot produce them.

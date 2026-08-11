@@ -18,14 +18,14 @@ it to a target it reads from `Target_Monthly.csv`. It never explains **where tha
 target came from.**
 
 This sheet is where. It runs in the *opposite* direction: it takes a pipe-create
-figure as an **input**, spreads it across future close quarters by maturation
+figure as an **input**, spreads it across future close quarters by sales cycle
 weights, applies win rates, and lands on expected bookings — which is then
 compared to the bookings target. Solving that backwards is how a pipe create
 target is set.
 
 ```
 Pipe Create (input)
-  → spread across close quarters Q0…Q+8 by maturation weights
+  → spread across close quarters Q0…Q+8 by sales cycle weights
   → win rates applied (in-quarter rate vs pre-quarter rate)
   → Pipe Won
   → + pre-existing pipe and flows → Adj Bookings
@@ -50,7 +50,7 @@ The waterfall is the middle of a four-step system. Reading the sheet alone shows
 *what* is computed but not *where the assumptions come from* or *what question is
 being solved*.
 
-### Step 1 — Sales cycle sets the maturation curve
+### Step 1 — Sales cycle sets the quarter-offset weights
 
 **Source: `[src].[sku_nacv_fact]`** — see
 [`../tables/sku-nacv-fact.md`](../tables/sku-nacv-fact.md).
@@ -67,7 +67,7 @@ of days cannot allocate dollars across future quarters; the bucketed distributio
 can.
 
 *Why this table and not `opportunity_live`:* `sku_nacv_fact` is **product-grain**,
-which is what allows maturation to be fitted at Territory x Product — matching the
+which is what allows sales cycle to be fitted at Territory x Product — matching the
 10 distinct weight vectors observed for a single territory in the workbook.
 Opportunity-grain data cannot produce a per-product curve.
 **This resolves the earlier open question about where per-product fitting happens.**
@@ -104,9 +104,9 @@ quarter.** Measured on a *historic* quarter so the outcome is known:
 This is what populates `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
 `Pre Q Outflow`.
 
-**Slip and maturation are different measurements, not two names for one thing:**
+**Slip and sales cycle are different measurements, not two names for one thing:**
 
-| | Maturation curve | Slip |
+| | Sales cycle weights | Slip |
 |---|---|---|
 | Population | Newly *created* pipe | Pipe already open at quarter start |
 | Question | When will new pipe close? | Where did existing pipe move to? |
@@ -236,7 +236,7 @@ Rows are sorted Territory → Product → Quarter ascending, so row `r-k` is exa
 k quarters earlier. The `IF` guards are what stop the tail bleeding across a
 Territory x Product boundary.
 
-**So `AD:AK` is the maturation tail ARRIVING from earlier quarters — it does not
+**So `AD:AK` is the sales cycle tail ARRIVING from earlier quarters — it does not
 depend on this row's `S` at all.** Only `AC` does. `Pipe Won` is still linear in
 `Pipe Create`, but with a much smaller coefficient:
 
@@ -276,18 +276,18 @@ it held** — a defect a closed form cannot have.
 Because only ~10–14% of created pipe closes in its own quarter, the pipe created
 in any quarter is mostly serving **later** quarters. So the required create for a
 quarter is not a single-quarter solve: it must cover that quarter's own residual
-need *and* seed the maturation tail that subsequent quarters depend on.
+need *and* seed the sales cycle tail that subsequent quarters depend on.
 
 **This makes the system multi-quarter and coupled**, not a per-quarter
 calculation repeated four times. A change to one quarter's create target
-propagates forward through the maturation curve into every subsequent quarter's
+propagates forward through the sales cycle curve into every subsequent quarter's
 starting position.
 
 #### How to solve the coupling — RESOLVED 2026-08-10
 
 Quarter N's created pipe flows into quarter N+1's `Pipe Won Pre Q`, which reduces
 N+1's gap. So quarters must be solved **in chronological order**, each propagating
-its maturation tail forward before the next is solved.
+its sales cycle tail forward before the next is solved.
 
 Because every link is linear (see Step 3), the system is **triangular** — earlier
 quarters affect later ones but never the reverse. It therefore solves exactly by
@@ -296,10 +296,10 @@ quarters affect later ones but never the reverse. It therefore solves exactly by
 ```
 for each quarter in chronological order:
     gap        = bookings_target − expected_from_existing_pipe
-                                 − maturation_tail_from_earlier_quarters
+                                 − sales_cycle_tail_from_earlier_quarters
     S          = gap / yield_per_dollar          # closed form, exact
     S          = apply_floor(S)                  # constraint, see below
-    propagate  S × maturation_weights → later quarters
+    propagate  S × sales_cycle_weights → later quarters
 ```
 
 Solving quarters independently would be wrong: it would ignore the tail and
@@ -338,7 +338,7 @@ demands it. Those are different conversations. Any implementation should emit a
 floor-driven.
 
 Floors also interact with the coupling: a floor-raised quarter pushes a larger
-maturation tail forward, which **reduces** the next quarter's gap. Solving in
+sales cycle tail forward, which **reduces** the next quarter's gap. Solving in
 chronological order handles this; solving independently does not.
 
 ### Chain summary
@@ -347,7 +347,7 @@ chronological order handles this; solving independently does not.
 GIVEN (input)                    COMPUTED FROM SOURCE
 bookings target                  sku_nacv_fact
   from finance/planning            ├─ sales cycle (create→close, QUARTER offsets)
-  today: Target_Monthly.csv        │    → maturation weights Q0…Q+8
+  today: Target_Monthly.csv        │    → sales cycle weights Q0…Q+8
   Target_Type = 'Bookings'         ├─ win rates (in-quarter vs later)
                                    └─ historical mix → splits
                                  trf_opp_daily_snapshot_new
@@ -359,7 +359,7 @@ bookings target − expected bookings from existing pipe (slip- and win-rate-adj
 REQUIRED PIPE CREATE   ← the answer
         ↓  splits + renaming applied downstream
 Target_Monthly.csv — a BY-PRODUCT, 63,171 rows × 12 dimensions
-        ↓  maturation curve
+        ↓  sales cycle curve
 supports this quarter (~10-14%) + all subsequent quarters (~86-90%)
         ↓
 couples every quarter to every later quarter
@@ -418,12 +418,12 @@ quarters. `Adj Difference` is the gap the new pipe create must fill.
 `Pre Q Outflow` min −$2,901,699, never positive). So the `+$R` in the
 `Pre Q Bookings` formula subtracts correctly. **Never negate them again.**
 
-### Maturation weights — T–AB
+### Sales cycle weights — T–AB
 
 `Q0 wt` … `Q+8 wt`. The share of pipe created in this quarter expected to close
 in each subsequent quarter.
 
-**16 distinct weight vectors** across the sheet — these are empirical maturation
+**16 distinct weight vectors** across the sheet — these are empirical sales cycle
 curves per Geo/product, not one global assumption. The most common:
 
 | Vector (Q0 → Q+8) | Rows |
@@ -481,12 +481,12 @@ rate. **The two are not the same population:**
 | | Workbook `AP` | `expected_from_existing_pipe` |
 |---|---|---|
 | Population | Pipe *created* in the 8 prior quarters | Pipe *currently open* with `CloseDate` in this quarter |
-| Selected by | Maturation curve of the creating quarter | Snapshot `CloseDate` |
+| Selected by | Sales cycle curve of the creating quarter | Snapshot `CloseDate` |
 | Misses | — | Prior-quarter creates not yet dated into this quarter |
 
 Measured Q3 FY26: the term supplies $11.8M, and landing on the published
 $201.8M would need roughly **$18.3M**. The shortfall is the right order of
-magnitude for two quarters of missing maturation tail.
+magnitude for two quarters of missing sales cycle tail.
 
 **Consequence — the two errors were cancelling.** Before 2026-08-11 the rebuild
 used the inflated yield *and* this understated tail, and landed within +3.2% of
@@ -546,17 +546,17 @@ stale too and join via `Target_Monthly.csv` as canonical.
 1. **Is this still how targets are set?** The workbook is dated 2026-05-15 and
    `Target_Monthly.csv` 2026-07-27. Whether FY26 targets came from this sheet or
    a successor is **unknown**.
-2. ~~Where do the maturation curves come from?~~ **Fully answered 2026-08-10:**
+2. ~~Where do the sales cycle curves come from?~~ **Fully answered 2026-08-10:**
    from sales cycle computed on `[src].[sku_nacv_fact]` —
    `Stage_1_Start_Date_Corrected` → `Opp_Closed_Date`, bucketed by quarter offset.
    The per-product fitting question is resolved too: `sku_nacv_fact` is
    product-grain, which is exactly what yields Territory x Product curves.
 
 2a. **Possible double-count — unresolved, and it biases pipe create upward.**
-   The maturation curve is fitted on *actual historical close dates*, which
+   The sales cycle curve is fitted on *actual historical close dates*, which
    already embed every slip those deals experienced: a deal created in Q1 that
    slipped twice and closed in Q4 appears in the curve at `Q+3`, not as `Q+1`
-   plus two slips. So slip behaviour is **already inside the maturation curve**.
+   plus two slips. So slip behaviour is **already inside the sales cycle curve**.
    Applying a separate slip term on top is only legitimate if the two act on
    genuinely disjoint populations — new creation vs the pre-existing open base.
    On the face of it they do, but an opp created *within* the quarter that then
@@ -565,7 +565,7 @@ stale too and join via `Target_Monthly.csv` as canonical.
    separate slip term is redundant and inflates required pipe create.
 3. **What time window fits the curves?** Trailing how many quarters? A curve
    fitted on a period containing a pricing or packaging change would misstate
-   maturation. Not established.
+   sales cycle. Not established.
 4. **Does the slip analysis use a pre-quarter buffer?** The Python pipeline does,
    per root `CLAUDE.md` invariant 5. If the Excel slip analysis anchors on the
    first in-quarter snapshot without a buffer, the two disagree on starting pipe

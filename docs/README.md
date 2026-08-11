@@ -47,7 +47,7 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | **Pipe Create — weekly actual vs target, allocation, attainment** | [`models/pipe-create.md`](models/pipe-create.md) → [`tables/target-monthly.md`](tables/target-monthly.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) → [`tables/territory-mapping.md`](tables/territory-mapping.md). Root `CLAUDE.md` invariants apply. |
 | **Anything involving targets, attainment, or ASP** | [`tables/target-monthly.md`](tables/target-monthly.md) — mandatory load recipe, whitespace and case-collision gotchas |
 | Per-AE targets, AE capacity, pipeline per AE, headcount | [`tables/headcount.md`](tables/headcount.md) → [`tables/target-monthly.md`](tables/target-monthly.md) |
-| **Where the pipe create TARGET comes from** — waterfall, maturation curves, win rates | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — reconstructed from the legacy workbook, unconfirmed |
+| **Where the pipe create TARGET comes from** — waterfall, sales cycle curves, win rates | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — reconstructed from the legacy workbook, unconfirmed |
 | Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
 | Win probability model — design decisions | [`models/win-probability-design.md`](models/win-probability-design.md) |
 | Win probability model — writing or modifying code | [`models/win-probability-design.md`](models/win-probability-design.md) → [`models/implementation.md`](models/implementation.md) |
@@ -116,7 +116,7 @@ README.md  (you are here)
 │                                     hands off to → analysis/gtm-dashboard.md (integration)
 │
 ├── analysis/
-│   ├── pipe-create-waterfall.md ← how the pipe create TARGET is derived: maturation
+│   ├── pipe-create-waterfall.md ← how the pipe create TARGET is derived: sales cycle
 │   │                               weights Q0..Q+8, win rates, bookings roll-up.
 │   │                               RECONSTRUCTED from the legacy xlsm, unconfirmed.
 │   │                               NOT implemented in Python.

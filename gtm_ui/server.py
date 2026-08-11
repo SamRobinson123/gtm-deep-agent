@@ -127,7 +127,7 @@ async def run_derivation(run_id: str):
         target = g["bookings_target"].sum()
         won = g["closed_won"].sum() if "closed_won" in g else 0.0
         existing = g["expected_from_existing_pipe"].sum()
-        tail = g["maturation_tail_from_earlier_quarters"].sum()
+        tail = g["sales_cycle_tail_from_earlier_quarters"].sum()
         gap = g["gap"].clip(lower=0).sum()
         required = g["required_by_gap"].sum()
         total = g["pipe_create_target"].sum()
@@ -147,7 +147,7 @@ async def run_derivation(run_id: str):
              "provenance": "modelled",
              "formula": "open pipe x (1 - slip rate) x pre-Q win rate",
              "note": "Slip and win rate apply in sequence, not as alternatives."},
-            {"kind": "deduct", "label": "Maturation tail from earlier quarters",
+            {"kind": "deduct", "label": "Sales cycle tail from earlier quarters",
              "value": money(-tail),
              "provenance": "suspect" if tail == 0 else "modelled",
              "formula": "sum over prior quarters of created pipe x weight x pre-Q win rate",
@@ -184,6 +184,43 @@ async def run_derivation(run_id: str):
     return {"run_id": run_id, "grain": manifest.get("grain", "Territory"),
             "quarters": out, "caveats": manifest.get("caveats", []),
             "warnings": manifest.get("warnings", [])}
+
+
+@app.get("/api/runs/{run_id}/waterfall")
+async def run_waterfall(run_id: str):
+    """Every row of the solve, in workbook column order, with outlier flags.
+
+    The aggregate ledger says what the number is; this says which territories
+    made it that way and which of them rest on a questionable assumption.
+    """
+    import pandas as pd
+
+    from agent import waterfall as wf
+
+    path = (config.RUNS / run_id).resolve() / "derived_pipe_create.csv"
+    if not path.is_file():
+        raise HTTPException(404, "this run has no derivation")
+
+    df = wf.flag_outliers(pd.read_csv(path), "Territory")
+    df = df.replace({float("nan"): None})
+    order = ["quarter", "Territory", "bookings_target", "closed_won",
+             "expected_from_existing_pipe", "sales_cycle_tail_from_earlier_quarters",
+             "gap", "q0_weight", "in_quarter_win_rate", "later_win_rate",
+             "yield_per_dollar", "required_by_gap", "historic_floor",
+             "pipe_create_target", "binding", "outlier_flags", "outlier_reasons"]
+    cols = [c for c in order if c in df.columns]
+
+    quarters = []
+    for q, g in df.groupby("quarter", sort=False):
+        g = g.sort_values("pipe_create_target", ascending=False)
+        quarters.append({
+            "quarter": q,
+            "rows": g[cols].to_dict("records"),
+            "flagged": int((g["outlier_flags"] != "").sum()),
+            "total": float(g["pipe_create_target"].sum()),
+        })
+    return {"run_id": run_id, "columns": cols, "quarters": quarters,
+            "overridable": list(wf.ASSUMPTIONS)}
 
 
 @app.get("/api/auth/status")

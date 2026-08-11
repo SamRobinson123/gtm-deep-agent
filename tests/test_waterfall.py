@@ -34,7 +34,7 @@ def test_yield_per_dollar_counts_only_the_in_quarter_slice():
     assert y == pytest.approx(0.10 * 0.70)
 
 
-def test_the_maturation_tail_is_not_counted_twice():
+def test_the_sales_cycle_tail_is_not_counted_twice():
     """A quarter's later-quarter weights must reduce a LATER quarter's gap, and
     must not also inflate the creating quarter's own yield."""
     curve = pd.Series({0: 0.10, 1: 0.90})
@@ -115,10 +115,10 @@ def test_win_rates_split_in_quarter_from_later():
     assert r.loc["T1", "later"] == pytest.approx(300 / 1000)
 
 
-def test_maturation_curve_sums_to_one():
+def test_sales_cycle_weights_sums_to_one():
     """Normalised exactly — the workbook's stored vectors summed to 0.98-1.00
     because they were rounded to 2dp, quietly losing 1-2% of created pipe."""
-    c = w.maturation_curve(_tiny_sku(), grain="Territory")
+    c = w.sales_cycle_weights(_tiny_sku(), grain="Territory")
     assert c.loc["T1"].sum() == pytest.approx(1.0)
 
 
@@ -159,8 +159,8 @@ def test_quarters_are_solved_in_order_and_the_tail_reduces_the_later_gap():
     q4_coupled = both[both.quarter_start == "2026-10-01"].iloc[0]
     q4_alone = w.derive_targets(sku, bt, ["2026-10-01"], grain="Territory").iloc[0]
 
-    assert q4_coupled["maturation_tail_from_earlier_quarters"] > 0
-    assert q4_alone["maturation_tail_from_earlier_quarters"] == 0
+    assert q4_coupled["sales_cycle_tail_from_earlier_quarters"] > 0
+    assert q4_alone["sales_cycle_tail_from_earlier_quarters"] == 0
     assert q4_coupled["gap"] < q4_alone["gap"]
 
 
@@ -285,3 +285,72 @@ def test_summary_reports_how_much_is_floor_driven():
 def test_missing_parquet_says_what_to_do():
     with pytest.raises(w.MissingData, match="run_pull"):
         w._require("definitely_not_pulled.parquet")
+
+
+# --- outlier flags and overrides ---------------------------------------------
+
+def _two_territories():
+    """T1 healthy; T2 wins almost nothing in-quarter — the Public Sector shape."""
+    q = w.quarter_index("2025-07-01")
+    rows = []
+    for terr, won_in_q in (("T1", 500.0), ("T2", 30.0)):
+        rows += [
+            {"Stage": w.WON,  "close_q": q,     "value": won_in_q,          "BTS_Territory": terr},
+            {"Stage": w.LOST, "close_q": q,     "value": 1000.0 - won_in_q, "BTS_Territory": terr},
+            {"Stage": w.WON,  "close_q": q + 2, "value": 300.0,             "BTS_Territory": terr},
+            {"Stage": w.LOST, "close_q": q + 2, "value": 700.0,             "BTS_Territory": terr},
+        ]
+    d = pd.DataFrame(rows)
+    d["CreateDate"] = pd.to_datetime("2025-07-05")
+    d["create_q"] = q
+    return d
+
+
+def test_a_low_in_quarter_win_rate_is_flagged_with_its_driver():
+    """A target inflated by a 3% win rate must not look like one the bookings
+    number demanded. The flag names the divisor so it can be challenged."""
+    df = w.derive_targets(_two_territories(), pd.Series({"T1": 1e6, "T2": 1e6}),
+                          ["2026-07-01"], grain="Territory")
+    flagged = w.flag_outliers(df, "Territory").set_index("Territory")
+
+    assert "low_in_q_win_rate" in flagged.loc["T2", "outlier_flags"]
+    assert "low_in_q_win_rate" not in flagged.loc["T1", "outlier_flags"]
+    assert "divisor" in flagged.loc["T2", "outlier_reasons"]
+
+
+def test_zero_existing_pipe_is_flagged():
+    """The AMS Corporate shape: a bookings target with no open pipe behind it."""
+    df = w.derive_targets(_two_territories(), pd.Series({"T1": 1e6, "T2": 1e6}),
+                          ["2026-07-01"], grain="Territory",
+                          existing_pipe_bookings=pd.Series({"T1": 200_000.0, "T2": 0.0}))
+    flagged = w.flag_outliers(df, "Territory").set_index("Territory")
+
+    assert "no_existing_pipe" in flagged.loc["T2", "outlier_flags"]
+    assert "no_existing_pipe" not in flagged.loc["T1", "outlier_flags"]
+
+
+def test_overriding_a_win_rate_lowers_that_territorys_target_only():
+    """'I do not believe 3%, I think 40%' — what does the target become?
+
+    The override must flow through the yield, and must not touch anyone else.
+    """
+    sku, bt = _two_territories(), pd.Series({"T1": 1e6, "T2": 1e6})
+    base = w.derive_targets(sku, bt, ["2026-07-01"], grain="Territory").set_index("Territory")
+    what_if = w.derive_targets(sku, bt, ["2026-07-01"], grain="Territory",
+                               overrides={"T2": {"in_quarter_win_rate": 0.40}}
+                               ).set_index("Territory")
+
+    assert what_if.loc["T2", "in_quarter_win_rate"] == pytest.approx(0.40)
+    assert what_if.loc["T2", "required_by_gap"] < base.loc["T2", "required_by_gap"]
+    assert what_if.loc["T1", "required_by_gap"] == pytest.approx(base.loc["T1", "required_by_gap"])
+    assert what_if.loc["T2", "overridden"] == "in_quarter_win_rate"
+    assert base.loc["T2", "overridden"] == ""
+
+
+def test_an_override_can_target_one_quarter():
+    sku, bt = _two_territories(), pd.Series({"T1": 1e6, "T2": 1e6})
+    df = w.derive_targets(sku, bt, ["2026-07-01", "2026-10-01"], grain="Territory",
+                          overrides={"2026-10-01": {"T2": {"in_quarter_win_rate": 0.40}}})
+    got = df.set_index(["quarter_start", "Territory"])["in_quarter_win_rate"]
+    assert got[("2026-10-01", "T2")] == pytest.approx(0.40)
+    assert got[("2026-07-01", "T2")] != pytest.approx(0.40)

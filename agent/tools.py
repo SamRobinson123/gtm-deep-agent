@@ -5,7 +5,7 @@ through agent.sqlguard BEFORE executing, and it is never auto-approved — the u
 sees the exact statement and approves it.
 
 This reverses the original four-queries-only design (2026-08-10). Deriving win
-rates or maturation curves over an arbitrary window is impossible without composing
+rates or sales cycle curves over an arbitrary window is impossible without composing
 SQL, so the control moved: from "the agent cannot express SQL" to "the agent can
 only express reads against documented tables, and you approve each one".
 """
@@ -141,6 +141,121 @@ async def pipe_create_targets(args):
     )
 
 
+async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
+                        as_of: str | None = None):
+    """Assemble the derivation inputs and solve. Shared by the derive tool and the
+    what-if, so an override is evaluated against exactly the same inputs as the
+    baseline — two separate assembly paths would drift and make the delta a lie.
+
+    Returns (frame, notes). Raises on anything that makes a number impossible.
+    """
+    import pandas as pd
+    from agent import waterfall
+
+    qs = [targets.resolve_quarter(q.strip())
+          for q in quarters.replace(";", ",").split(",") if q.strip()]
+    sku = waterfall.load_sku(grain)
+    book = {q: config._target_by_team("Bookings", q).sum(axis=1) for q in qs}
+    as_of = as_of or str(pd.Timestamp.today().date())
+
+    notes = []
+    existing = None
+    try:
+        sq = [targets.resolve_quarter("Q3 FY25")]
+        points = {h: waterfall.equivalent_point(qs[0], as_of, h) for h in sq}
+        existing = {q: waterfall.existing_pipe_bookings(
+            q, sq, sku=sku, grain=grain,
+            slip_from_points=points, slip_snapshot_file="snapshot_hist.parquet") for q in qs}
+    except Exception as e:
+        notes.append(f"SLIP NOT INCLUDED — {type(e).__name__}: {e}")
+
+    won = None
+    try:
+        won = {q: waterfall.closed_won_at(q, grain=grain) for q in qs}
+    except Exception as e:
+        notes.append(f"CLOSED WON NOT INCLUDED — {type(e).__name__}: {e}")
+
+    df = waterfall.derive_targets(sku, book, qs, grain=grain,
+                                  existing_pipe_bookings=existing, closed_won=won,
+                                  overrides=overrides)
+    return waterfall.flag_outliers(df, grain), notes
+
+
+@tool(
+    "what_if_assumption",
+    "Recompute a derived pipe create target with one assumption replaced, for a "
+    "single territory or all of them. Use when someone challenges an input — "
+    "'I don't believe the in-quarter win rate is 3%, call it 40%, what does the "
+    "target become?'. Assumptions: in_quarter_win_rate, later_win_rate, q0_weight, "
+    "expected_from_existing_pipe, historic_floor. Rates are fractions (0.40, not 40).",
+    {"key": str, "assumption": str, "value": float, "quarters": str},
+)
+async def what_if_assumption(args):
+    import pandas as pd
+    from agent import waterfall
+
+    key = (args.get("key") or "").strip()
+    assumption = (args.get("assumption") or "").strip()
+    value = args.get("value")
+    if assumption not in waterfall.ASSUMPTIONS:
+        return _ok(f"Cannot override {assumption!r}. Available: {', '.join(waterfall.ASSUMPTIONS)}.")
+    if value is None:
+        return _ok("A value is required.")
+    if assumption.endswith("win_rate") and not 0 <= float(value) <= 1:
+        return _ok(f"{assumption} is a fraction between 0 and 1 — got {value}. "
+                   f"40% is 0.40.")
+
+    raw = (args.get("quarters") or "Q3 FY26, Q4 FY26").replace(";", ",")
+    try:
+        qs = [targets.resolve_quarter(q.strip()) for q in raw.split(",") if q.strip()]
+    except ValueError as e:
+        return _ok(str(e))
+
+    try:
+        base, notes = await _derive_frame(raw)
+        what, _ = await _derive_frame(raw, overrides={key: {assumption: float(value)}})
+    except Exception as e:
+        return _ok(f"Could not recompute: {type(e).__name__}: {e}")
+
+    if key not in set(base["Territory"]):
+        near = [t for t in sorted(set(base["Territory"])) if key.lower() in t.lower()]
+        return _ok(f"No territory named {key!r}." + (f" Did you mean: {', '.join(near)}?" if near else ""))
+
+    b = base.set_index(["quarter", "Territory"])
+    a = what.set_index(["quarter", "Territory"])
+    was = b.xs(key, level="Territory")[assumption].iloc[0]
+    lines = [f"WHAT IF — {key}: {assumption} {was:.4f} -> {float(value):.4f}", ""]
+
+    for q in [config.fq_label(x) for x in qs]:
+        if (q, key) not in b.index:
+            continue
+        before, after = b.loc[(q, key)], a.loc[(q, key)]
+        t0, t1 = before["pipe_create_target"], after["pipe_create_target"]
+        delta = f"{t1 - t0:+,.0f}" + (f", {(t1 / t0 - 1):+.1%}" if t0 else "")
+        lines += [
+            q,
+            f"  yield per $       {before['yield_per_dollar']:.4f} -> {after['yield_per_dollar']:.4f}",
+            f"  required by gap   ${before['required_by_gap']:,.0f} -> ${after['required_by_gap']:,.0f}",
+            f"  historic floor    ${after['historic_floor']:,.0f}"
+            f"   (binding: {before['binding']} -> {after['binding']})",
+            f"  TARGET            ${t0:,.0f} -> ${t1:,.0f}   ({delta})",
+        ]
+        if before["binding"] == "gap" and after["binding"] == "floor":
+            lines.append("  NOTE: the floor now binds, so further improvement to this "
+                         "assumption cannot lower the target.")
+        qb = base[base.quarter == q]["pipe_create_target"].sum()
+        qa = what[what.quarter == q]["pipe_create_target"].sum()
+        lines += [f"  {q} all territories: ${qb:,.0f} -> ${qa:,.0f} ({qa - qb:+,.0f})", ""]
+
+    if notes:
+        lines += notes + [""]
+
+    lines.append("This is a what-if, not a published or derived target. The override "
+                 "replaces a measured assumption and flows through yield, gap, the floor "
+                 "comparison and the tail pushed into later quarters.")
+    return _ok("\n".join(lines))
+
+
 @tool("list_runs", "List previous model runs with their headline figures, so an earlier number can be reviewed even after newer iterations exist.", {})
 async def list_runs(args):
     runs = lineage.list_runs()
@@ -198,7 +313,7 @@ async def azure_login(args):
     "query",
     "Compose and run a read-only SQL query against Synapse for analysis the four "
     "standard report queries cannot answer â€” e.g. win rates, sales cycle, or "
-    "maturation curves over a chosen window. SELECT/WITH only, against tables "
+    "sales cycle curves over a chosen window. SELECT/WITH only, against tables "
     "documented in docs/tables/. Read the relevant docs/tables/ contract and "
     "docs/sql/conventions.md BEFORE composing. The user sees and approves the exact "
     "SQL before it runs. Results are saved to a run with lineage.",
@@ -261,9 +376,9 @@ async def query(args):
 @tool(
     "derive_pipe_create_target",
     "DERIVE what the pipe create target SHOULD be from current data and assumptions "
-    "— sales cycle, maturation curve, win rates and historic floor recomputed from "
+    "— sales cycle, sales cycle curve, win rates and historic floor recomputed from "
     "sku_nacv_fact over a chosen window, then goal-seek against the given bookings "
-    "target, solved chronologically so each quarter's maturation tail feeds the next. "
+    "target, solved chronologically so each quarter's sales cycle tail feeds the next. "
     "This is the DERIVED target. It is NOT the published target in Target_Monthly.csv "
     "(use pipe_create_targets for that). Requires a pull. Read "
     "docs/analysis/pipe-create-waterfall.md before interpreting the output.",
@@ -403,6 +518,7 @@ GTM_TOOLS = [
     run_pull,
     query,
     pipe_create_targets,
+    what_if_assumption,
     list_runs,
     show_run,
 ]

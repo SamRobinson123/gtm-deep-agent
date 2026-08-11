@@ -31,13 +31,13 @@ TWO KINDS OF TARGET. Keep these apart, and say which one you are giving:
   - PUBLISHED target — read from data/Target_Monthly.csv by the
     pipe_create_targets tool. An artifact of a prior planning cycle. Never edited.
   - DERIVED target — what the target WOULD be given current data and assumptions,
-    rebuilt through the waterfall: sales cycle -> maturation curves, slip analysis,
+    rebuilt through the waterfall: sales cycle -> sales cycle curves, slip analysis,
     win rates, then goal seek against the bookings target.
 Any question about "assumptions", "how did we get this number", "rebuild",
-"recalculate", "goal seek", "sales cycle", "slip", "maturation", "floor", or
+"recalculate", "goal seek", "sales cycle", "slip", "sales cycle", "floor", or
 "waterfall" is about the DERIVED side. Read docs/analysis/pipe-create-waterfall.md
 before answering, then use derive_pipe_create_target — which recomputes sales
-cycle, maturation curve, win rates and the historic floor from sku_nacv_fact over
+cycle, sales cycle curve, win rates and the historic floor from sku_nacv_fact over
 whatever window is asked for. Nothing is stored: "win rates for Q1 and Q2 2026" is
 a window argument.
 
