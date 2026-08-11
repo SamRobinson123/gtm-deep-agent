@@ -158,16 +158,21 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     book = {q: config._target_by_team("Bookings", q).sum(axis=1) for q in qs}
     as_of = as_of or str(pd.Timestamp.today().date())
 
-    notes = []
-    existing = None
-    try:
-        sq = [targets.resolve_quarter("Q3 FY25")]
-        points = {h: waterfall.equivalent_point(qs[0], as_of, h) for h in sq}
-        existing = {q: waterfall.existing_pipe_bookings(
-            q, sq, sku=sku, grain=grain,
-            slip_from_points=points, slip_snapshot_file="snapshot_hist.parquet") for q in qs}
-    except Exception as e:
-        notes.append(f"SLIP NOT INCLUDED — {type(e).__name__}: {e}")
+    # Slip is measured on the SAME QUARTER a year earlier, per quarter being
+    # solved — Q3 FY26 from Q3 FY25, Q4 FY26 from Q4 FY25. Slip is seasonal, so
+    # applying one quarter's rate to every quarter imports the wrong shape.
+    notes, existing = [], {}
+    for q in qs:
+        h = waterfall.prior_year_quarter(q)
+        try:
+            existing[q] = waterfall.existing_pipe_bookings(
+                q, [h], sku=sku, grain=grain,
+                slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
+                slip_snapshot_file="snapshot_hist.parquet")
+        except Exception as e:
+            notes.append(f"SLIP NOT INCLUDED for {config.fq_label(q)} "
+                         f"(needs {config.fq_label(h)}) — {type(e).__name__}: {e}")
+    existing = existing or None
 
     won = None
     try:
@@ -423,26 +428,32 @@ async def derive_pipe_create_target(args):
     # Slip is part of the assumptions, not an optional extra: it supplies expected
     # bookings from pipe that already exists, which the goal seek subtracts. Without
     # it the gap is the full bookings target and required create is overstated.
-    existing, slip_note = None, ""
-    # Prior-year same quarter, measured from the equivalent point in that quarter.
-    # Mid-quarter this is the like-for-like comparison; see equivalent_point().
-    slip_qs = args.get("slip_quarters") or "Q3 FY25"
+    #
+    # Measured PER QUARTER on the same quarter a year earlier — Q3 FY26 from
+    # Q3 FY25, Q4 FY26 from Q4 FY25 — because slip is seasonal. One window applied
+    # to every quarter imports the wrong shape. This is the same assembly the
+    # what-if uses; keeping two copies is how they drift.
     as_of = args.get("as_of") or str(pd.Timestamp.today().date())
-    try:
-        sq = [targets.resolve_quarter(q.strip()) for q in slip_qs.replace(";", ",").split(",") if q.strip()]
-        points = {h: waterfall.equivalent_point(qs[0], as_of, h) for h in sq}
-        existing = {q: waterfall.existing_pipe_bookings(
-            q, sq, sku=sku, grain=grain, window=window,
-            slip_from_points=points, slip_snapshot_file="snapshot_hist.parquet") for q in qs}
-        first = existing[qs[0]]
-        slip_note = (f"Slip measured on {', '.join(config.fq_label(q) for q in sq)} — "
-                     f"mean slip rate {first.attrs.get('mean_slip_rate'):.1%}, "
-                     f"open pipe as of {first.attrs.get('as_of')}.")
-    except waterfall.MissingData as e:
-        slip_note = (f"SLIP NOT INCLUDED — {e} Expected bookings from existing pipe is "
-                     f"therefore zero, which OVERSTATES the required create.")
-    except Exception as e:
-        slip_note = f"SLIP NOT INCLUDED — {type(e).__name__}: {e}. Required create is overstated."
+    existing, slip_lines = {}, []
+    for q in qs:
+        h = waterfall.prior_year_quarter(q)
+        try:
+            e = waterfall.existing_pipe_bookings(
+                q, [h], sku=sku, grain=grain, window=window,
+                slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
+                slip_snapshot_file="snapshot_hist.parquet")
+            existing[q] = e
+            slip_lines.append(
+                f"  {config.fq_label(q)} <- {config.fq_label(h)}: mean slip "
+                f"{e.attrs.get('mean_slip_rate'):.1%}, anchored "
+                f"{waterfall.slip_anchor(q, as_of, h):%Y-%m-%d}")
+        except Exception as ex:
+            slip_lines.append(
+                f"  {config.fq_label(q)} <- {config.fq_label(h)}: SLIP NOT INCLUDED "
+                f"({type(ex).__name__}: {str(ex)[:120]}). Expected bookings from existing "
+                f"pipe is zero for this quarter, which OVERSTATES its required create.")
+    slip_note = "Slip, per quarter, from the same quarter a year earlier:\n" + "\n".join(slip_lines)
+    existing = existing or None
 
     # Already-won bookings are banked: pipe create only covers what is left. For an
     # in-flight quarter this is the largest single term.

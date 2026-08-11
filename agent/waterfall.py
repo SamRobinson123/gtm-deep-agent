@@ -556,6 +556,29 @@ def summarize(df: pd.DataFrame) -> dict:
 # Step 2 — slip
 # --------------------------------------------------------------------------
 
+def prior_year_quarter(quarter_start) -> str:
+    """The same quarter one year earlier.
+
+    Slip has a quarter-of-year shape — end-of-year pushes, budget cycles, holiday
+    weeks — so the assumption for Q3 comes from Q3, not from whichever quarter
+    happens to be most recent. Same reasoning as the historic floor, which also
+    looks back exactly four quarters.
+    """
+    return (pd.Timestamp(quarter_start) - pd.DateOffset(years=1)).strftime("%Y-%m-%d")
+
+
+def slip_anchor(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
+    """Where to read the starting population in the historic quarter.
+
+    Mid-quarter, the equivalent point-in-time. For a quarter that has not started
+    yet there is no elapsed fraction to mirror, so the whole historic quarter is
+    the like-for-like window.
+    """
+    if pd.Timestamp(as_of) <= pd.Timestamp(quarter_start):
+        return pd.Timestamp(prior_quarter_start)
+    return equivalent_point(quarter_start, as_of, prior_quarter_start)
+
+
 def equivalent_point(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
     """The same distance into `prior_quarter_start` as `as_of` is into `quarter_start`.
 
@@ -612,14 +635,29 @@ def slip(quarter_start, grain="Territory", from_point=None,
             f"snapshot only reaches {s['snapshot_date'].max():%Y-%m-%d}, before this "
             f"quarter ends ({q_end:%Y-%m-%d}). Slip needs a COMPLETED quarter."
         )
-    # Without this the starting population is empty, slip_rate is 0/0, and the
-    # caller sees a confident 0.0% instead of a missing input.
-    if s["snapshot_date"].min() > anchor:
+    # COVERAGE, not endpoints. The historic pull is several disjoint windows, so a
+    # quarter can sit entirely in a gap between them while min < anchor and
+    # max > q_end both hold. Checking only the extremes passes, state_at() then
+    # anchors on a snapshot months stale or finds nothing, and slip comes back a
+    # confident 0.0% — the exact failure this guard exists to prevent.
+    TOLERANCE = pd.Timedelta(days=7)
+    dates = s["snapshot_date"].dropna()
+    at_or_before = dates[dates <= anchor]
+    if at_or_before.empty or (anchor - at_or_before.max()) > TOLERANCE:
+        nearest = f"{at_or_before.max():%Y-%m-%d}" if not at_or_before.empty else "none"
         raise MissingData(
-            f"snapshot starts {s['snapshot_date'].min():%Y-%m-%d}, after the anchor "
-            f"{anchor:%Y-%m-%d}. The starting open pipe cannot be read, so slip would "
-            f"be 0/0. Widen the snapshot pull window (config.PRE_QUARTER_BUFFER_START "
-            f"drives it) to cover this date."
+            f"no snapshot within {TOLERANCE.days} days at or before the anchor "
+            f"{anchor:%Y-%m-%d} (nearest: {nearest}). The starting open pipe cannot be "
+            f"read, so slip would be 0/0. Add this quarter to config.HIST_SNAP_WINDOWS "
+            f"and re-pull snapshot_hist."
+        )
+    at_or_before_end = dates[dates <= q_end]
+    if (q_end - at_or_before_end.max()) > TOLERANCE:
+        raise MissingData(
+            f"no snapshot within {TOLERANCE.days} days of the quarter end "
+            f"{q_end:%Y-%m-%d} (nearest: {at_or_before_end.max():%Y-%m-%d}). Outcomes "
+            f"cannot be read, so every opp would look unresolved. Add this quarter to "
+            f"config.HIST_SNAP_WINDOWS and re-pull snapshot_hist."
         )
 
     def state_at(cutoff):

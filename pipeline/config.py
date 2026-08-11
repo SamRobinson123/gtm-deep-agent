@@ -54,11 +54,22 @@ SNAP_END = q_end(QUARTER_STARTS[-1])
 # actuals anchoring depends on its exact value, so it must not be widened to serve
 # a slip history. Covers Q3 FY25 so the current quarter's slip can be measured
 # from the equivalent point in the prior year rather than from a quarter start.
-# Starts at the Q3 FY25 QUARTER START, not later: the whole point is to contrast
-# slip measured from the quarter start against slip from the equivalent
-# point-in-time, and a window opening mid-quarter cannot show the first of those.
-HIST_SNAP_START = "2025-07-01"
-HIST_SNAP_END = "2025-09-30"
+# Two disjoint ranges, not one span. The intervening quarters are not needed and
+# would roughly double the pull for nothing.
+#
+#   Q3 FY25          the SEASONAL comparison. Slip has a quarter-of-year shape, so
+#                    Q3 FY26's assumption comes from Q3 FY25, not from whichever
+#                    quarter happens to be most recent.
+#   Q1-Q2 FY26       the RECENCY comparison. Most recently completed quarters,
+#                    carried so the two readings can be shown side by side.
+#
+# Each range starts at its QUARTER START so slip can be measured both from the
+# start and from the equivalent point-in-time; a range opening mid-quarter cannot
+# show the former.
+HIST_SNAP_WINDOWS = [
+    ("2025-07-01", "2025-12-31"),   # Q3 FY25 (seasonal for Q3) + Q4 FY25 (for Q4)
+    ("2026-01-01", "2026-06-30"),   # Q1 + Q2 FY26 — the recency comparison
+]
 
 # pull.py grabs this many days of snapshot history BEFORE QUARTER_START so week 1 can
 # anchor to the true last-snapshot-of-prior-quarter baseline instead of the first

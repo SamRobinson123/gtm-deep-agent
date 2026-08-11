@@ -14,8 +14,7 @@ from __future__ import annotations
 from pipeline.config import (
     EXCLUDED_STAGES,
     EXCLUDED_TEAMS,
-    HIST_SNAP_END,
-    HIST_SNAP_START,
+    HIST_SNAP_WINDOWS,
     PRE_QUARTER_BUFFER_START,
     SNAP_END,
 )
@@ -125,6 +124,11 @@ WHERE ActiveTeam = 'Active'
 # Kept as a separate entry rather than widening SNAP_SQL because invariant 5's
 # actuals anchoring depends on the in-flight window starting at the pre-quarter
 # buffer, and a slip history needs a prior-year window.
+_HIST_RANGES = " OR ".join(
+    f"(snap.snapshot_date >= '{a}' AND snap.snapshot_date <= '{b}')"
+    for a, b in HIST_SNAP_WINDOWS
+)
+
 SNAP_HIST_SQL = f"""
 SELECT
     snap.Opp_Id,
@@ -137,8 +141,7 @@ SELECT
     snap.QuarterWeek,
     snap.QuarterStartDate
 FROM [rep].[trf_opp_daily_snapshot_new] snap
-WHERE snap.snapshot_date     >= '{HIST_SNAP_START}'
-  AND snap.snapshot_date     <= '{HIST_SNAP_END}'
+WHERE ({_HIST_RANGES})
   AND snap.Bookings_Team_static IS NOT NULL
   AND snap.Bookings_Team_static NOT IN ({_TEAMS})
   AND snap.Raw_Stage NOT IN ({_STAGES})
@@ -147,7 +150,8 @@ WHERE snap.snapshot_date     >= '{HIST_SNAP_START}'
 REGISTRY = {
     "sku_nacv": (SKU_SQL, "sku_nacv.parquet", "Product-level bookings and pipeline from [src].[sku_nacv_fact]"),
     "snapshot_hist": (SNAP_HIST_SQL, "snapshot_hist.parquet",
-                      f"Historic daily opp snapshots {HIST_SNAP_START}..{HIST_SNAP_END} — slip measurement only"),
+                      "Historic daily opp snapshots for slip measurement — "
+                      + ", ".join(f"{a}..{b}" for a, b in HIST_SNAP_WINDOWS)),
     "snapshot": (SNAP_SQL, "snapshot.parquet", "Daily opp snapshots incl. pre-quarter buffer — powers pipe create and coverage"),
     "opp_ages": (AGE_SQL, "opp_ages.parquet", "Latest-snapshot age features, one row per opp"),
     "bts": (BTS_SQL, "bts.parquet", "Territory mapping — Geo/Region/Territory, active teams only"),

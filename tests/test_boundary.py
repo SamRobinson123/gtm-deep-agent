@@ -26,10 +26,24 @@ def test_registry_is_exactly_the_approved_set():
 
 def test_historic_snapshot_query_differs_from_the_live_one_only_by_window():
     """Guards the justification above: if snapshot_hist ever grows a different
-    table, column set or filter, this is no longer a windowing variant."""
+    table, column set or non-date filter, it stops being a windowing variant and
+    becomes a new capability that needs its own review.
+
+    The date predicates legitimately differ in SHAPE, not just in value — the
+    historic pull ORs several disjoint ranges — so they are stripped rather than
+    normalised, and everything else must match exactly.
+    """
     import re
-    norm = lambda s: re.sub(r"'[\d-]{10}'", "'DATE'", " ".join(s.split()))
-    assert norm(queries.SNAP_HIST_SQL) == norm(queries.SNAP_SQL)
+
+    def without_dates(sql: str) -> str:
+        lines = [ln for ln in sql.splitlines() if "snapshot_date" not in ln or "snap.snapshot_date," in ln]
+        return " ".join(" ".join(lines).split())
+
+    assert without_dates(queries.SNAP_HIST_SQL) == without_dates(queries.SNAP_SQL)
+    # And the historic one must still be date-bounded — an unbounded pull of this
+    # table is the whole feed.
+    assert re.search(r"snapshot_date\s*>=", queries.SNAP_HIST_SQL)
+    assert re.search(r"snapshot_date\s*<=", queries.SNAP_HIST_SQL)
 
 
 def test_unknown_query_is_rejected():

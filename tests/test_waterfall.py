@@ -379,3 +379,49 @@ def test_no_emitted_column_shadows_a_pandas_attribute():
     for name, df in frames.items():
         clashes = [c for c in df.columns if isinstance(c, str) and c in reserved]
         assert not clashes, f"{name} emits column(s) shadowing pandas attributes: {clashes}"
+
+
+# --- slip seasonality ---------------------------------------------------------
+
+def test_slip_window_is_the_same_quarter_a_year_earlier():
+    """Slip is seasonal, so the assumption comes from the same quarter, not the
+    most recent one. Same lookback as the historic floor."""
+    assert w.prior_year_quarter("2026-07-01") == "2025-07-01"   # Q3 FY26 -> Q3 FY25
+    assert w.prior_year_quarter("2026-10-01") == "2025-10-01"   # Q4 FY26 -> Q4 FY25
+
+
+def test_slip_anchor_uses_the_whole_quarter_when_it_has_not_started():
+    """Mid-quarter there is an elapsed fraction to mirror; for a future quarter
+    there is not, so the whole historic quarter is the like-for-like window."""
+    # Q3 FY26 is in flight on 2026-08-11 — mirror the elapsed 41 days.
+    assert w.slip_anchor("2026-07-01", "2026-08-11", "2025-07-01") == pd.Timestamp("2025-08-11")
+    # Q4 FY26 has not started — use Q4 FY25 entire.
+    assert w.slip_anchor("2026-10-01", "2026-08-11", "2025-10-01") == pd.Timestamp("2025-10-01")
+
+
+def test_a_quarter_falling_in_a_gap_between_pull_windows_raises(tmp_path, monkeypatch):
+    """The historic pull is disjoint windows, so min < anchor and max > quarter end
+    can both hold while the quarter itself is entirely absent. Checking only the
+    extremes lets that through and slip returns a confident 0.0%."""
+    from pipeline import config as cfg
+
+    days = list(pd.date_range("2025-07-01", "2025-09-30")) + list(pd.date_range("2026-01-01", "2026-06-30"))
+    snap = pd.DataFrame({
+        "snapshot_date": days,
+        "Opp_Id": [f"o{i}" for i in range(len(days))],
+        "Raw_Stage": ["Stage 3"] * len(days),
+        "CloseDate": [pd.Timestamp("2025-11-15")] * len(days),
+        "Cal_IACV": [1000.0] * len(days),
+        "Bookings_Team_static": ["T1"] * len(days),
+    })
+    snap.to_parquet(tmp_path / "gappy.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    # Q4 FY25 sits in the hole between the two windows.
+    with pytest.raises(w.MissingData, match="quarter end|at or before the anchor"):
+        w.slip("2025-10-01", "Territory", snapshot_file="gappy.parquet")
+
+    # A quarter inside a window still works.
+    w.slip("2025-07-01", "Territory", snapshot_file="gappy.parquet")
