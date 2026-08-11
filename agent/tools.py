@@ -162,13 +162,47 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     # solved — Q3 FY26 from Q3 FY25, Q4 FY26 from Q4 FY25. Slip is seasonal, so
     # applying one quarter's rate to every quarter imports the wrong shape.
     notes, existing = [], {}
-    for q in qs:
+    for i, q in enumerate(qs):
         h = waterfall.prior_year_quarter(q)
+
+        # Pre-Q slip: only a FUTURE quarter has any. For the in-flight quarter it
+        # has already happened and sits inside the observed balance, so the
+        # function returns empty and the term is a no-op. Not special-casing.
+        pq = None
+        try:
+            pq = waterfall.pre_q_slip(q, as_of, grain=grain)
+            if len(pq):
+                notes.append(
+                    f"PRE-Q SLIP for {config.fq_label(q)}: {pq.attrs['pooled_rate']:.1%} "
+                    f"at {pq.attrs['lead_days']}d lead, from {pq.attrs['measured_on']}")
+        except Exception as e:
+            notes.append(f"PRE-Q SLIP NOT INCLUDED for {config.fq_label(q)} "
+                         f"— {type(e).__name__}: {e}")
+
+        # Slip inflow: existing open pipe pushed out of EARLIER quarters in this
+        # solve and landing here. Only quarters being solved contribute — a
+        # quarter outside the solve has no measured open pipe to forward.
+        inflow = None
+        for earlier in qs[:i]:
+            try:
+                f = waterfall.slip_inflow(earlier, q, grain=grain, as_of=as_of)
+                if not len(f):
+                    continue
+                inflow = f if inflow is None else inflow.add(f, fill_value=0.0)
+                notes.append(
+                    f"SLIP INFLOW {config.fq_label(earlier)} -> {config.fq_label(q)}: "
+                    f"${f.sum():,.0f} ({f.attrs['destination_share']:.1%} of "
+                    f"${f.attrs['slipping_value']:,.0f} slipping)")
+            except Exception as e:
+                notes.append(f"SLIP INFLOW NOT INCLUDED {config.fq_label(earlier)} -> "
+                             f"{config.fq_label(q)} — {type(e).__name__}: {e}")
+
         try:
             existing[q] = waterfall.existing_pipe_bookings(
                 q, [h], sku=sku, grain=grain,
                 slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
-                slip_snapshot_file="snapshot_hist.parquet")
+                slip_snapshot_file="snapshot_hist.parquet",
+                pre_q_slip_rate=pq, slip_inflow_pipe=inflow)
         except Exception as e:
             notes.append(f"SLIP NOT INCLUDED for {config.fq_label(q)} "
                          f"(needs {config.fq_label(h)}) — {type(e).__name__}: {e}")

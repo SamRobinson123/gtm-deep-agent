@@ -853,6 +853,150 @@ def slip_by_cohort(quarter_start, snapshot_file="snapshot_hist.parquet",
               "held", "slip_rate", "won_rate", "lost_rate", "held_rate"]]
 
 
+def pre_q_slip(quarter_start, as_of, grain="Territory",
+               snapshot_file="snapshot_hist.parquet") -> pd.Series:
+    """Share of pipe dated into a FUTURE quarter that leaks out before it opens.
+
+    Pre-Q slip is the first half of the timing split (see docs/analysis/slip.md).
+    `slip()` measures the second half — what pushes out once the quarter is
+    running. Between a run date and the quarter start, pipe already dated into
+    that quarter also pushes, and the model previously assumed all of it survived.
+
+    Measured at the SAME LEAD TIME in the prior-year quarter: if Q4 FY26 is 52
+    days away, this reads the pipe dated into Q4 FY25 as at 52 days before its
+    start and asks how much had moved out by the time it opened. Lead time is the
+    right control because the leak is a function of how long the pipe still has
+    to sit, and seasonality is preserved by using the same quarter a year back.
+
+    Returns 0.0 for a quarter already started or past: its Pre-Q slip has already
+    happened and is baked into the observed balance. That is not a special case to
+    remove — it is what makes an in-flight run correct.
+    """
+    keys_zero = pd.Series(dtype=float, name="pre_q_slip_rate")
+    lead = (pd.Timestamp(quarter_start) - pd.Timestamp(as_of)).days
+    if lead <= 0:
+        keys_zero.attrs["lead_days"] = lead
+        keys_zero.attrs["reason"] = "quarter already started — Pre-Q slip has happened"
+        return keys_zero
+
+    h_start = pd.Timestamp(prior_year_quarter(quarter_start))
+    h_end = pd.Timestamp(config.q_end(str(h_start.date())))
+    read_at = h_start - pd.Timedelta(days=lead)
+
+    snap = _require(snapshot_file)
+    bts = _require("bts.parquet")
+    s = snap.copy()
+    s["snapshot_date"] = pd.to_datetime(s["snapshot_date"], errors="coerce")
+    s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
+    s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
+
+    TOLERANCE = pd.Timedelta(days=7)
+    dates = s["snapshot_date"].dropna()
+    at_or_before = dates[dates <= read_at]
+    if at_or_before.empty or (read_at - at_or_before.max()) > TOLERANCE:
+        raise MissingData(
+            f"no snapshot within {TOLERANCE.days} days of {read_at:%Y-%m-%d}, the "
+            f"point {lead} days before {config.fq_label(str(h_start.date()))} opened. "
+            f"Pre-Q slip cannot be read. Widen config.HIST_SNAP_WINDOWS to cover it "
+            f"and re-pull snapshot_hist.")
+
+    def state_at(cutoff):
+        d = s[s["snapshot_date"] <= cutoff]
+        return d.sort_values("snapshot_date").groupby("Opp_Id").last()
+
+    a = state_at(read_at)
+    st = a["Raw_Stage"].astype(str)
+    open_then = ~(st.isin(WON_STAGES) | st.isin(LOST_STAGES) | st.isin(OTHER_STAGES))
+    pop = a[open_then & a["CloseDate"].between(h_start, h_end)]
+    if pop.empty:
+        raise MissingData(
+            f"no open pipe dated into {config.fq_label(str(h_start.date()))} as at "
+            f"{read_at:%Y-%m-%d}; Pre-Q slip would be 0/0.")
+
+    b = state_at(h_start - pd.Timedelta(days=1)).reindex(pop.index)
+    j = pd.DataFrame({
+        "value": pop["value"],
+        "Bookings_Team_static": pop["Bookings_Team_static"],
+        "end_stage": b["Raw_Stage"],
+        "end_close": b["CloseDate"],
+    })
+    if "Stage" in b.columns:
+        j["end_mapped_stage"] = b["Stage"]
+    # Same partition rule as everywhere else, evaluated at the quarter START
+    # rather than its end: "slipped" here means it had already pushed past the
+    # quarter before the quarter began.
+    j["outcome"] = _partition(j, h_end)
+
+    bt = bts.copy()
+    bt["_key"] = bt["Bookings_Team_Static"].astype(str).str.strip().str.lower()
+    bt = bt[["_key", "BTS_Geo", "BTS_Region", "BTS_Territory"]].drop_duplicates("_key")
+    j["_key"] = j["Bookings_Team_static"].astype(str).str.strip().str.lower()
+    j = j.merge(bt, on="_key", how="left")
+    for c in ("BTS_Geo", "BTS_Region", "BTS_Territory"):
+        j[c] = j[c].fillna("Unassigned")
+    j["_g"] = _grain_key(j, grain)
+
+    tot = j.groupby("_g")["value"].sum()
+    moved = j[j["outcome"] == "slipped"].groupby("_g")["value"].sum().reindex(tot.index).fillna(0.0)
+    out = (moved / tot.where(tot > 0)).rename("pre_q_slip_rate")
+    out.index.name = grain
+    out.attrs["lead_days"] = lead
+    out.attrs["measured_on"] = config.fq_label(str(h_start.date()))
+    out.attrs["read_at"] = str(read_at.date())
+    out.attrs["pooled_rate"] = float(moved.sum() / tot.sum()) if tot.sum() else 0.0
+    return out
+
+
+def slip_inflow(from_quarter, to_quarter, grain="Territory", as_of=None,
+                snapshot_file="snapshot_hist.parquet") -> pd.Series:
+    """Dollars of EXISTING open pipe expected to slip out of one quarter into another.
+
+    The inflow half of slip — the workbook's `Pre Q Inflow` / `In Q Inflow`. Pipe
+    that pushes out of Q3 does not vanish; it becomes Q4's open pipe.
+
+        inflow = open_pipe(from) x slip_rate(from) x destination_share[offset]
+
+    Both assumptions come from `from_quarter`'s own prior-year analogue, rate and
+    destination together, never pooled across quarters.
+
+    NO DOUBLE COUNT, two ways, and both matter:
+
+    1. Against the source quarter. `existing_pipe_bookings` applies
+       `(1 - slip_rate)` to the source, which removes exactly the dollars this
+       function forwards. The slipped portion is claimed by neither quarter twice.
+    2. Against the sales cycle tail. This acts on EXISTING open pipe only, never
+       on `create`. Newly created pipe already reaches later quarters through the
+       sales cycle curve; routing it through slip as well would count it twice.
+
+    Returns an empty Series when the destination is not a later quarter.
+    """
+    out = pd.Series(dtype=float, name="slip_inflow")
+    offset = quarter_index(to_quarter) - quarter_index(from_quarter)
+    if offset <= 0:
+        out.attrs["reason"] = f"{to_quarter} does not follow {from_quarter}"
+        return out
+
+    prior = prior_year_quarter(from_quarter)
+    point = slip_anchor(from_quarter, as_of, prior) if as_of else None
+    s = slip(prior, grain, from_point=point, snapshot_file=snapshot_file)
+    dest = slip_destinations(prior, from_point=point, snapshot_file=snapshot_file)
+
+    share = float(dest.get(offset, 0.0))
+    open_pipe = open_pipe_at(from_quarter, grain, as_of=as_of)
+    rate = s["slip_rate"].reindex(open_pipe.index)
+    rate = rate.fillna(rate.mean() if rate.notna().any() else 0.0)
+
+    out = (open_pipe * rate * share).rename("slip_inflow")
+    out.index.name = grain
+    out.attrs["from"] = config.fq_label(from_quarter)
+    out.attrs["to"] = config.fq_label(to_quarter)
+    out.attrs["offset"] = offset
+    out.attrs["destination_share"] = share
+    out.attrs["measured_on"] = config.fq_label(prior)
+    out.attrs["slipping_value"] = float((open_pipe * rate).sum())
+    return out
+
+
 def slip_forecast(quarter_start, open_pipe=None, grain="Territory", as_of=None,
                   snapshot_file="snapshot_hist.parquet") -> pd.DataFrame:
     """Forecast this quarter's slip from the SAME QUARTER a year earlier.
@@ -1083,10 +1227,12 @@ def closed_won_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
 
 def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territory",
                            window=None, as_of=None, slip_from_points=None,
-                           slip_snapshot_file="snapshot.parquet") -> pd.Series:
+                           slip_snapshot_file="snapshot.parquet",
+                           pre_q_slip_rate=None, slip_inflow_pipe=None) -> pd.Series:
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
 
-        expected = open_pipe_in_quarter x (1 - slip_rate) x later_win_rate
+        adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
+        expected = adjusted x (1 - in_q_slip) x later_win_rate
 
     `later`, not `in_quarter` — see the comment on `wr` below. The sales cycle
     curve is NOT applied here: it governs newly created pipe only, so existing
@@ -1130,11 +1276,34 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
     # rate 3-4x too high (0.41-0.66 vs 0.11-0.21) and swamps the gap.
     wr = rates["later"].reindex(keys).fillna(rates["later"].mean() if len(rates) else 0.0)
 
-    # Slip and win rate apply in sequence, not as alternatives: slip first removes
-    # what will push out of the quarter, giving the adjusted pipe; the pre-Q win
-    # rate then acts on what remains.
-    out = open_pipe * (1.0 - sr) * wr
+    # The full timing sequence, in the order it happens in the world:
+    #
+    #   1. PRE-Q SLIP   pipe dated into the quarter leaks out before it opens.
+    #                   Zero for an in-flight quarter — it has already happened
+    #                   and is inside the observed balance.
+    #   2. SLIP INFLOW  pipe pushed out of earlier quarters arrives, at the
+    #                   boundary, so it is added AFTER the pre-Q haircut and is
+    #                   not subject to it.
+    #   3. IN-Q SLIP    the adjusted base pushes out during the quarter. The
+    #                   inflow IS exposed to this — arriving pipe can slip again,
+    #                   which the 55% serial re-slip rate says it often does.
+    #   4. WIN RATE     acts on what survives.
+    #
+    # See docs/analysis/slip.md, "What supplies a future quarter, and what drains
+    # it" — this covers terms 3, 4 and 5 of six.
+    pq = (pd.Series(0.0, index=keys) if pre_q_slip_rate is None
+          else pd.Series(pre_q_slip_rate).reindex(keys).fillna(0.0))
+    inflow = (pd.Series(0.0, index=keys) if slip_inflow_pipe is None
+              else pd.Series(slip_inflow_pipe).reindex(keys).fillna(0.0))
+
+    adjusted = open_pipe * (1.0 - pq) + inflow
+    out = adjusted * (1.0 - sr) * wr
     out.name = "expected_bookings_from_existing_pipe"
+    out.attrs["open_pipe"] = open_pipe
+    out.attrs["pre_q_slip_rate"] = pq
+    out.attrs["slip_inflow"] = inflow
+    out.attrs["adjusted_open_pipe"] = adjusted
+    out.attrs["in_q_slip_rate"] = sr
     out.attrs["slip_quarters"] = list(slip_quarters)
     out.attrs["mean_slip_rate"] = float(sr.mean()) if len(sr) else None
     out.attrs["as_of"] = open_pipe.attrs.get("as_of")

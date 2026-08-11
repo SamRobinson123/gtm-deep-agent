@@ -20,11 +20,21 @@ The model reduces slip to a single number and uses it only to shrink one term:
 expected_from_existing_pipe = open_pipe x (1 - slip_rate) x pre_Q_win_rate
 ```
 
-That treats slipped pipe as **destroyed**. It is not destroyed. It lands in a
+That treated slipped pipe as **destroyed**. It is not destroyed — it lands in a
 specific later quarter and becomes that quarter's open pipe. The legacy workbook
-models both directions — `In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
-`Pre Q Outflow` — and **we implement the outflow half and none of the inflow
-half.** Everything below is the missing half, measured.
+models both directions (`In Q Inflow`, `In Q Outflow`, `Pre Q Inflow`,
+`Pre Q Outflow`) and for a long time we implemented only the outflow half.
+
+**As of 2026-08-11 both halves are implemented**, along with the Pre-Q/In-Q
+timing split:
+
+```
+adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
+expected = adjusted x (1 - in_q_slip) x later_win_rate
+```
+
+This file is the measurement behind every term in that line, and the record of
+which parts are stated assumptions rather than established facts.
 
 ---
 
@@ -113,8 +123,8 @@ mid-quarter balance mismatches populations.
 
 ## Where the slipped pipe lands
 
-**This is the part the model does not have.** Shares of slipped dollars by
-destination quarter offset (1 = the next quarter):
+Shares of slipped dollars by destination quarter offset (1 = the next quarter).
+`slip_inflow()` consumes exactly this curve:
 
 | Slipped out of | Slipped $ | Opps | Q+1 | Q+2 | Q+3 | Q+4 |
 |---|---:|---:|---:|---:|---:|---:|
@@ -157,9 +167,14 @@ Run on 2026-08-11:
 | Q4 FY26 | Q4 FY25 | $211,460,105 | 62.4% | $131,956,805 | $54,081,254 (41%) | $56,235,775 (43%) | $13,563,473 (10%) |
 
 Read the Q3 row: of Q3 FY26's open pipe, $53.8M is forecast to slip, and **$42.9M
-of it lands in Q4 FY26**. Nothing in `derive_targets()` receives that $42.9M
-today — it is subtracted from Q3 and arrives nowhere. That is the missing inflow,
-quantified.
+of it lands in Q4 FY26**. `slip_inflow()` now delivers that to Q4's existing-pipe
+base — it used to be subtracted from Q3 and arrive nowhere.
+
+`slip_forecast()` is the standalone view and anchors at the quarter start;
+`slip_inflow()` is what the solve calls and anchors at the equivalent point in
+flight, so the two differ mid-quarter by design (the run on 2026-08-10 forwards
+$49.7M rather than $42.9M). Quote `slip_inflow()` for anything that feeds a
+target.
 
 ---
 
@@ -411,18 +426,37 @@ For a quarter not yet started, six terms. The model has two.
 |---|---|---|
 | 1 | Pipe already dated to close in the quarter | **modelled** — `open_pipe_at()` |
 | 2 | Sales cycle waterfall from earlier quarters' creates | **modelled** — the `carried` tail |
-| 3 | **Slip inflow** — pipe pushed out of earlier quarters that lands here | **NOT modelled** |
+| 3 | **Slip inflow** — pipe pushed out of earlier quarters that lands here | **modelled** — `slip_inflow()` |
 
 **Drains**
 
 | # | Term | Status |
 |---|---|---|
-| 4 | **Pre-Q slip** — leaks out before the quarter opens | **NOT modelled** |
+| 4 | **Pre-Q slip** — leaks out before the quarter opens | **modelled** — `pre_q_slip()` |
 | 5 | In-Q slip — pushes out during the quarter | **modelled** — `(1 - slip_rate)` |
 | 6 | Loss | **modelled implicitly** — `win_rates` uses a won+lost denominator, so pipe that dies is already inside the `later` rate. Do **not** add a separate attrition haircut; it would double-count. |
 
-Terms 3 and 4 are the workbook's `Pre Q Inflow` / `Pre Q Outflow` /
-`In Q Inflow` / `In Q Outflow` columns, none of which `derive_targets()` has.
+Terms 3 and 4 are the workbook's `Pre Q Inflow` / `Pre Q Outflow` / `In Q Inflow`
+/ `In Q Outflow` columns. **Implemented 2026-08-11**; all six terms are now
+present. `existing_pipe_bookings()` applies them in the order they happen:
+
+```
+adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
+expected = adjusted x (1 - in_q_slip) x later_win_rate
+```
+
+Inflow arrives at the quarter boundary, so it is added AFTER the Pre-Q haircut
+and escapes it — but it IS exposed to In-Q slip, because arriving pipe can slip
+again, which the 55% serial re-slip rate says it frequently does.
+
+**Two double-counts the implementation has to avoid, and does:**
+
+1. **Against the source quarter.** `(1 - slip_rate)` removes from the source
+   exactly the dollars `slip_inflow()` forwards. Neither quarter claims them twice.
+2. **Against the sales cycle tail.** `slip_inflow()` acts on **existing open pipe
+   only, never on `create`**. Newly created pipe already reaches later quarters
+   through the sales cycle curve; routing it through slip as well would count it
+   twice. This is the constraint to preserve if the function is ever extended.
 
 ### Measured sizes, as at 2026-08-10
 
@@ -438,22 +472,29 @@ Terms 3 and 4 are the workbook's `Pre Q Inflow` / `Pre Q Outflow` /
 | **Pre-Q slip on Q4's own pipe** at 52 days out, prior-year rate 15.3% (term 4) | **−$32,353,396** |
 | **Net unmodelled swing into Q4** | **+$9,976,273** |
 
-### These terms do NOT explain the 3x
+### What the terms actually moved
 
-Worth stating plainly, because the arithmetic invites the assumption that they do.
-The net swing is **+$10.0M of pipe**, which at the `later` win rate is roughly
-**$1.6M of bookings** — against a Q4 derivation currently **+186.1%** over
-published ($550,011,094 vs $192,223,413).
+Run 2026-08-10, Q3 + Q4 FY26, Territory grain:
 
-The reason is that existing pipe converts weakly: Q4's $211,460,105 of open pipe
-yields only **$12,265,604** of expected bookings after the slip haircut and the
-0.158 `later` rate. Moving $10M of pipe barely moves the gap, and the gap is what
-gets divided by the yield.
+| | Q3 FY26 | Q4 FY26 |
+|---|---:|---:|
+| Pre-Q slip rate | — (in flight) | 15.3% at 52d lead, from Q4 FY25 |
+| Slip inflow received | — | $49,655,938 (87.2% of $56,974,986 slipping out of Q3) |
+| Expected from existing pipe, before | $2,953,360 | $12,265,604 |
+| Expected from existing pipe, after | $2,953,360 | $12,928,530 |
 
-**So terms 3 and 4 are correctness fixes, not the explanation.** The `$0` sales
-cycle tail (term 2, which is zero for Q3 because no earlier quarter is in the
-solve) remains the prime suspect. Do not present these slip terms as closing the
-gap.
+**Q3 moves by exactly $0** — it is in flight, so its Pre-Q slip has already
+happened and there is no earlier quarter in the solve to send it inflow. That
+zero is the regression test worth keeping (`test_pre_q_slip_leaves_an_in_flight_
+quarter_untouched`), because it is what proves the terms did not leak into the
+in-flight path.
+
+**These terms are correctness, not reconciliation.** The net effect on Q4 is
+about **+$0.7M of bookings**, because existing pipe converts weakly — $211,460,105
+of open pipe yields only ~$12.9M after the haircuts and the 0.158 `later` rate.
+Do not present them as closing the gap to published; the `$0` sales cycle tail
+(term 2, zero for Q3 because no earlier quarter is in the solve) is a separate
+and much larger question.
 
 ### How the agent should handle this
 
@@ -461,8 +502,9 @@ gap.
    with the cohort figures.** Check which axis is being asked about.
 2. **State which quarter is in flight and which is future** before quoting slip,
    because in-flight quarters carry only term 5 and future quarters carry 4 and 5.
-3. **Say that terms 3 and 4 are absent** whenever reporting a future quarter's
-   required create. The number is knowingly incomplete in both directions.
+3. **All six terms are present as of 2026-08-11.** When reporting a future
+   quarter, say which Pre-Q rate and which destination share were used and which
+   historic quarter they came from — `.attrs` on both functions carries it.
 4. **Do not add term 6.** Loss is already in the win rate denominator.
 5. Both assumptions for a quarter come from **the same quarter a year earlier** —
    rate and destination together, never pooled.
@@ -613,10 +655,18 @@ choices, not established facts:
    a timing split** — see the section above. The notebook's two sequential rounds
    are therefore correct in structure: round one is the leak before the quarter
    opens, round two is the leak during it.
-8. **Should Pre-Q slip be wired into the solve for future quarters?** Measured at
-   15.3% for Q4's prior-year analogue at the same lead. Deferred pending the `$0`
-   sales cycle tail, because it moves Q4 further from published rather than closer.
-9. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
+8. ~~Should Pre-Q slip and slip inflow be wired into the solve?~~ **Decided
+   2026-08-11: yes, both, and they are.** The model should be right on its own
+   terms; agreement with the published total is a separate question and is not
+   the criterion for whether a real mechanism gets built.
+9. **Should slipped pipe carry its own win rate?** Inflow currently earns the
+   general `later` rate (0.158), but once-slipped pipe was measured winning at
+   13.1%. Applying the lower rate would reduce what inflow contributes.
+10. **Unattributed pipe is dropped.** Territories with open pipe but no Bookings
+    target — `Unassigned` — are not solved, so their existing pipe silently
+    leaves the derivation ($248,899 of expected bookings for Q4 FY26). Pre-dates
+    this work; deciding where that pipe's target belongs is a modelling call.
+11. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
    inflow/outflow model, and it is deliberately **not** implemented yet — it
    would move every quarter after the first while the `$0` sales cycle tail is

@@ -679,3 +679,120 @@ def test_classify_outcomes_and_slip_by_cohort_share_one_partition_rule(monkeypat
     for outcome in ("won", "lost", "slipped", "held"):
         assert carried[outcome].sum() == pytest.approx(
             direct.loc[direct["outcome"] == outcome, "value"].sum()), outcome
+
+
+# --- Pre-Q slip and slip inflow ------------------------------------------------
+
+def _preq_fixture(tmp_path):
+    """Q4 FY25 seen 52 days before it opens: $100 dated in, $30 of it pushes out
+    before the quarter starts, $20 is lost early, $50 survives."""
+    read_at = pd.Timestamp("2025-10-01") - pd.Timedelta(days=52)   # 2025-08-10
+    before = pd.Timestamp("2025-09-30")
+    rows = []
+    for opp, end_stage, end_close, val in [
+        ("push",  "Stage 3",     pd.Timestamp("2026-02-15"), 30.0),   # pre-Q slip
+        ("lost",  "Closed Lost", pd.Timestamp("2025-11-15"), 20.0),   # not slip
+        ("hold",  "Stage 3",     pd.Timestamp("2025-11-15"), 50.0),   # survives
+    ]:
+        rows.append([opp, read_at, "Stage 3", pd.Timestamp("2025-11-15"), val, "T1"])
+        rows.append([opp, before, end_stage, end_close, val, "T1"])
+    _snap_frame(rows).rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(
+        tmp_path / "bts.parquet")
+
+
+def test_pre_q_slip_reads_the_prior_year_at_the_same_lead_time(monkeypatch, tmp_path):
+    """Q4 FY26 52 days out is compared with Q4 FY25 52 days out. Lead time is the
+    control: the leak depends on how long the pipe still has to sit."""
+    from pipeline import config as cfg
+    _preq_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    r = w.pre_q_slip("2026-10-01", "2026-08-10", snapshot_file="s.parquet")
+
+    assert r.attrs["lead_days"] == 52
+    assert r.attrs["measured_on"] == "Q4 FY25"
+    # $30 pushed of $100 dated in. The $20 lost early is NOT slip — it is already
+    # inside the win rate's won+lost denominator, and counting it here double-counts.
+    assert r.loc["T1"] == pytest.approx(0.30)
+
+
+def test_an_in_flight_quarter_has_no_pre_q_slip(monkeypatch, tmp_path):
+    """Its Pre-Q slip has already happened and is inside the observed balance.
+    Returning empty is what makes a mid-quarter run correct, not a special case."""
+    from pipeline import config as cfg
+    _preq_fixture(tmp_path)
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    r = w.pre_q_slip("2026-07-01", "2026-08-10", snapshot_file="s.parquet")
+    assert len(r) == 0
+    assert "already started" in r.attrs["reason"]
+
+
+def test_pre_q_slip_leaves_an_in_flight_quarter_untouched(monkeypatch, tmp_path):
+    """The regression that matters: adding the term must not move Q3."""
+    from pipeline import config as cfg
+    _slip_fixture().rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(
+        tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    empty = w.pre_q_slip("2026-07-01", "2026-08-10", snapshot_file="s.parquet")
+    keys = pd.Index(["T1"], name="Territory")
+    base = pd.Series([100.0], index=keys)
+    # an empty rate must reindex to zeros, never to NaN
+    assert (pd.Series(empty).reindex(keys).fillna(0.0) == 0.0).all()
+    assert (base * (1 - pd.Series(empty).reindex(keys).fillna(0.0))).sum() == 100.0
+
+
+def test_slip_inflow_forwards_only_what_the_source_haircut_removed(monkeypatch, tmp_path):
+    """No double count: (1 - slip_rate) takes the dollars out of the source and
+    this puts the same dollars into the destination."""
+    from pipeline import config as cfg
+    f = _slip_fixture().rename(columns={"value": "Cal_IACV"})
+    f.to_parquet(tmp_path / "s.parquet")
+    # The RATE comes from the historic feed; the open pipe it multiplies comes
+    # from the CURRENT one. Two different files on purpose, so both are needed.
+    f.to_parquet(tmp_path / "snapshot.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(
+        tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    # as_of AT the quarter start, so the historic anchor is that quarter's start
+    # and the two-snapshot fixture covers it. Mid-quarter anchoring is exercised
+    # by the equivalent_point tests.
+    f = w.slip_inflow("2026-07-01", "2026-10-01", as_of="2026-07-01",
+                      snapshot_file="s.parquet")
+    assert f.attrs["offset"] == 1
+    assert f.attrs["from"] == "Q3 FY26" and f.attrs["to"] == "Q4 FY26"
+    # the fixture sends 75% of slipped value one quarter forward
+    assert f.attrs["destination_share"] == pytest.approx(0.75)
+
+
+def test_slip_inflow_refuses_to_flow_backwards(monkeypatch, tmp_path):
+    """A quarter cannot receive slip from a later one."""
+    from pipeline import config as cfg
+    _slip_fixture().rename(columns={"value": "Cal_IACV"}).to_parquet(tmp_path / "s.parquet")
+    pd.DataFrame({"Bookings_Team_Static": ["T1"], "BTS_Geo": ["G"],
+                  "BTS_Region": ["R"], "BTS_Territory": ["T1"]}).to_parquet(
+        tmp_path / "bts.parquet")
+    monkeypatch.setattr(cfg, "DATA", tmp_path)
+
+    assert len(w.slip_inflow("2026-10-01", "2026-07-01", as_of="2026-07-01",
+                             snapshot_file="s.parquet")) == 0
+    assert len(w.slip_inflow("2026-07-01", "2026-07-01", as_of="2026-07-01",
+                             snapshot_file="s.parquet")) == 0
+
+
+def test_the_existing_pipe_sequence_applies_the_terms_in_order():
+    """adjusted = open x (1 - pre_q) + inflow; then in-Q slip; then the win rate.
+    Inflow arrives at the boundary so it escapes pre-Q slip but NOT in-Q slip."""
+    open_pipe, pre_q, inflow, in_q, wr = 1000.0, 0.20, 300.0, 0.50, 0.10
+    adjusted = open_pipe * (1 - pre_q) + inflow
+    assert adjusted == pytest.approx(1100.0)
+    assert adjusted * (1 - in_q) * wr == pytest.approx(55.0)
+    # if inflow were exposed to pre-Q slip too it would be 1040 -> 52.0
+    assert (open_pipe + inflow) * (1 - pre_q) * (1 - in_q) * wr == pytest.approx(52.0)
