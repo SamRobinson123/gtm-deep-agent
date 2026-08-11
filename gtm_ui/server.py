@@ -275,4 +275,18 @@ async def health():
     }
 
 
+@app.middleware("http")
+async def no_store_static(request, call_next):
+    """Never let the browser cache the app shell.
+
+    This is a local dev tool whose JS and CSS change constantly. A cached app.js
+    means edits appear not to take effect, which is indistinguishable from a bug
+    in the code you just changed.
+    """
+    response = await call_next(request)
+    if request.url.path in ("/", "/index.html") or request.url.path.endswith((".js", ".css")):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+    return response
+
+
 app.mount("/", StaticFiles(directory=str(STATIC), html=True), name="static")

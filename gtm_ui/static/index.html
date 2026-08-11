@@ -39,11 +39,15 @@
         <p>Answers come from <code>docs/</code> with the file they came from. Figures are
            computed from source and stored with their lineage, so any number can be traced
            back to the data and code that produced it.</p>
+        <!-- data-prompt is the message. Reading the button's text instead would
+             send the eyebrow label too ("ExplainWhy does..."), or just the label
+             when the click lands on the span. -->
         <div class="suggest">
-          <button><span>Explain</span>Why does Pipe Create have no CloseDate filter?</button>
-          <button><span>Published</span>What is the Q4 FY26 pipe create target?</button>
-          <button><span>Derive</span>Recalculate the Q3 and Q4 FY26 targets from current data</button>
-          <button><span>Access</span>What can you query, and am I signed in?</button>
+          <button data-prompt="Why does Pipe Create have no CloseDate filter?"><span>Explain</span>Why does Pipe Create have no CloseDate filter?</button>
+          <button data-prompt="What is the Q4 FY26 pipe create target?"><span>Published</span>What is the Q4 FY26 pipe create target?</button>
+          <button data-prompt="Recalculate the Q3 and Q4 FY26 targets from current data"><span>Derive</span>Recalculate the Q3 and Q4 FY26 targets from current data</button>
+          <button data-prompt="Which territories are flagged as outliers, and what is driving each one?"><span>Outliers</span>Which territories are flagged, and what is driving each?</button>
+          <button data-prompt="What can you query, and am I signed in?"><span>Access</span>What can you query, and am I signed in?</button>
         </div>
       </div>
     </div>

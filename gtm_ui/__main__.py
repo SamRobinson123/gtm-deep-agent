@@ -31,7 +31,10 @@ def main():
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
 
     import uvicorn
-    uvicorn.run("gtm_ui.server:app", host=host, port=args.port, log_level="warning")
+    # "info" keeps the access log on. At "warning" every request is invisible,
+    # so a UI that does nothing gives no way to tell whether the click even
+    # reached the server.
+    uvicorn.run("gtm_ui.server:app", host=host, port=args.port, log_level="info")
 
 
 if __name__ == "__main__":
