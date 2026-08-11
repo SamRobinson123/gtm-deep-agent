@@ -75,6 +75,21 @@ WHERE N.Period                = 'Period_1'
   AND N.StageName            NOT IN ({_STAGES})
 """
 
+# The SAME mapping the SKU query applies to StageName, applied to the snapshot's
+# Raw_Stage. Mapping once in SQL keeps the two sources from diverging, and stops a
+# substring rule ever being reinvented in Python — "Stage 4 - Closed Pending"
+# contains "Closed" but is an OPEN stage.
+SNAP_STAGE_CASE = """
+    CASE
+        WHEN snap.Raw_Stage IN ('Closed Deferred','Closed Lost')                          THEN 'Closed'
+        WHEN snap.Raw_Stage IN ('6 - Closed/Pending','Closed Won','Stage 5 - Closed Won') THEN 'Closed Won'
+        WHEN snap.Raw_Stage IN ('Closed - Duplicate','Stage 6 - Closed - Admin',
+                                'Stage 7 - Churned','Opportunity Rejected',
+                                '0 - First Interaction')                                  THEN 'Other'
+        ELSE 'Open'
+    END
+"""
+
 # Snapshot pull — for the coverage curve, timepoint comparisons, and pipe create.
 # Filtered on snapshot_date (the actual calendar day), not QuarterStartDate (an
 # ETL-assigned tag reflecting when a row was recorded, not the deal's own CloseDate
@@ -84,6 +99,7 @@ SELECT
     snap.Opp_Id,
     snap.snapshot_date,
     snap.Raw_Stage,
+    {SNAP_STAGE_CASE}                                          AS Stage,
     snap.Stage_Pipe_Category,
     snap.Cal_IACV,
     snap.Bookings_Team_static,
@@ -134,6 +150,7 @@ SELECT
     snap.Opp_Id,
     snap.snapshot_date,
     snap.Raw_Stage,
+    {SNAP_STAGE_CASE}                                          AS Stage,
     snap.Stage_Pipe_Category,
     snap.Cal_IACV,
     snap.Bookings_Team_static,

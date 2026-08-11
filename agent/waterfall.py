@@ -640,22 +640,30 @@ def classify_outcomes(snap: pd.DataFrame, q_start, q_end, anchor) -> pd.DataFram
     ]
 
     cols = [c for c in ("value", "Bookings_Team_static", "CloseDate") if c in open_start.columns]
+    end_cols = {"Raw_Stage": "end_stage", "CloseDate": "end_close"}
+    if "Stage" in end.columns:                       # SQL-mapped, preferred
+        end_cols["Stage"] = "end_mapped_stage"
     j = open_start[cols].join(
-        end[["Raw_Stage", "CloseDate"]].rename(
-            columns={"Raw_Stage": "end_stage", "CloseDate": "end_close"}), how="left")
+        end[list(end_cols)].rename(columns=end_cols), how="left")
 
-    st = j["end_stage"].astype(str)
-    won = st.isin(WON_STAGES)
-    closed = st.isin(LOST_STAGES)
-    # Unknown stages: fall back to the substring rule rather than silently
-    # calling them Open, and record them so a new stage value is visible instead
-    # of quietly reclassifying pipe.
-    known = won | closed | st.isin(OTHER_STAGES) | st.isin(OPEN_STAGES)
-    if (~known).any():
-        maybe_won = (~known) & st.str.contains("Closed Won|Closed/Pending", case=False, na=False)
-        maybe_lost = (~known) & st.str.contains("Closed", case=False, na=False) & ~maybe_won
-        won, closed = won | maybe_won, closed | maybe_lost
-        j.attrs["unmapped_stages"] = sorted(st[~known].unique())
+    if "end_mapped_stage" in j.columns:
+        # SQL already applied the CASE (snapshots pulled after 2026-08-11). One
+        # mapping, shared with the SKU query, so the two cannot diverge.
+        m = j["end_mapped_stage"].astype(str)
+        won, closed = m.eq(WON), m.eq(LOST)
+    else:
+        # Cached parquet predating the Stage column — same CASE, in Python.
+        st = j["end_stage"].astype(str)
+        won = st.isin(WON_STAGES)
+        closed = st.isin(LOST_STAGES)
+
+        # ELSE 'Open' — exactly as the SQL CASE. An unrecognised stage is Open,
+        # not re-derived from a substring: a substring rule is what mis-booked
+        # "Stage 4 - Closed Pending" as a loss. Unmapped values are RECORDED so a
+        # new stage is visible, but they do not change the classification.
+        known = won | closed | st.isin(OTHER_STAGES) | st.isin(OPEN_STAGES)
+        if (~known).any():
+            j.attrs["unmapped_stages"] = sorted(st[~known].unique())
 
     moved = (~won) & (~closed) & (j["end_close"] > pd.Timestamp(q_end))
 
