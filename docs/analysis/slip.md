@@ -662,16 +662,21 @@ choices, not established facts:
 9. **Should slipped pipe carry its own win rate?** Inflow currently earns the
    general `later` rate (0.158), but once-slipped pipe was measured winning at
    13.1%. Applying the lower rate would reduce what inflow contributes.
-10. ~~Unattributed pipe is dropped silently.~~ **Traced 2026-08-11.** It is
-    entirely **`AMS Specialty`** — 5 opps, $892,135, all dated into Q4 FY26
-    ($248,899 of expected bookings). It has no row in `bts.parquet` because
-    `BTS_SQL` filters `ActiveTeam = 'Active'`, and no row in `Target_Monthly` or
-    `sku_nacv` either, so it has no target, no win rate and no floor. The
-    derivation now emits an `UNMAPPED PIPE DROPPED` note rather than losing it
-    silently. **The fix is a mapping-table edit** — add or reactivate the team in
-    `[sharepoint].[Map_Booking_Team_Static_live]` with a `BTS_Territory`, then
-    re-pull `bts`. Still open: whether it should be its own territory (no target,
-    so it would contribute nothing) or roll into an existing one.
+10. ~~Unattributed pipe is dropped silently.~~ **Closed 2026-08-11 — working as
+    intended.** It is entirely **`AMS Specialty`**: 5 opps, $892,135, all dated
+    into Q4 FY26 ($248,899 of expected bookings). It is absent from `bts.parquet`
+    because `BTS_SQL` filters `ActiveTeam = 'Active'`, and absent from
+    `Target_Monthly` and `sku_nacv` too. **Confirmed with the model owner: it is
+    an inactive team, along with `AMS DevOps`, `APAC DevOps` and `EMEA DevOps`
+    (all three carry a zero Bookings target in Q3–Q4 FY26, so no target is
+    lost).** Residual pipe on a disbanded team has no target and rightly earns no
+    create — do not "fix" it by re-mapping the team.
+
+    The derivation still reports it as `UNTARGETED PIPE EXCLUDED`, as information
+    rather than a defect. **Only investigate if a currently selling team appears
+    in that note** — the same path would otherwise silently swallow a live team
+    missing from the mapping table, and a smaller existing-pipe term inflates
+    required create with nothing in the output to reveal why.
 11. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
    inflow/outflow model, and it is deliberately **not** implemented yet — it

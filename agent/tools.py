@@ -207,11 +207,16 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
             notes.append(f"SLIP NOT INCLUDED for {config.fq_label(q)} "
                          f"(needs {config.fq_label(h)}) — {type(e).__name__}: {e}")
 
-        # Open pipe on a key the solve never visits is DROPPED, because the solve
-        # iterates the bookings target's keys. A booking team missing from
-        # bts.parquet lands in "Unassigned" and disappears without a trace. Say
-        # so — a silently smaller existing-pipe term inflates required create,
-        # and nothing else in the output would reveal it.
+        # Open pipe on a key the solve never visits is dropped, because the solve
+        # iterates the bookings target's keys. This is USUALLY CORRECT: BTS_SQL
+        # filters ActiveTeam='Active', so a disbanded team's residual pipe has no
+        # target and rightly earns no create (confirmed with the model owner
+        # 2026-08-11 — AMS Specialty and the DevOps teams are all inactive).
+        #
+        # Reported anyway, as information rather than a defect, because the same
+        # path would silently swallow a LIVE team that is merely missing from the
+        # mapping table — and a smaller existing-pipe term inflates required
+        # create with nothing else in the output to reveal why.
         e_q = existing.get(q)
         if e_q is not None:
             orphan = e_q.index.difference(book[q].index)
@@ -219,12 +224,11 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
                 pipe = e_q.attrs.get("open_pipe")
                 lost = float(pipe.reindex(orphan).sum()) if pipe is not None else 0.0
                 notes.append(
-                    f"UNMAPPED PIPE DROPPED from {config.fq_label(q)}: "
+                    f"UNTARGETED PIPE EXCLUDED from {config.fq_label(q)}: "
                     f"{', '.join(map(str, orphan))} — ${lost:,.0f} of open pipe, "
                     f"${float(e_q.reindex(orphan).sum()):,.0f} of expected bookings. "
-                    f"These keys have no Bookings target, so the solve skips them. "
-                    f"Fix in [sharepoint].[Map_Booking_Team_Static_live] "
-                    f"(BTS_SQL filters ActiveTeam='Active') and re-pull bts.")
+                    f"Expected for INACTIVE teams, which carry no target. Only "
+                    f"investigate if a currently selling team appears here.")
     existing = existing or None
 
     won = None
