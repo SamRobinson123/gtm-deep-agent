@@ -123,6 +123,53 @@ late. Whether the Excel slip analysis uses the same buffered anchor is
 *Not verified:* no code implementing slip exists in the corpus; the workbook
 carries results rather than the calculation.
 
+### Step 2b — Splits come from `sku_nacv_fact`
+
+**Source: `[src].[sku_nacv_fact]`.** Definition given by the Strategic Analytics
+lead, 2026-08-10.
+
+A pipe create target is not one number. It is split across dimensions, and the
+split proportions are computed from historical mix in `sku_nacv_fact`:
+
+| Split | `sku_nacv_fact` column | Values in `Target_Monthly.csv` |
+|---|---|---|
+| Segment | `Segment` | `Tier 1` / `Tier 2` / `Tier 3` |
+| Source | `Opportunity_Source_Logic` | `Marketing Sourced` / `Partner Sourced` / `Sales Sourced` |
+| Deal Type | `Deal_Type` | `New Customer` / `Expansion` / `Upsell` / `Professional Services` |
+| Product | `Family` via `PRODUCT_CASE` | `Tosca`, `qTest`, `Neoload`, `LC`, `Sealights`, `DI`, … |
+| Territory | `Booking_Team_Static` | 38 sub-territories |
+
+This is what gives `Target_Monthly.csv` its shape: **63,171 rows across 12
+dimensions** are the derived target pushed down a split hierarchy, not 63,171
+independently-set numbers. It is also what the workbook's `Pipe Create By Split`
+sheet (113,113 rows — the largest) holds.
+
+**Splits are a derivation input, not a decoration.** Product mix determines ASP
+(invariant 2: ASP is derived per product, $33,158–$165,255 in Q3 FY26), so the
+opp-count target depends on the product split. Change the mix, change the count.
+
+#### Product names do not match between the two files — verified 2026-08-10
+
+`Target_Monthly.csv` uses short codes where `SKU_SQL`'s `PRODUCT_CASE` emits full
+names. A join on `Product` silently drops these:
+
+| `Target_Monthly.csv` | `PRODUCT_CASE` emits | Q3 FY26 Pipeline target |
+|---|---|---|
+| `LC` | `LiveCompare` | $17,906,662 |
+| `DI` | `Data Integrity` | $12,730,530 |
+| `Neoload` | `NeoLoad` (case differs) | $22,634,232 |
+| `Tosca` · `qTest` · `Sealights` · `Recurring Services` | match | — |
+
+**$53,271,424 — 26.4% of the $201,789,918 Q3 target — fails to join.** Any
+product-split reconciliation needs an explicit mapping. Do not case-fold blindly:
+`Sealights` matches while `SeaLights` also exists elsewhere in the file, so a
+naive fold creates a different collision.
+
+Whole-file alias variants also exist (`Data Integrity` alongside `DI`,
+`LiveCompare` alongside `LC`, `SeaLights` alongside `Sealights`), but they carry
+no Q3 FY26 Pipeline value — only one spelling is active per product this quarter.
+They would matter for a multi-quarter or historical comparison.
+
 ### Step 3 — Goal seek solves for required pipe create
 
 The bookings target is the constraint. Expected bookings from pipe that already
@@ -156,12 +203,21 @@ hand — is **not established** and is the largest remaining gap.
 ### Chain summary
 
 ```
-sales cycle (create → close, per territory)   → maturation weights  Q0…Q+8
-slip analysis (first snapshot → movement)     → inflow / outflow columns
+sku_nacv_fact
+  ├─ sales cycle (create → close, in QUARTER offsets)  → maturation weights Q0…Q+8
+  └─ historical mix                                    → splits: Segment, Source,
+                                                          Deal Type, Product, Territory
+trf_opp_daily_snapshot_new
+  └─ slip (open at quarter start, neither closed nor   → inflow / outflow columns
+           won, moved quarter)
         ↓
-bookings target − expected bookings from existing pipe
+bookings target − expected bookings from existing pipe (slip- and win-rate-adjusted)
         ↓  goal seek
-required Pipe Create  ──→ Target_Monthly.csv  `Pipeline` target
+required Pipe Create
+        ↓  splits
+pushed down Segment × Source × Deal Type × Product × Territory
+        ↓
+Target_Monthly.csv — 63,171 rows × 12 dimensions
         ↓  maturation curve
 supports this quarter (~10-14%) + all subsequent quarters (~86-90%)
         ↓
