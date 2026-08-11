@@ -11,18 +11,15 @@
 
   <aside class="sidebar">
     <div class="brand">
-      <span class="dot"></span>
-      <div>
-        <div class="brand-name">GTM Pipe Analytics</div>
-        <div class="brand-sub" id="brandSub">Q3 FY26</div>
-      </div>
+      <div class="brand-name">GTM Pipe Analytics</div>
+      <div class="brand-sub" id="brandSub">Q3 FY26</div>
     </div>
 
     <button class="new-chat" id="newChat">New conversation</button>
 
     <div class="side-head">
       <span>Runs</span>
-      <button id="refreshRuns" title="Refresh">&#8635;</button>
+      <button id="refreshRuns" title="Refresh runs" aria-label="Refresh runs">&#8635;</button>
     </div>
     <div class="runs" id="runList"></div>
 
@@ -30,24 +27,31 @@
   </aside>
 
   <main class="main">
+    <div class="auth hide" id="authBar">
+      <span class="pip"></span>
+      <span id="authText"></span>
+      <button id="authBtn">Sign in</button>
+    </div>
+
     <div class="thread" id="thread">
       <div class="empty" id="empty">
-        <h1>GTM Pipe Analytics</h1>
-        <p>Answers come from <code>docs/</code> with citations. Numbers come from
-           <code>Target_Monthly.csv</code> and are stored with lineage.</p>
+        <h1>Ask about the Pipe Create model.</h1>
+        <p>Answers come from <code>docs/</code> with the file they came from. Figures are
+           computed from source and stored with their lineage, so any number can be traced
+           back to the data and code that produced it.</p>
         <div class="suggest">
-          <button>Why does Pipe Create have no CloseDate filter?</button>
-          <button>What is the Q3 FY26 pipe create target?</button>
-          <button>Show weekly pipe create targets for Q3 FY26</button>
-          <button>What queries can you run against Synapse?</button>
+          <button><span>Explain</span>Why does Pipe Create have no CloseDate filter?</button>
+          <button><span>Published</span>What is the Q4 FY26 pipe create target?</button>
+          <button><span>Derive</span>Recalculate the Q3 and Q4 FY26 targets from current data</button>
+          <button><span>Access</span>What can you query, and am I signed in?</button>
         </div>
       </div>
     </div>
 
     <div class="composer-wrap">
       <div class="composer">
-        <textarea id="input" rows="1" placeholder="Ask about the Pipe Create model…"></textarea>
-        <button id="send" title="Send">&#8593;</button>
+        <textarea id="input" rows="1" placeholder="Ask a question…" aria-label="Message"></textarea>
+        <button id="send" title="Send" aria-label="Send">&#8593;</button>
       </div>
       <div class="hint">Enter to send · Shift+Enter for a new line</div>
     </div>

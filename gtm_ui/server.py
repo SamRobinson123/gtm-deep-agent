@@ -104,6 +104,25 @@ async def run_file(run_id: str, name: str):
     return FileResponse(target, media_type=media, filename=target.name)
 
 
+@app.get("/api/auth/status")
+async def auth_status():
+    """Whether a Synapse token can be obtained right now. No side effects."""
+    from pipeline import pull
+    return pull.auth_status()
+
+
+@app.post("/api/auth/login")
+async def auth_login():
+    """Trigger interactive MFA. Opens the user's browser; blocks until complete."""
+    import anyio
+    from pipeline import pull
+    try:
+        await anyio.to_thread.run_sync(pull.interactive_login)
+    except Exception as e:
+        return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
+    return pull.auth_status()
+
+
 @app.get("/api/health")
 async def health():
     import os
