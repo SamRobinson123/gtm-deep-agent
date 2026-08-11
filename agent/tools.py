@@ -234,9 +234,106 @@ async def query(args):
     )
 
 
+@tool(
+    "derive_pipe_create_target",
+    "DERIVE what the pipe create target SHOULD be from current data and assumptions "
+    "— sales cycle, maturation curve, win rates and historic floor recomputed from "
+    "sku_nacv_fact over a chosen window, then goal-seek against the given bookings "
+    "target, solved chronologically so each quarter's maturation tail feeds the next. "
+    "This is the DERIVED target. It is NOT the published target in Target_Monthly.csv "
+    "(use pipe_create_targets for that). Requires a pull. Read "
+    "docs/analysis/pipe-create-waterfall.md before interpreting the output.",
+    {"quarters": str, "grain": str, "window_start": str, "window_end": str},
+)
+async def derive_pipe_create_target(args):
+    import pandas as pd
+    from agent import waterfall
+
+    grain = args.get("grain") or "Territory"
+    if grain not in waterfall.GRAIN_COLS:
+        return _ok(f"Unknown grain {grain!r}. Use {', '.join(waterfall.GRAIN_COLS)}.")
+
+    raw = (args.get("quarters") or "Q3 FY26").replace(";", ",")
+    try:
+        qs = [targets.resolve_quarter(q.strip()) for q in raw.split(",") if q.strip()]
+    except ValueError as e:
+        return _ok(str(e))
+
+    window = None
+    if args.get("window_start") and args.get("window_end"):
+        window = (args["window_start"], args["window_end"])
+
+    try:
+        sku = waterfall.load_sku(grain)
+    except waterfall.MissingData as e:
+        return _ok(f"Cannot derive: {e}")
+
+    # The bookings target is the GIVEN input. Today it is readable from the
+    # Bookings rows; it is a parameter because it will be supplied directly.
+    try:
+        book = config._target_by_team("Bookings", qs[0]).sum(axis=1)
+    except Exception as e:
+        return _ok(f"Could not read the given bookings target: {type(e).__name__}: {e}")
+
+    if grain != "Territory":
+        return _ok("Bookings targets are keyed by territory. Use grain='Territory' "
+                   "until a mapping to Region/Geo keys is agreed.")
+
+    try:
+        df = waterfall.derive_targets(sku, book, qs, grain=grain, window=window)
+        summary = waterfall.summarize(df)
+    except Exception as e:
+        return _ok(f"Derivation failed: {type(e).__name__}: {e}")
+
+    with lineage.Run(quarter_start=qs[0]) as run:
+        run.add_input(config.DATA / "sku_nacv.parquet").add_input(config.DATA / "bts.parquet")
+        run.add_input(config.TARGET_MONTHLY_CSV)
+        out = run.dir / "derived_pipe_create.csv"
+        df.to_csv(out, index=False)
+        run.add_output(out, rows=len(df))
+        run.headline(**{k: v for k, v in summary.items() if k != "by_quarter"},
+                     **{f"derived_{k}": v for k, v in summary["by_quarter"].items()})
+        run.caveat("invariant-10-opportunities-unit")
+        run.warn("derived-not-published-target")
+        if not summary["existing_pipe_supplied"]:
+            run.warn("existing-pipe-bookings-omitted-overstates-required-create")
+        run_dir = run.dir
+
+    published = {}
+    for q in qs:
+        try:
+            published[config.fq_label(q)] = targets.quarter_total(q)["pipe_target"]
+        except Exception:
+            pass
+
+    lines = ["DERIVED pipe create target (recomputed from source, not read from the CSV)", ""]
+    for qlabel, derived in summary["by_quarter"].items():
+        pub = published.get(qlabel)
+        delta = f"  vs published ${pub:,.0f}  ({derived / pub - 1:+.1%})" if pub else ""
+        lines.append(f"  {qlabel}: ${derived:,.0f}{delta}")
+    lines += [
+        "",
+        f"Floor-driven: ${summary['floor_driven']:,.0f} "
+        f"({summary['floor_driven_pct']:.1%} of total) across {summary['rows_floor_bound']} rows; "
+        f"{summary['rows_gap_bound']} rows are gap-driven.",
+        "  floor-driven = the team must not create less than the same quarter last year.",
+        "  gap-driven   = the bookings target requires it.",
+        "",
+        df.head(25).to_string(index=False),
+    ]
+    if not summary["existing_pipe_supplied"]:
+        lines += ["", "WARNING: expected bookings from EXISTING open pipe was not supplied, so it "
+                      "is treated as zero. That OVERSTATES the required create. Slip analysis "
+                      "(needs snapshot.parquet) provides it."]
+    lines += ["", "This is a derived figure, not the published target. State that when reporting it.",
+              f"Run stored: {run_dir}"]
+    return _ok("\n".join(lines))
+
+
 GTM_TOOLS = [
     az_login_status,
     azure_login,
+    derive_pipe_create_target,
     list_queries,
     run_pull,
     query,
