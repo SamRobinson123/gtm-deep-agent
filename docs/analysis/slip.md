@@ -187,10 +187,15 @@ understates how far pipe eventually travels.
 
 ## Pre-Q vs In-Q — the cohort split, and why it comes out backwards
 
-`Bookings Forecast 2.0 Product V9.ipynb` carries two push rates, and the premise
-behind them is that pipe created *inside* a quarter behaves differently from pipe
-carried into it. Measured on the snapshot feed, it does — but in the opposite
-direction to the notebook's assumption.
+> **These are NOT the model's Pre-Q and In-Q rates.** Those are a *timing* split
+> and both act on existing open pipe — see "Pre-Q and In-Q are a TIMING split"
+> below, which is the section to read before quoting either. What follows splits
+> by **create date**, a different axis, and is kept because it explains *why*
+> carried pipe slips as heavily as it does.
+
+Splitting the pipe by when it was created asks whether pipe born *inside* a
+quarter behaves differently from pipe carried into it. It does — and in the
+opposite direction to the intuition.
 
 Reproduce with `waterfall.slip_by_cohort(quarter_start)`.
 
@@ -357,15 +362,125 @@ of a moving target, not a final answer.
 
 ---
 
+## Pre-Q and In-Q are a TIMING split — read this before using either term
+
+Settled with the Strategic Analytics lead, 2026-08-11. The two terms divide slip
+by **when it happens**, relative to the quarter being forecast:
+
+| Term | The slip that happens | Applies to |
+|---|---|---|
+| **Pre-Q slip** | between now and the quarter **starting** | pipe already dated into that quarter |
+| **In-Q slip** | between the quarter's start and its **end** | the same pipe, once the quarter is running |
+
+Both act on **existing open pipe**. Neither is a statement about when the pipe was
+created. The sales cycle curve is the separate mechanism, and it governs **newly
+created pipe only** — which is precisely why the two cannot double-count:
+`derive_targets()` multiplies the curve by `create` and never by `existing`.
+
+> The cohort measurement above (`slip_by_cohort`) splits by **create date**, a
+> different axis. It is a true finding about the data — carried pipe is a residual
+> pool and slips more — but it is **not** what Pre-Q / In-Q mean, and its 42.4% /
+> 59.3% must never be used as the Pre-Q / In-Q rates.
+
+### The consequence: the same quarter needs different handling by run date
+
+- **In-flight quarter** (Q3 FY26, run 2026-08-10). Pre-Q slip has **already
+  happened** and is baked into today's balance. Closed won is real and observed.
+  Only In-Q slip remains — measured from the equivalent point in flight, not from
+  the quarter start.
+- **Future quarter** (Q4 FY26, run 2026-08-10). It suffers **both**. Today's
+  Q4-dated pipe still has 52 days in which to leak before the quarter opens, and
+  then the in-quarter rate on whatever survives.
+- **Annual planning** (all four quarters, run before Q1). Every quarter is a
+  future quarter, and the later ones start with little or no existing pipe. That
+  is the case the workbook was built for, and it is why slip inflow matters so
+  much there: the back half of the year is supported almost entirely by what the
+  front half creates and pushes forward.
+
+`slip()` today measures **In-Q slip only**. Pre-Q slip is measured nowhere.
+
+---
+
+## What supplies a future quarter, and what drains it
+
+For a quarter not yet started, six terms. The model has two.
+
+**Inflows**
+
+| # | Term | Status |
+|---|---|---|
+| 1 | Pipe already dated to close in the quarter | **modelled** — `open_pipe_at()` |
+| 2 | Sales cycle waterfall from earlier quarters' creates | **modelled** — the `carried` tail |
+| 3 | **Slip inflow** — pipe pushed out of earlier quarters that lands here | **NOT modelled** |
+
+**Drains**
+
+| # | Term | Status |
+|---|---|---|
+| 4 | **Pre-Q slip** — leaks out before the quarter opens | **NOT modelled** |
+| 5 | In-Q slip — pushes out during the quarter | **modelled** — `(1 - slip_rate)` |
+| 6 | Loss | **modelled implicitly** — `win_rates` uses a won+lost denominator, so pipe that dies is already inside the `later` rate. Do **not** add a separate attrition haircut; it would double-count. |
+
+Terms 3 and 4 are the workbook's `Pre Q Inflow` / `Pre Q Outflow` /
+`In Q Inflow` / `In Q Outflow` columns, none of which `derive_targets()` has.
+
+### Measured sizes, as at 2026-08-10
+
+| | |
+|---|---:|
+| Q3 FY26 open pipe today | $75,741,019 |
+| Q3 FY26 closed won to date | $5,400,518 |
+| Q4 FY26 open pipe today | $211,460,105 |
+| Q3 FY25 slip rate from the equivalent point (2025-08-10, 51 days left) | 64.1% |
+| Q3 FY25 destination curve from that point | Q+1 87.2% / Q+2 7.7% / Q+3 3.2% |
+| **Q3 FY26 pipe expected to slip** | $48,568,861 |
+| ⟶ **slip inflow landing in Q4** (term 3) | **+$42,329,670** |
+| **Pre-Q slip on Q4's own pipe** at 52 days out, prior-year rate 15.3% (term 4) | **−$32,353,396** |
+| **Net unmodelled swing into Q4** | **+$9,976,273** |
+
+### These terms do NOT explain the 3x
+
+Worth stating plainly, because the arithmetic invites the assumption that they do.
+The net swing is **+$10.0M of pipe**, which at the `later` win rate is roughly
+**$1.6M of bookings** — against a Q4 derivation currently **+186.1%** over
+published ($550,011,094 vs $192,223,413).
+
+The reason is that existing pipe converts weakly: Q4's $211,460,105 of open pipe
+yields only **$12,265,604** of expected bookings after the slip haircut and the
+0.158 `later` rate. Moving $10M of pipe barely moves the gap, and the gap is what
+gets divided by the yield.
+
+**So terms 3 and 4 are correctness fixes, not the explanation.** The `$0` sales
+cycle tail (term 2, which is zero for Q3 because no earlier quarter is in the
+solve) remains the prime suspect. Do not present these slip terms as closing the
+gap.
+
+### How the agent should handle this
+
+1. **Never quote a Pre-Q rate and an In-Q rate as if they were interchangeable
+   with the cohort figures.** Check which axis is being asked about.
+2. **State which quarter is in flight and which is future** before quoting slip,
+   because in-flight quarters carry only term 5 and future quarters carry 4 and 5.
+3. **Say that terms 3 and 4 are absent** whenever reporting a future quarter's
+   required create. The number is knowingly incomplete in both directions.
+4. **Do not add term 6.** Loss is already in the win rate denominator.
+5. Both assumptions for a quarter come from **the same quarter a year earlier** —
+   rate and destination together, never pooled.
+
+---
+
 ## What the model does with slip today, and what it ignores
 
 **Uses:**
 - `slip_rate` per grain key, as the `(1 - slip_rate)` haircut on open pipe
 - measured per quarter on the same quarter a year earlier
   (`prior_year_quarter()`), anchored at the equivalent point in flight
+- this is **In-Q slip only** — see the timing split above
 
 **Ignores:**
-- **Destination.** Nothing receives the slipped pipe. The workbook's
+- **Pre-Q slip.** A future quarter's pipe leaks before the quarter opens and
+  nothing accounts for it. ~15.3% at 52 days out on Q4's prior-year analogue.
+- **Destination / slip inflow.** Nothing receives the slipped pipe. The workbook's
   `In Q Inflow` / `Pre Q Inflow` have no counterpart in `derive_targets()`.
 - **Serial slip.** Modelled as a one-time loss.
 - **The distinct win rate of slipped pipe** (13.1% vs the 0.158 `later` mean).
@@ -467,7 +582,10 @@ choices, not established facts:
    year earlier rather than the most recent completed quarter.
 2. **Q1–Q2 FY26 are the recency alternative**, carried so the two readings can be
    compared. The docs flag both windows as unestablished.
-4. Mid-quarter, the **equivalent point-in-time** is the like-for-like anchor.
+3. **Pre-Q and In-Q are a timing split, not a create-date split**, and both act on
+   existing open pipe. The sales cycle curve governs newly created pipe only.
+4. Mid-quarter, the **equivalent point-in-time** is the like-for-like anchor, and
+   an in-flight quarter carries **no Pre-Q slip** — it has already happened.
 5. Pipe is carried at its **anchor valuation**; the +3% re-scoping drift is
    measured but not applied.
 
@@ -488,18 +606,17 @@ choices, not established facts:
 5. **Territory grain.** Fitted globally today. Q3 FY25 had 687 slipped opps
    across 31 booking teams — median 19, with 12 teams under 10 — so a per-
    territory curve needs a fallback and more history than one quarter.
-6. **Should the model split Pre-Q from In-Q at all?** The cohorts measurably
-   differ — 42.4% vs 59.3% slip, 31.9% vs 11.0% win — so a single blended rate
-   applied to all open pipe is wrong in both directions. But the model's existing
-   pipe term only ever sees pipe carried IN, so the `pre_q` rate is arguably the
-   right one to use today, and the `in_q` rate belongs to newly created pipe,
-   where the sales cycle curve already does that job. Whether the two mechanisms
-   overlap or double-count is unresolved.
-7. **Should the two rates compound, as the notebook has them?** Its `IN_Q` round
-   acts on the post-`PRE_Q` balance, which is a much larger effective haircut than
-   either rate reads alone. We measure one round. Which is right depends on
-   whether a quarter really gets two independent chances to push.
-8. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
+6. ~~Do the sales cycle curve and the slip rate double-count?~~ **Decided
+   2026-08-11: no.** The curve applies to newly created pipe only; slip applies to
+   existing open pipe. Different terms, no overlap.
+7. ~~Are Pre-Q and In-Q create-date cohorts?~~ **Decided 2026-08-11: no, they are
+   a timing split** — see the section above. The notebook's two sequential rounds
+   are therefore correct in structure: round one is the leak before the quarter
+   opens, round two is the leak during it.
+8. **Should Pre-Q slip be wired into the solve for future quarters?** Measured at
+   15.3% for Q4's prior-year analogue at the same lead. Deferred pending the `$0`
+   sales cycle tail, because it moves Q4 further from published rather than closer.
+9. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
    inflow/outflow model, and it is deliberately **not** implemented yet — it
    would move every quarter after the first while the `$0` sales cycle tail is

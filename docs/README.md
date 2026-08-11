@@ -49,6 +49,7 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | Per-AE targets, AE capacity, pipeline per AE, headcount | [`tables/headcount.md`](tables/headcount.md) → [`tables/target-monthly.md`](tables/target-monthly.md) |
 | **Where the pipe create TARGET comes from** — waterfall, sales cycle curves, win rates | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — reconstructed from the legacy workbook, unconfirmed |
 | **Slip** — how much moves out, **where it lands**, serial slip, tracing one opp | [`analysis/slip.md`](analysis/slip.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
+| **Pre-Q vs In-Q slip**, and what supplies a future quarter vs an in-flight one | [`analysis/slip.md`](analysis/slip.md) — the timing-split and supply/drain sections. **Read before quoting either rate.** |
 | Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
 | Win probability model — design decisions | [`models/win-probability-design.md`](models/win-probability-design.md) |
 | Win probability model — writing or modifying code | [`models/win-probability-design.md`](models/win-probability-design.md) → [`models/implementation.md`](models/implementation.md) |
