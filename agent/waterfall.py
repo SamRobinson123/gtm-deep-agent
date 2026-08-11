@@ -446,7 +446,19 @@ def summarize(df: pd.DataFrame) -> dict:
 # Step 2 — slip
 # --------------------------------------------------------------------------
 
-def slip(quarter_start, grain="Territory") -> pd.DataFrame:
+def equivalent_point(quarter_start, as_of, prior_quarter_start) -> pd.Timestamp:
+    """The same distance into `prior_quarter_start` as `as_of` is into `quarter_start`.
+
+    Mid-quarter, slip must be measured from where we actually stand, not from the
+    quarter's start: less of the quarter remains, so less can still slip. Comparing
+    W7-to-quarter-end last year against W7-to-quarter-end this year is like for
+    like; comparing a full quarter against a half quarter overstates slip.
+    """
+    offset = pd.Timestamp(as_of) - pd.Timestamp(quarter_start)
+    return pd.Timestamp(prior_quarter_start) + offset
+
+
+def slip(quarter_start, grain="Territory", from_point=None) -> pd.DataFrame:
     """Of the pipe OPEN at the start of a historic quarter, how much neither closed
     nor was won, and moved to a later quarter.
 
@@ -477,17 +489,33 @@ def slip(quarter_start, grain="Territory") -> pd.DataFrame:
     s["CloseDate"] = pd.to_datetime(s["CloseDate"], errors="coerce")
     s["value"] = pd.to_numeric(s["Cal_IACV"], errors="coerce").fillna(0.0)
 
+    # Where the starting population is read. Mid-quarter this is the equivalent
+    # point in the historic quarter, not its start — see equivalent_point().
+    anchor = pd.Timestamp(from_point) if from_point is not None else q_start
+    if not (q_start <= anchor <= q_end):
+        raise ValueError(f"from_point {anchor:%Y-%m-%d} is outside the quarter "
+                         f"{q_start:%Y-%m-%d}..{q_end:%Y-%m-%d}")
+
     if s["snapshot_date"].max() < q_end:
         raise MissingData(
             f"snapshot only reaches {s['snapshot_date'].max():%Y-%m-%d}, before this "
             f"quarter ends ({q_end:%Y-%m-%d}). Slip needs a COMPLETED quarter."
+        )
+    # Without this the starting population is empty, slip_rate is 0/0, and the
+    # caller sees a confident 0.0% instead of a missing input.
+    if s["snapshot_date"].min() > anchor:
+        raise MissingData(
+            f"snapshot starts {s['snapshot_date'].min():%Y-%m-%d}, after the anchor "
+            f"{anchor:%Y-%m-%d}. The starting open pipe cannot be read, so slip would "
+            f"be 0/0. Widen the snapshot pull window (config.PRE_QUARTER_BUFFER_START "
+            f"drives it) to cover this date."
         )
 
     def state_at(cutoff):
         d = s[s["snapshot_date"] <= cutoff]
         return d.sort_values("snapshot_date").groupby("Opp_Id").last()
 
-    start = state_at(q_start)
+    start = state_at(anchor)
     end = state_at(q_end)
 
     open_start = start[
@@ -527,6 +555,8 @@ def slip(quarter_start, grain="Territory") -> pd.DataFrame:
     g["slip_rate"] = g["slipped"] / g["starting_open_pipe"].where(g["starting_open_pipe"] > 0)
     g.index.name = grain
     g.attrs["quarter"] = config.fq_label(quarter_start)
+    g.attrs["from_point"] = str(anchor.date())
+    g.attrs["days_remaining"] = int((q_end - anchor).days)
     g.attrs["anchor"] = str(q_start.date())
     return g[["starting_open_pipe", "won", "lost", "slipped", "held", "slip_rate"]]
 

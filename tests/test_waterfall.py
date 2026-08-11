@@ -259,6 +259,20 @@ def test_closed_won_may_differ_per_quarter():
     assert got["2026-10-01"] == pytest.approx(0.0)
 
 
+def test_equivalent_point_lands_the_same_distance_into_the_prior_quarter():
+    """Mid-quarter, slip must be measured like for like: W7-to-quarter-end last
+    year, not the whole quarter. A full-quarter measurement overstates how much
+    can still slip when half the quarter is already gone."""
+    # 2026-08-11 is 41 days into Q3 FY26 (starts 2026-07-01).
+    got = w.equivalent_point("2026-07-01", "2026-08-11", "2025-07-01")
+    assert got == pd.Timestamp("2025-08-11")
+    assert (got - pd.Timestamp("2025-07-01")).days == 41
+
+
+def test_equivalent_point_at_quarter_start_is_the_prior_quarter_start():
+    assert w.equivalent_point("2026-07-01", "2026-07-01", "2025-07-01") == pd.Timestamp("2025-07-01")
+
+
 def test_summary_reports_how_much_is_floor_driven():
     df = w.derive_targets(_tiny_sku(), pd.Series({"T1": 1_000_000.0}),
                           ["2026-07-01"], grain="Territory")
