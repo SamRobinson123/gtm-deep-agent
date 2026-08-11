@@ -492,9 +492,11 @@ in-flight path.
 **These terms are correctness, not reconciliation.** The net effect on Q4 is
 about **+$0.7M of bookings**, because existing pipe converts weakly — $211,460,105
 of open pipe yields only ~$12.9M after the haircuts and the 0.158 `later` rate.
-Do not present them as closing the gap to published; the `$0` sales cycle tail
-(term 2, zero for Q3 because no earlier quarter is in the solve) is a separate
-and much larger question.
+Do not present them as closing the gap to published. And note that the `$0`
+sales cycle tail for Q3 is **not** the explanation either — it is correct for an
+in-flight quarter, because prior-quarter creates destined for Q3 are already in
+the observed open pipe. See `pipe-create-waterfall.md`, "the `$0` tail is correct
+for an in-flight quarter".
 
 ### How the agent should handle this
 
@@ -679,6 +681,4 @@ choices, not established facts:
     required create with nothing in the output to reveal why.
 11. **Does destination belong in the solve at all**, i.e. should slipped pipe feed
    the destination quarter's existing-pipe term? That is the workbook's
-   inflow/outflow model, and it is deliberately **not** implemented yet — it
-   would move every quarter after the first while the `$0` sales cycle tail is
-   still unresolved.
+   inflow/outflow model. **Implemented 2026-08-11.**

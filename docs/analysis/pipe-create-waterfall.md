@@ -498,19 +498,77 @@ rate. **The two are not the same population:**
 | Selected by | Sales cycle curve of the creating quarter | Snapshot `CloseDate` |
 | Misses | — | Prior-quarter creates not yet dated into this quarter |
 
-Measured Q3 FY26: the term supplies $11.8M, and landing on the published
-$201.8M would need roughly **$18.3M**. The shortfall is the right order of
-magnitude for two quarters of missing sales cycle tail.
+### RESOLVED 2026-08-11: the `$0` tail is correct for an in-flight quarter
 
-**Consequence — the two errors were cancelling.** Before 2026-08-11 the rebuild
-used the inflated yield *and* this understated tail, and landed within +3.2% of
-published. Correcting yield alone moves it to +94.7%. **Neither number is
-evidence of correctness**; the first was two errors offsetting.
+**Settled with the model owner.** The two populations are not a defect — they are
+the same pipe observed two different ways, and which one is right depends on when
+you run:
 
-Resolving this needs the solve seeded with real prior-quarter creates — either by
-extending the solve window back 8 quarters and letting `AP` build naturally, or
-by measuring the starting tail directly from `sku_nacv_fact` creates. **Until
-then, treat the derived totals as unreconciled.**
+- **Running inside or near the quarter** (the normal case). Pipe created in Q1 or
+  Q2 that is destined to close in Q3 **already exists and is already dated into
+  Q3**, so it is sitting in the snapshot inside `open_pipe_at()`. It does not
+  need to be modelled — it needs to be *observed*, which is what
+  `expected_from_existing_pipe` does. Adding a modelled tail from Q1/Q2 on top
+  would **double-count it**. A `$0` tail for the first quarter of the solve is
+  therefore the correct answer, not a missing term.
+- **Annual planning, run before Q1.** Nothing is observable — the quarters have
+  not happened and there is no snapshot to read. There the tail *must* be
+  modelled from prior creates, and the solve must run from Q1 forward so each
+  quarter's create feeds the next. **This is the regime the workbook was built
+  for**, and it is why it reaches back 8 quarters.
+
+The one thing the snapshot view genuinely misses is **pull-in** — a prior-quarter
+create currently dated into a later quarter that pulls forward. Measured at
+0.1%–0.3% of the base, so it is immaterial.
+
+**The earlier `+3.2%` agreement remains meaningless.** It came from an inflated
+yield offsetting an understated existing-pipe term, and two errors cancelling is
+not evidence of correctness. But the tail is not the missing piece — see the
+conversion-rate issue below.
+
+---
+
+### OPEN, and now the largest known error: existing pipe converts at half the
+### rate the model gives it
+
+The model composes the existing-pipe term from two separately measured rates:
+
+```
+expected = open_pipe x (1 - slip_rate) x later_win_rate
+```
+
+That composition can be checked directly, because a completed quarter tells us
+what the pipe open mid-quarter *actually* converted to. Anchored at day 41 of
+each quarter — the same point Q3 FY26 is at now — and followed to quarter end:
+
+| Quarter | Open pipe at day 41 | Won by quarter end | **Actual** | Slip | **Model** | Ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| Q3 FY25 | $68,432,014 | $10,148,360 | **14.8%** | 64.1% | 5.5% | 2.7x |
+| Q4 FY25 | $155,612,390 | $24,246,208 | **15.6%** | 54.7% | 6.9% | 2.3x |
+| Q1 FY26 | $67,958,448 | $8,065,031 | **11.9%** | 56.2% | 6.7% | 1.8x |
+| Q2 FY26 | $79,366,795 | $11,884,609 | **15.0%** | 53.3% | 7.1% | 2.1x |
+
+**The model understates existing-pipe conversion by roughly 2x, every quarter.**
+
+The mechanism is a double deduction. `later_win_rate` is `won / (won + lost)`
+among deals closing in a quarter *after* they were created — a population that
+already consists largely of deals that slipped at least once and then decided.
+Slip is therefore inside that rate. Applying `(1 - slip_rate)` on top deducts it
+a second time.
+
+Note how closely the mean `later` rate (15.2%) matches the *actual* conversion
+(11.9%–15.6%) with **no** slip haircut at all. That is the tell.
+
+**The candidate fix is to measure the conversion directly** rather than compose
+it, using the same `classify_outcomes()` partition that already produces `won`:
+
+```
+conversion = won / starting_open_pipe    # at the equivalent point, prior-year quarter
+expected   = open_pipe x conversion
+```
+
+This is a modelling decision for the owner, not a refactor, because it retires
+the `later` rate from this term. **Not implemented.**
 
 ---
 
