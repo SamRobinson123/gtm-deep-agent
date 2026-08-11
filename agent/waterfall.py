@@ -278,23 +278,48 @@ class DerivedQuarter:
     assumptions: dict = field(default_factory=dict)
 
 
+def _for_quarter(value, quarter_start: str) -> pd.Series | None:
+    """Resolve a per-quarter input to the Series for one quarter.
+
+    A bare Series means "the same for every quarter". A mapping keyed by quarter
+    start means each quarter has its own. Bookings targets and open pipe are both
+    quarter-specific facts, so a signature that only accepted one Series forced
+    callers to pick a quarter and silently apply it to the rest.
+    """
+    if value is None:
+        return None
+    if isinstance(value, pd.Series):
+        return value
+    try:
+        return value[quarter_start]
+    except KeyError:
+        raise KeyError(
+            f"No entry for quarter {quarter_start!r}. A mapping input must cover every "
+            f"quarter being solved; got keys {sorted(value)!r}."
+        ) from None
+
+
 def derive_targets(
     sku: pd.DataFrame,
-    bookings_target: pd.Series,
+    bookings_target,
     quarter_starts: list[str],
     grain: str = "Territory",
     window=None,
-    existing_pipe_bookings: pd.Series | None = None,
+    existing_pipe_bookings=None,
 ) -> pd.DataFrame:
     """Solve required pipe create per grain key, per quarter, in chronological order.
 
     `bookings_target` — the GIVEN input, indexed by grain key. Today it comes from
     Target_Monthly.csv's Bookings rows, but it is a parameter because it will be
-    supplied directly.
+    supplied directly. Either a Series (the same target for every quarter) or a
+    mapping of quarter start -> Series. Q3 and Q4 carry genuinely different
+    bookings targets, so the mapping form is the correct one for a multi-quarter
+    solve; a single Series applied to both understates the larger quarter.
 
     `existing_pipe_bookings` — expected bookings from pipe already open, slip- and
-    win-rate-adjusted. Omitted means zero, which OVERSTATES the required create;
-    the result flags this so the number is never mistaken for complete.
+    win-rate-adjusted. Same two forms as `bookings_target`. Omitted means zero,
+    which OVERSTATES the required create; the result flags this so the number is
+    never mistaken for complete.
 
     Quarters are solved in order and each quarter's maturation tail is carried
     forward into later quarters, reducing their gap. Solving independently would
@@ -304,13 +329,20 @@ def derive_targets(
     curve = maturation_curve(sku, window, grain)
     rates = win_rates(sku, window, grain)
 
-    keys = sorted(set(curve.index) & set(bookings_target.index))
+    # Keys must span every quarter's targets — a territory carrying a target in Q4
+    # but not Q3 still has to be solved.
+    target_keys: set = set()
+    for _qs in quarter_starts:
+        target_keys |= set(_for_quarter(bookings_target, _qs).index)
+    keys = sorted(set(curve.index) & target_keys)
     carried: dict[tuple[str, int], float] = {}  # (key, quarter_index) -> bookings already covered
     out = []
 
     for qs in quarter_starts:
         qi = quarter_index(qs)
         floor = historic_floor(sku, qs, grain)
+        q_target = _for_quarter(bookings_target, qs)
+        q_existing = _for_quarter(existing_pipe_bookings, qs)
 
         for key in keys:
             crow = curve.loc[key]
@@ -318,10 +350,10 @@ def derive_targets(
             later = rates.loc[key, "later"] if key in rates.index else None
             yld = yield_per_dollar(crow, in_q, later)
 
-            target = float(bookings_target.get(key, 0.0))
-            # No `or {}` fallback: existing_pipe_bookings is a Series, and `or` would
-            # call bool() on it. The `is not None` guard is the whole check.
-            existing = float(existing_pipe_bookings.get(key, 0.0)) if existing_pipe_bookings is not None else 0.0
+            target = float(q_target.get(key, 0.0))
+            # No `or {}` fallback: these are Series, and `or` would call bool() on
+            # them. The `is not None` guard is the whole check.
+            existing = float(q_existing.get(key, 0.0)) if q_existing is not None else 0.0
             tail = carried.get((key, qi), 0.0)
 
             gap = target - existing - tail

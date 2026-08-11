@@ -172,6 +172,44 @@ def test_existing_pipe_bookings_series_missing_key_falls_back_to_zero():
     assert df.iloc[0]["expected_from_existing_pipe"] == 0.0
 
 
+def test_bookings_target_may_differ_per_quarter():
+    """Q3 and Q4 carry different bookings targets; one Series for both understates
+    whichever quarter is not qs[0]. A mapping keyed by quarter start expresses it."""
+    sku = _tiny_sku()
+    per_q = {
+        "2026-07-01": pd.Series({"T1": 1_000_000.0}),
+        "2026-10-01": pd.Series({"T1": 4_000_000.0}),
+    }
+    df = w.derive_targets(sku, per_q, ["2026-07-01", "2026-10-01"], grain="Territory")
+
+    q3 = df[df.quarter_start == "2026-07-01"].iloc[0]
+    q4 = df[df.quarter_start == "2026-10-01"].iloc[0]
+    assert q3["bookings_target"] == pytest.approx(1_000_000.0)
+    assert q4["bookings_target"] == pytest.approx(4_000_000.0)
+
+
+def test_a_bare_series_bookings_target_still_applies_to_every_quarter():
+    """Backward compatibility: the single-Series form must keep its meaning."""
+    df = w.derive_targets(_tiny_sku(), pd.Series({"T1": 1_000_000.0}),
+                          ["2026-07-01", "2026-10-01"], grain="Territory")
+    assert df["bookings_target"].tolist() == pytest.approx([1_000_000.0] * len(df))
+
+
+def test_existing_pipe_bookings_may_also_differ_per_quarter():
+    sku = _tiny_sku()
+    df = w.derive_targets(
+        sku, pd.Series({"T1": 1_000_000.0}), ["2026-07-01", "2026-10-01"],
+        grain="Territory",
+        existing_pipe_bookings={
+            "2026-07-01": pd.Series({"T1": 100_000.0}),
+            "2026-10-01": pd.Series({"T1": 300_000.0}),
+        },
+    )
+    got = dict(zip(df.quarter_start, df.expected_from_existing_pipe))
+    assert got["2026-07-01"] == pytest.approx(100_000.0)
+    assert got["2026-10-01"] == pytest.approx(300_000.0)
+
+
 def test_summary_reports_how_much_is_floor_driven():
     df = w.derive_targets(_tiny_sku(), pd.Series({"T1": 1_000_000.0}),
                           ["2026-07-01"], grain="Territory")

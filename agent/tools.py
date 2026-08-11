@@ -294,8 +294,10 @@ async def derive_pipe_create_target(args):
 
     # The bookings target is the GIVEN input. Today it is readable from the
     # Bookings rows; it is a parameter because it will be supplied directly.
+    # Per quarter, not qs[0] reused: Q3 and Q4 carry materially different bookings
+    # targets, and applying the first quarter's to all of them understates the rest.
     try:
-        book = config._target_by_team("Bookings", qs[0]).sum(axis=1)
+        book = {q: config._target_by_team("Bookings", q).sum(axis=1) for q in qs}
     except Exception as e:
         return _ok(f"Could not read the given bookings target: {type(e).__name__}: {e}")
 
@@ -310,10 +312,12 @@ async def derive_pipe_create_target(args):
     slip_qs = args.get("slip_quarters") or "Q1 FY26, Q2 FY26"
     try:
         sq = [targets.resolve_quarter(q.strip()) for q in slip_qs.replace(";", ",").split(",") if q.strip()]
-        existing = waterfall.existing_pipe_bookings(qs[0], sq, sku=sku, grain=grain, window=window)
+        existing = {q: waterfall.existing_pipe_bookings(q, sq, sku=sku, grain=grain,
+                                                        window=window) for q in qs}
+        first = existing[qs[0]]
         slip_note = (f"Slip measured on {', '.join(config.fq_label(q) for q in sq)} — "
-                     f"mean slip rate {existing.attrs.get('mean_slip_rate'):.1%}, "
-                     f"open pipe as of {existing.attrs.get('as_of')}.")
+                     f"mean slip rate {first.attrs.get('mean_slip_rate'):.1%}, "
+                     f"open pipe as of {first.attrs.get('as_of')}.")
     except waterfall.MissingData as e:
         slip_note = (f"SLIP NOT INCLUDED — {e} Expected bookings from existing pipe is "
                      f"therefore zero, which OVERSTATES the required create.")
