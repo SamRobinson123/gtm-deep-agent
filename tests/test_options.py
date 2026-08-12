@@ -214,3 +214,21 @@ def test_maker_and_checker_do_not_share_a_context_window():
     o = options.build_options()
     assert "verifier" in o.agents
     assert options.VERIFIER.prompt not in o.system_prompt["append"]
+
+
+def test_the_verifier_does_not_bypass_permissions():
+    """bypassPermissions was tried on 2026-08-12 and reverted: it did not deliver
+    Bash to the subagent, so it was a security widening that bought nothing. If
+    it comes back, it needs a reason that survives an acceptance run."""
+    assert options.VERIFIER.permissionMode is None
+    assert options.build_options().permission_mode == "default"
+
+
+def test_the_verifier_is_still_constrained_by_the_hook():
+    """The claim the bypass rests on. If the hook stopped applying to subagents,
+    the verifier would become the least constrained thing in the system."""
+    from agent import hooks
+    for path in ("CLAUDE.md", "docs/analysis/slip.md", ".claude/settings.json",
+                 "data/Target_Monthly.csv"):
+        assert hooks.check_write(path) is not None, f"{path} must stay write-denied"
+    assert hooks.check_read(".env") is not None

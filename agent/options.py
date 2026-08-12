@@ -223,6 +223,18 @@ access — you check what the maker used, you do not fetch new data.""",
     # Write(workspace/**). It cannot edit the thing it disagrees with, and it has
     # no warehouse access.
     tools=["Read", "Glob", "Grep", "Bash", "Write"],
+    # NO permissionMode override. Tried "bypassPermissions" on 2026-08-12 with the
+    # operator's approval, on the theory that the verifier runs unattended and its
+    # Bash was dying at an approval prompt nobody was there to answer. It changed
+    # nothing: the subagent still reported its toolset as Read/Glob/Grep/Write.
+    #
+    # Ruled out, all offline: the hook allows the commands it would run; the SDK
+    # serialises `tools` verbatim into the initialize request; permissions are not
+    # the gate. The CLI is simply not granting Bash to subagents in 0.2.134.
+    #
+    # Reverted rather than left in place — a security widening that buys nothing
+    # is strictly worse than no widening, and a later reader would assume it was
+    # load-bearing.
     model="sonnet",
 )
 
