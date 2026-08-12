@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GTM Pipe Analytics</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="icon" type="image/png" href="/tricentis-logo.png">
 </head>
 <body>
 <div class="app">
@@ -35,19 +36,16 @@
 
     <div class="thread" id="thread">
       <div class="empty" id="empty">
-        <h1>Ask about the Pipe Create model.</h1>
-        <p>Answers come from <code>docs/</code> with the file they came from. Figures are
-           computed from source and stored with their lineage, so any number can be traced
-           back to the data and code that produced it.</p>
-        <!-- data-prompt is the message. Reading the button's text instead would
-             send the eyebrow label too ("ExplainWhy does..."), or just the label
-             when the click lands on the span. -->
+        <h1><img class="mark" src="/tricentis-logo.png" alt="Tricentis"> <span id="greet">What can I help with?</span></h1>
+        <p>Every figure is computed from source and traceable to the data and code
+           that produced it.</p>
+        <!-- data-prompt is the message; the button text is the short pill label. -->
         <div class="suggest">
-          <button data-prompt="Why does Pipe Create have no CloseDate filter?"><span>Explain</span>Why does Pipe Create have no CloseDate filter?</button>
-          <button data-prompt="What is the Q4 FY26 pipe create target?"><span>Published</span>What is the Q4 FY26 pipe create target?</button>
-          <button data-prompt="Recalculate the Q3 and Q4 FY26 targets from current data"><span>Derive</span>Recalculate the Q3 and Q4 FY26 targets from current data</button>
-          <button data-prompt="Which territories are flagged as outliers, and what is driving each one?"><span>Outliers</span>Which territories are flagged, and what is driving each?</button>
-          <button data-prompt="What can you query, and am I signed in?"><span>Access</span>What can you query, and am I signed in?</button>
+          <button data-prompt="Why does Pipe Create have no CloseDate filter?">Why no CloseDate filter?</button>
+          <button data-prompt="What is the Q4 FY26 pipe create target?">Q4 FY26 target</button>
+          <button data-prompt="Recalculate the Q3 and Q4 FY26 targets from current data">Recalculate Q3–Q4 targets</button>
+          <button data-prompt="Which territories are flagged as outliers, and what is driving each one?">Flagged territories</button>
+          <button data-prompt="What can you query, and am I signed in?">What can you query?</button>
         </div>
       </div>
     </div>

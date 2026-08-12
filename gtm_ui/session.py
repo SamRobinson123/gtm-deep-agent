@@ -41,6 +41,32 @@ def event(kind, **data):
     return {"type": kind, **data}
 
 
+def tool_detail(name: str, tool_input: dict) -> str:
+    """One human-readable line about what a tool call is doing.
+
+    Shown live in the UI's activity feed — the point is orientation ("it is
+    reading the waterfall doc"), not a faithful dump of the input.
+    """
+    i = tool_input or {}
+    detail = ""
+    if name == "Bash":
+        detail = i.get("command", "")
+    elif name in ("Read", "Write", "Edit", "NotebookEdit"):
+        detail = i.get("file_path", "") or i.get("notebook_path", "")
+    elif name in ("Glob", "Grep"):
+        detail = i.get("pattern", "")
+    elif name == "Task":
+        detail = i.get("description", "") or i.get("subagent_type", "")
+    elif name == "mcp__gtm__query":
+        detail = i.get("purpose", "") or "composing SQL"
+    elif isinstance(i, dict) and i:
+        first = next(iter(i.values()))
+        if isinstance(first, str):
+            detail = first
+    detail = " ".join(str(detail).split())  # collapse newlines in e.g. Bash commands
+    return detail[:117] + "…" if len(detail) > 120 else detail
+
+
 @dataclass
 class Pending:
     """One awaited approval."""
@@ -147,9 +173,15 @@ class ChatSession:
                             if isinstance(block, TextBlock):
                                 await self._queue.put(event("token", text=block.text))
                             elif isinstance(block, ThinkingBlock):
-                                pass
+                                # No content is forwarded — reasoning stays private.
+                                # The UI only needs to know the agent is thinking.
+                                await self._queue.put(event("thinking"))
                             elif isinstance(block, ToolUseBlock):
-                                await self._queue.put(event("tool_use", name=block.name))
+                                await self._queue.put(event(
+                                    "tool_use",
+                                    name=block.name,
+                                    detail=tool_detail(block.name, block.input),
+                                ))
                     elif isinstance(msg, ResultMessage):
                         await self._queue.put(
                             event("result", cost_usd=getattr(msg, "total_cost_usd", None))

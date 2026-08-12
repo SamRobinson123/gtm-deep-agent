@@ -1,9 +1,10 @@
 :root{
-  /* Chrome stays neutral and quiet — the numbers are the subject. */
-  --paper:#ffffff; --raise:#ffffff; --sink:#f9f9f9;
-  --ink:#0d0d0d; --ink-2:#5d5d5d; --ink-3:#8f8f8f;
-  --rule:#e5e5e5; --rule-2:#d4d4d4;
-  --clay:#2f6f5e; --clay-soft:#eaf3f0;
+  /* Claude.ai's warm register: ivory ground, warm ink, coral accent.
+     The chrome stays quiet — the numbers are still the subject. */
+  --paper:#faf9f5; --raise:#ffffff; --sink:#f0eee6;
+  --ink:#3d3929; --ink-2:#6e6a5c; --ink-3:#9a9587;
+  --rule:#e8e6dd; --rule-2:#d9d6ca;
+  --clay:#d97757; --clay-soft:#f7ece6;
   --ok:#2f6f5e; --flag:#a15c07; --stop:#b42318;
 
   /* Derivation semantics. Four hues for the four KINDS of quantity in the
@@ -20,15 +21,16 @@
   --suspect:#b42318;--suspect-soft:#fdeceb;
 
   --r:10px;
+  --serif:ui-serif,Georgia,"Times New Roman",serif;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
   --mono:"SF Mono",ui-monospace,"Cascadia Mono","JetBrains Mono",Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){
   :root{
-    --paper:#212121; --raise:#2f2f2f; --sink:#181818;
-    --ink:#ececec; --ink-2:#b4b4b4; --ink-3:#8f8f8f;
-    --rule:#3a3a3a; --rule-2:#4a4a4a;
-    --clay:#5fb39b; --clay-soft:#1d302b;
+    --paper:#262624; --raise:#30302e; --sink:#1f1e1d;
+    --ink:#eceae4; --ink-2:#b8b5aa; --ink-3:#8d8a7f;
+    --rule:#3a3936; --rule-2:#4a4844;
+    --clay:#d97757; --clay-soft:#3b2c24;
     --ok:#5fb39b; --flag:#d9a441; --stop:#f0736a;
 
     --given:#8aa2f5;  --given-soft:#1e2436;
@@ -90,9 +92,11 @@ button,textarea,input{font:inherit}
 /* ── thread ───────────────────────────────────────────────── */
 .main{display:flex;flex-direction:column;min-width:0;min-height:0}
 .thread{flex:1;overflow-y:auto;padding:32px 0 4px}
-.row{max-width:740px;margin:0 auto 26px;padding:0 32px}
-.who{font:11px/1 var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--ink-3);margin-bottom:8px}
-.user .who{color:var(--clay)}
+.row{max-width:768px;margin:0 auto 22px;padding:0 32px}
+.row.user{display:flex;justify-content:flex-end}
+.bubble{background:var(--sink);border:1px solid var(--rule);border-radius:18px;
+  padding:10px 18px;max-width:72%}
+.bubble p{margin:0}
 .body{min-width:0}
 .body p{margin:0 0 12px}
 .body p:last-child{margin-bottom:0}
@@ -104,11 +108,56 @@ button,textarea,input{font:inherit}
 @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.cursor{animation:none}}
 
-.tool{
-  display:inline-flex;align-items:center;gap:7px;font:11.5px var(--mono);color:var(--ink-3);
-  margin:0 8px 10px 0
+/* ── live activity ────────────────────────────────────────────
+   What the agent is doing right now, in the register of Claude's own UI:
+   shimmer while working, a step per tool call, a quiet one-line summary
+   once the answer starts. */
+.wait{display:flex;gap:5px;padding:6px 0 2px}
+.wait i{width:7px;height:7px;border-radius:50%;background:var(--ink-3);
+  animation:waitpulse 1.2s ease-in-out infinite}
+.wait i:nth-child(2){animation-delay:.15s}
+.wait i:nth-child(3){animation-delay:.3s}
+@keyframes waitpulse{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+.activity{margin:4px 0 14px;border:1px solid var(--rule);border-radius:var(--r);
+  background:var(--sink);overflow:hidden}
+.act-head{display:flex;align-items:center;gap:9px;width:100%;padding:9px 13px;
+  border:0;background:none;cursor:pointer;color:inherit;font:inherit;text-align:left}
+.act-head:hover .act-label{color:var(--ink)}
+.act-label{font-size:13px;color:var(--ink-2)}
+.act-time{font:11px var(--mono);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.act-chev{margin-left:auto;color:var(--ink-3);font-size:11px;transition:transform .15s}
+.activity.closed .act-chev{transform:rotate(-90deg)}
+.activity.closed .act-steps{display:none}
+
+.act-spin{width:13px;height:13px;border-radius:50%;flex:none;
+  border:2px solid var(--rule-2);border-top-color:var(--clay);
+  animation:spin .8s linear infinite}
+.act-spin.done{animation:none;border:none;background:var(--clay);position:relative}
+.act-spin.done::after{content:"";position:absolute;left:4px;top:2px;width:3px;height:6px;
+  border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(45deg)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.shimmer{background:linear-gradient(90deg,var(--ink-3) 30%,var(--ink) 50%,var(--ink-3) 70%);
+  background-size:200% 100%;-webkit-background-clip:text;background-clip:text;
+  color:transparent;animation:shimmer 2s linear infinite}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+
+.act-steps{padding:2px 13px 9px 13px;border-top:1px solid var(--rule)}
+.act-step{display:flex;align-items:baseline;gap:8px;padding:5px 0;min-width:0}
+.act-dot{width:5px;height:5px;border-radius:50%;background:var(--rule-2);flex:none;
+  align-self:center}
+.act-step.live .act-dot{background:var(--clay);animation:livedot 1.2s ease-in-out infinite}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+.act-name{font-size:12.5px;color:var(--ink-2);flex:none}
+.act-step.live .act-name{color:var(--ink)}
+.act-detail{font:11.5px var(--mono);color:var(--ink-3);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+@media (prefers-reduced-motion:reduce){
+  .wait i,.act-spin,.act-step.live .act-dot{animation:none}
+  .shimmer{animation:none;color:var(--ink-2);background:none}
 }
-.tool::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--clay)}
 
 .err{border-left:2px solid var(--stop);padding:2px 0 2px 14px;color:var(--stop);font-size:14px;margin:8px 0}
 
@@ -161,30 +210,32 @@ td.null{color:var(--ink-3)}
 .rowcap{padding:9px 16px;font:11.5px var(--mono);color:var(--ink-3);border-top:1px solid var(--rule)}
 
 /* ── opening ──────────────────────────────────────────────── */
-.empty{max-width:740px;margin:14vh auto 0;padding:0 32px}
-.empty h1{font-size:30px;font-weight:600;letter-spacing:-.025em;margin:0 0 10px}
-.empty p{color:var(--ink-2);font-size:15px;margin:0 0 30px;max-width:52ch}
-.suggest{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:var(--r);overflow:hidden}
+.empty{max-width:768px;margin:26vh auto 0;padding:0 32px;text-align:center}
+.empty h1{font:400 34px/1.25 var(--serif);letter-spacing:-.01em;margin:0 0 8px}
+.empty .mark{width:30px;height:30px;object-fit:contain;vertical-align:-3px;margin-right:6px}
+.empty p{color:var(--ink-3);font-size:14px;margin:0 auto 28px;max-width:52ch}
+.suggest{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .suggest button{
-  text-align:left;padding:13px 16px;border:none;background:var(--raise);color:var(--ink);
-  cursor:pointer;font-size:14px;display:flex;gap:12px;align-items:baseline
+  padding:9px 18px;border:1px solid var(--rule-2);background:var(--raise);color:var(--ink-2);
+  cursor:pointer;font-size:13.5px;border-radius:999px
 }
-.suggest button:hover{background:var(--sink);color:var(--clay)}
-.suggest button span{font:10.5px var(--mono);color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase;flex:none;width:64px}
-.suggest button:hover span{color:var(--clay)}
+.suggest button:hover{background:var(--sink);color:var(--ink);border-color:var(--ink-3)}
 
 /* ── composer ─────────────────────────────────────────────── */
 .composer-wrap{padding:14px 32px 22px}
 .composer{
-  max-width:740px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;
-  border:1px solid var(--rule-2);background:var(--raise);border-radius:14px;padding:10px 10px 10px 16px
+  max-width:768px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;
+  border:1px solid var(--rule-2);background:var(--raise);border-radius:18px;
+  padding:14px 12px 12px 20px;
+  box-shadow:0 3px 14px rgba(61,57,41,.07)
 }
-.composer:focus-within{border-color:var(--clay)}
+.composer:focus-within{border-color:var(--ink-3);box-shadow:0 5px 18px rgba(61,57,41,.1)}
 .composer textarea{flex:1;border:none;background:none;color:var(--ink);resize:none;outline:none;max-height:220px;padding:5px 0;line-height:1.6}
 .composer textarea::placeholder{color:var(--ink-3)}
-.composer button{width:30px;height:30px;border-radius:8px;border:none;background:var(--clay);color:#fff;cursor:pointer;font-size:15px;flex:none;line-height:1}
-.composer button:disabled{opacity:.3;cursor:default}
-.hint{max-width:740px;margin:9px auto 0;font:11px var(--mono);color:var(--ink-3);text-align:center}
+.composer button{width:34px;height:34px;border-radius:10px;border:none;background:var(--clay);color:#fff;cursor:pointer;font-size:16px;flex:none;line-height:1}
+.composer button:hover:not(:disabled){opacity:.85}
+.composer button:disabled{opacity:.25;cursor:default}
+.hint{max-width:768px;margin:9px auto 0;font:11px var(--mono);color:var(--ink-3);text-align:center}
 
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-thumb{background:var(--rule-2);border-radius:6px;border:3px solid transparent;background-clip:content-box}
