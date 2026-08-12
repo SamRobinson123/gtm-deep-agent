@@ -166,28 +166,19 @@ def test_allowlist_covers_the_tables_the_derivation_needs(t):
 
 
 # --- hooks ------------------------------------------------------------------
-
-def test_read_scope_allows_docs_and_data():
-    assert hooks.check_read_scope("docs/models/pipe-create.md") is None
-    assert hooks.check_read_scope("data/Target_Monthly.csv") is None
-
-
-def test_read_scope_denies_specs_and_env_and_outside():
-    assert hooks.check_read_scope("docs/superpowers/specs/x.md") is not None
-    assert hooks.check_read_scope(".env") is not None
-    assert hooks.check_read_scope("C:/Windows/System32/drivers/etc/hosts") is not None
-
-
-def test_read_scope_denies_traversal():
-    """Resolve before comparing, or docs/../../ walks straight out."""
-    assert hooks.check_read_scope("docs/../../../etc/passwd") is not None
-
-
-def test_bash_allowlist():
-    assert hooks.check_bash("az account show") is None
-    assert hooks.check_bash("az login") is None
-    for bad in ["cat .env", "rm -rf /", "python -c 'import os'", "az account show && cat .env"]:
-        assert hooks.check_bash(bad) is not None, bad
+#
+# RETIRED 2026-08-11, v2 step 2. The read-confinement tests
+# (test_read_scope_allows_docs_and_data, ..._denies_specs_and_env_and_outside,
+# ..._denies_traversal) and test_bash_allowlist are GONE ON PURPOSE: their
+# subject — ALLOWED_READ_ROOTS and ALLOWED_BASH_PREFIXES — was deleted, not
+# relaxed. General Bash and open reads are the point of v2.
+#
+# They are replaced rather than merely removed. tests/test_hooks.py covers what
+# survives (credential denial on both Read paths and Bash strings,
+# docs/superpowers/ read denial, traversal resolving before the name check) plus
+# what is new (write protection on docs/, CLAUDE.md, settings.json, data/, and
+# existing run dirs). The security argument that replaces the cage lives in
+# tests/test_env_isolation.py.
 
 
 # --- options ----------------------------------------------------------------

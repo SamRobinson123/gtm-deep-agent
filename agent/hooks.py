@@ -1,9 +1,34 @@
-"""PreToolUse guards — read scope and the Bash allowlist.
+"""PreToolUse guards — the things no approval should be able to grant.
 
-These make two CLAUDE.md rules mechanical rather than a matter of the agent
-remembering them mid-session:
-  - answers come from docs/, so reads outside it are denied
-  - shell is not the interface for data access; the scoped tools are
+v1's hook was a cage: reads confined to project subdirs, Bash limited to an `az`
+prefix allowlist. v2 deletes both. Generic capability is the point — the agent
+writes and runs its own scripts — and the controls move elsewhere:
+
+  - approval mode gates Bash and repo edits at runtime (`.claude/settings.json`
+    decides what runs unprompted)
+  - the connection string is absent from os.environ, so no subprocess inherits
+    it (see tests/test_env_isolation.py — that is the real warehouse control)
+
+What is left here is the short list that no approval prompt should be able to
+authorise, because a human clicking "allow" in the middle of a task is not a
+considered decision about the agent's constitution:
+
+  WRITE-DENIED   docs/**, CLAUDE.md   the context corpus is human-curated
+                 .claude/settings.json  it must not widen its own permissions
+                 .env*                  credentials
+                 data/**                inputs are read-only
+                 workspace/runs/<existing>/**   lineage is immutable
+
+  READ-DENIED    credential filenames
+                 docs/superpowers/     decision history, NOT context
+
+Everything else — pipeline/, agent/, tests/, the rest of workspace/ — is
+editable with approval. That is the "build" half of think-and-build.
+
+The credential rule applies to Bash command STRINGS as well as Read paths. It is
+crude and an agent determined to defeat it could; it exists to turn an accident
+into a visible denial, not to stop an adversary. The mechanical control is the
+environment isolation.
 """
 from __future__ import annotations
 
@@ -11,31 +36,14 @@ from pathlib import Path
 
 from pipeline import config
 
-# Reads are allowed only inside these. data/ is included because the model must
-# load parquet and the targets CSV — but see DENIED_NAMES: it can never read .env.
-ALLOWED_READ_ROOTS = (
-    config.ROOT / "docs",
-    config.ROOT / "data",
-    config.ROOT / "workspace",
-    config.ROOT / "pipeline",
-    config.ROOT / "agent",
-    config.ROOT / "tests",
-)
+# Filenames that are never read and never written, wherever they appear.
+CREDENTIAL_NAMES = {".env", "id_rsa", "id_ed25519", "credentials", ".netrc"}
+CREDENTIAL_PREFIXES = (".env.",)          # .env.local, .env.production, ...
 
-# Design specs record decisions, including ones that were rejected. Citing them as
-# fact about the data is exactly the failure mode docs/README.md warns about.
+# Design specs record decisions, including rejected ones. Citing them as fact
+# about the data is exactly the failure mode docs/README.md warns about. This
+# denial outlives the read confinement that used to surround it.
 DENIED_READ_SUBPATHS = (config.ROOT / "docs" / "superpowers",)
-
-DENIED_NAMES = {".env", ".env.local", "id_rsa", "credentials"}
-
-# Only Azure CLI session commands. Everything else goes through the scoped tools.
-ALLOWED_BASH_PREFIXES = (
-    "az account show",
-    "az account get-access-token",
-    "az login",
-    "az logout",
-    "az --version",
-)
 
 
 def _deny(reason: str):
@@ -49,59 +57,100 @@ def _deny(reason: str):
 
 
 def _resolve(p: str) -> Path:
-    # Resolve before comparing, or `docs/../../etc/passwd` walks straight out.
+    # Resolve before comparing, or `docs/../.env` slips past a name check.
     return (config.ROOT / p).resolve() if not Path(p).is_absolute() else Path(p).resolve()
 
 
-def check_read_scope(path: str):
-    """Return a deny dict if this path may not be read, else None."""
+def _is_credential(name: str) -> bool:
+    return name in CREDENTIAL_NAMES or name.startswith(CREDENTIAL_PREFIXES)
+
+
+def _under(target: Path, root: Path) -> bool:
+    return target == root or root in target.parents
+
+
+def check_write(path: str):
+    """Deny dict if this path may not be written or edited, else None."""
     if not path:
         return None
     target = _resolve(path)
 
-    if target.name in DENIED_NAMES:
+    if _is_credential(target.name):
+        return _deny(f"Refused: {target.name} holds credentials and is never writable.")
+
+    if target == (config.ROOT / ".claude" / "settings.json").resolve():
+        return _deny(
+            "Refused: .claude/settings.json holds your own permission rules. An agent "
+            "that can widen its permissions has none. Ask the operator to change it."
+        )
+
+    if _under(target, (config.ROOT / "docs").resolve()) or target == (config.ROOT / "CLAUDE.md").resolve():
+        rel = target.name
+        return _deny(
+            f"Refused: {rel} is part of the human-curated context corpus. You reason FROM "
+            f"these files, so rewriting them lets you drift with no trace. Write your "
+            f"change as a diff in workspace/proposals/ and tell the operator to review it."
+        )
+
+    if _under(target, (config.ROOT / "data").resolve()):
+        return _deny("Refused: data/ is read-only input. Write outputs to workspace/exports/.")
+
+    # Immutability, but only for runs that ALREADY exist — a path under a run id
+    # that has not been created yet must not be pre-emptively denied, or the
+    # guard would depend on the order operations happen in. lineage.Run writes
+    # through Python file I/O and never reaches this hook at all.
+    runs = Path(config.RUNS).resolve()
+    if _under(target, runs) and target != runs:
+        rel = target.relative_to(runs)
+        if rel.parts:
+            run_dir = runs / rel.parts[0]
+            if run_dir.exists():
+                return _deny(
+                    f"Refused: {rel.parts[0]} is a completed run and lineage is immutable — "
+                    f"a run that can be edited afterwards cannot defend a number. "
+                    f"Record a NEW run with agent.lineage.Run instead."
+                )
+    return None
+
+
+def check_read(path: str):
+    """Deny dict if this path may not be read, else None."""
+    if not path:
+        return None
+    target = _resolve(path)
+
+    if _is_credential(target.name):
         return _deny(f"Refused: {target.name} holds credentials and is never readable.")
 
-    for denied in DENIED_READ_SUBPATHS:
-        if denied == target or denied in target.parents:
+    for root in DENIED_READ_SUBPATHS:
+        if _under(target, root.resolve()):
             return _deny(
-                "Refused: docs/superpowers/ holds design specs and decision history, not context. "
-                "It must never be cited as fact about the data or the models. Use docs/README.md "
-                "to find the right context file."
+                "Refused: docs/superpowers/ holds design specs and decision history, not "
+                "context. It must never be cited as fact about the data or the models. "
+                "Use docs/README.md to find the right context file."
             )
-
-    for root in ALLOWED_READ_ROOTS:
-        if root == target or root in target.parents:
-            return None
-
-    return _deny(
-        f"Refused: {target} is outside the project. Answers must come from docs/ — "
-        "start at docs/README.md, which routes to the right file."
-    )
-
-
-# Shell metacharacters that chain, redirect, or substitute another command.
-# Without this check, prefix-matching alone is defeated by `az account show && cat .env`
-# — the command starts with an allowed prefix and smuggles a second one after it.
-SHELL_CHAINING = (";", "&&", "||", "|", "`", "$(", ">", "<", "&", "\n")
+    return None
 
 
 def check_bash(command: str):
-    """Return a deny dict if this shell command is not allowed, else None."""
-    cmd = (command or "").strip()
-    for meta in SHELL_CHAINING:
-        if meta in cmd:
-            return _deny(
-                f"Refused: shell chaining/redirection ({meta!r}) is not permitted. "
-                "Run a single Azure CLI command, or use the gtm tools for data access."
-            )
-    if any(cmd == p or cmd.startswith(p + " ") for p in ALLOWED_BASH_PREFIXES):
+    """Deny dict if this command reaches for a credential, else None.
+
+    No allowlist. v1 denied shell chaining because `&&` defeated prefix matching;
+    with no prefixes to match there is nothing for chaining to defeat, so a
+    pipeline is just a shell command. The credential check runs against the whole
+    string, so chaining cannot smuggle one past it either.
+    """
+    cmd = command or ""
+    if not cmd.strip():
         return None
-    return _deny(
-        "Refused: shell is limited to Azure CLI session commands "
-        f"({', '.join(ALLOWED_BASH_PREFIXES)}). Data access goes through the gtm tools — "
-        "use list_queries to see what can be run."
-    )
+    for name in sorted(CREDENTIAL_NAMES) + list(CREDENTIAL_PREFIXES):
+        if name in cmd:
+            return _deny(
+                f"Refused: this command references {name!r}. Credentials are not readable, "
+                f"and the Synapse connection string is not in your environment — use the "
+                f"`query` tool for warehouse access."
+            )
+    return None
 
 
 async def pre_tool_use(input_data, tool_use_id, context):
@@ -109,14 +158,12 @@ async def pre_tool_use(input_data, tool_use_id, context):
     tool = input_data.get("tool_name", "")
     args = input_data.get("tool_input", {}) or {}
 
-    if tool in ("Read", "Glob", "Grep"):
-        path = args.get("file_path") or args.get("path") or ""
-        if path:
-            denied = check_read_scope(path)
-            if denied:
-                return denied
+    if tool in ("Write", "Edit", "NotebookEdit"):
+        denied = check_write(args.get("file_path") or args.get("notebook_path") or "")
+    elif tool in ("Read", "Glob", "Grep"):
+        denied = check_read(args.get("file_path") or args.get("path") or "")
     elif tool == "Bash":
         denied = check_bash(args.get("command", ""))
-        if denied:
-            return denied
-    return {}
+    else:
+        denied = None
+    return denied or {}
