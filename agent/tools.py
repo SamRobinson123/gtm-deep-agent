@@ -531,6 +531,192 @@ async def derive_pipe_create_target(args):
     return _ok("\n".join(lines))
 
 
+def _resolve_run(run_id: str | None):
+    """A run id, defaulting to the most recent. Returns (run_id, csv_path)."""
+    runs = lineage.list_runs()
+    if not runs:
+        raise ValueError("No runs recorded yet. Derive a target first, then export it.")
+    rid = run_id or runs[-1]["run_id"]
+    d = config.RUNS / rid
+    if not d.exists():
+        raise ValueError(f"Run {rid!r} not found. Use list_runs to see what exists.")
+    csvs = sorted(d.glob("*.csv"))
+    if not csvs:
+        raise ValueError(f"Run {rid!r} stored no CSV to export.")
+    return rid, csvs[0]
+
+
+@tool(
+    "export_excel",
+    "Write a stored run to a formatted Excel workbook in workspace/exports/. "
+    "One sheet per quarter plus a Summary sheet with the derivation ledger. "
+    "Dollars formatted #,##0, rates 0.0%, header frozen, columns auto-width. "
+    "Never overwrites: a name collision gets a date suffix. Defaults to the most "
+    "recent run. Use this whenever the user asks for the waterfall 'as Excel', "
+    "'as a file', or to send on.",
+    {"run_id": str, "name": str},
+)
+async def export_excel(args):
+    import pandas as pd
+    from agent import exports
+
+    try:
+        rid, csv = _resolve_run(args.get("run_id") or None)
+        df = pd.read_csv(csv)
+    except Exception as e:
+        return _ok(f"Cannot export: {e}")
+
+    # Legacy runs carry pre-rename headers. Same migration the UI applies, so a
+    # run exported today reads the same as the same run viewed today.
+    from gtm_ui.server import LEGACY_COLUMNS
+    renamed = {a: b for a, b in LEGACY_COLUMNS.items() if a in df.columns}
+    df = df.rename(columns=renamed)
+
+    name = args.get("name") or f"{csv.stem}_{rid[:17]}"
+    try:
+        path = exports.export_path(name, ".xlsx")
+    except Exception as e:
+        return _ok(f"Cannot export: {e}")
+
+    sheets = []
+    with pd.ExcelWriter(path, engine="openpyxl") as w:
+        if "quarter" in df.columns:
+            # Summary first so the workbook opens on the totals, not row 1 of
+            # a 27-row territory table.
+            agg = {c: "sum" for c in df.columns
+                   if pd.api.types.is_numeric_dtype(df[c]) and not exports.RATE.search(c)}
+            if agg:
+                summary = df.groupby("quarter", sort=False).agg(agg).reset_index()
+                exports.write_sheet(w, summary, "Summary")
+                sheets.append(("Summary", len(summary)))
+            for q, g in df.groupby("quarter", sort=False):
+                exports.write_sheet(w, g.reset_index(drop=True), str(q))
+                sheets.append((str(q), len(g)))
+        else:
+            exports.write_sheet(w, df, "Data")
+            sheets.append(("Data", len(df)))
+
+    total = ""
+    if "pipe_create_target" in df.columns and "quarter" in df.columns:
+        per_q = df.groupby("quarter", sort=False)["pipe_create_target"].sum()
+        total = " | ".join(f"{q} ${v:,.0f}" for q, v in per_q.items())
+
+    return _ok(
+        f"{path}\n"
+        f"{len(df)} rows from run {rid}, across {len(sheets)} sheet(s): "
+        f"{', '.join(n for n, _ in sheets)}.\n"
+        + (f"Derived pipe create: {total}. DERIVED, not the published target.\n" if total else "")
+        + (f"Migrated legacy columns: {', '.join(sorted(renamed.values()))}.\n" if renamed else "")
+    )
+
+
+@tool(
+    "export_chart",
+    "Write a PNG chart from a stored run to workspace/exports/, 150 dpi, titled "
+    "with quarter and grain. kind='pipe_create' bars the derived target by "
+    "territory; kind='waterfall' shows the bookings bridge (target -> closed won "
+    "-> existing pipe -> sales cycle tail -> gap) for one quarter. Defaults to "
+    "the most recent run.",
+    {"run_id": str, "kind": str, "quarter": str, "name": str},
+)
+async def export_chart(args):
+    import pandas as pd
+    import matplotlib
+    matplotlib.use("Agg")            # no display in this process
+    import matplotlib.pyplot as plt
+    from agent import exports
+
+    kind = (args.get("kind") or "pipe_create").strip()
+    try:
+        rid, csv = _resolve_run(args.get("run_id") or None)
+        df = pd.read_csv(csv)
+    except Exception as e:
+        return _ok(f"Cannot export: {e}")
+
+    grain = next((c for c in ("Territory", "Region", "Geo") if c in df.columns), None)
+    quarters = list(dict.fromkeys(df["quarter"])) if "quarter" in df.columns else []
+    q = args.get("quarter") or (quarters[0] if quarters else "")
+    sub = df[df["quarter"] == q] if q and "quarter" in df.columns else df
+
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+    money = matplotlib.ticker.FuncFormatter(
+        lambda v, _: ("-" if v < 0 else "") + f"${abs(v)/1e6:,.1f}M")
+
+    if kind == "waterfall":
+        terms = [("bookings_target", "Bookings target"),
+                 ("closed_won", "less Closed Won"),
+                 ("expected_from_existing_pipe", "less existing pipe"),
+                 ("sales_cycle_tail_from_earlier_quarters", "less sales cycle tail"),
+                 ("gap", "= Gap to fill")]
+        have = [(c, l) for c, l in terms if c in sub.columns]
+        raw = [sub[c].sum() for c, _ in have]
+        # Deltas: first bar and last bar are TOTALS resting on zero; the middle
+        # ones are deductions that float between the running balance. Drawing
+        # everything from zero (the obvious version) is a grouped bar chart, not
+        # a bridge — the eye cannot follow the subtraction.
+        deltas = [raw[0]] + [-v for v in raw[1:-1]] + [raw[-1]]
+        bases, run, last = [], 0.0, len(deltas) - 1
+        for i, d in enumerate(deltas):
+            if i in (0, last):
+                bases.append(0.0)                 # totals sit on the axis
+                if i == 0:
+                    run = d
+            else:
+                run += d                          # d is negative for a deduction
+                # A deduction HANGS DOWN from the old balance to the new one, so
+                # its base is the NEW (lower) balance. Using `run - d` puts the
+                # base at the old balance and the bar floats upward — it looks
+                # plausible and is exactly backwards.
+                bases.append(run if d < 0 else run - d)
+        heights = [abs(d) for d in deltas]
+        colors = ["#3f6f9f"] + ["#b4553f"] * (len(deltas) - 2) + ["#4a7c59"]
+        labels = [l for _, l in have]
+        ax.bar(labels, heights, bottom=bases, color=colors, width=0.6)
+
+        # Connectors trace the running balance from one bar to the next.
+        for i in range(last):
+            y = bases[i] if deltas[i] < 0 else bases[i] + heights[i]
+            ax.plot([i + 0.3, i + 1.3], [y, y], color="#999", lw=1, ls="--", zorder=0)
+
+        for i, d in enumerate(deltas):
+            top = bases[i] + heights[i]
+            ax.text(i, top + max(heights) * 0.015,
+                    ("$0" if abs(d) < 1 else f"${d:,.0f}"),
+                    ha="center", va="bottom", fontsize=9)
+        ax.set_ylabel("Bookings $")
+        ax.yaxis.set_major_formatter(money)
+        ax.set_ylim(0, max(b + h for b, h in zip(bases, heights)) * 1.12)
+        plt.setp(ax.get_xticklabels(), rotation=12, ha="right")
+    else:
+        if grain is None or "pipe_create_target" not in sub.columns:
+            plt.close(fig)
+            return _ok("Cannot chart: the run has no grain column or no pipe_create_target.")
+        d = sub.groupby(grain)["pipe_create_target"].sum().sort_values()
+        ax.barh(d.index, d.values, color="#3f6f9f")
+        ax.set_xlabel("Derived pipe create target $")
+        ax.xaxis.set_major_formatter(money)
+        ax.tick_params(axis="y", labelsize=8)
+
+    ax.set_title(f"{q or 'All quarters'} — {kind.replace('_', ' ')} by "
+                 f"{grain or 'run'} (DERIVED, not published)")
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+
+    name = args.get("name") or f"{kind}_{str(q).replace(' ', '_')}_{rid[:17]}"
+    try:
+        path = exports.export_path(name, ".png")
+    except Exception as e:
+        plt.close(fig)
+        return _ok(f"Cannot export: {e}")
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+    return _ok(f"{path}\n"
+               f"{kind.replace('_', ' ')} chart for {q or 'all quarters'} at "
+               f"{grain or 'run'} grain, {len(sub)} rows, 150 dpi.\n"
+               f"DERIVED figures — state that when sharing.")
+
+
 GTM_TOOLS = [
     az_login_status,
     azure_login,
@@ -540,6 +726,8 @@ GTM_TOOLS = [
     query,
     pipe_create_targets,
     what_if_assumption,
+    export_excel,
+    export_chart,
     list_runs,
     show_run,
 ]

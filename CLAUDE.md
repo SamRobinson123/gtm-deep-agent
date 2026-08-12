@@ -102,6 +102,11 @@ file, what you computed, and what you are inferring.
 
 ## Producing files
 
+**Use the `export_excel` and `export_chart` tools.** They implement every rule
+below, and `agent/exports.py::export_path()` is the write boundary — the agent
+supplies a NAME, never a path, so no filename (including one that arrived in a
+prompt) can write outside `workspace/exports/`. Do not hand-roll a file write.
+
 - Excel: pandas + openpyxl. One sheet per grain, header row frozen, columns
   auto-width, dollars formatted `#,##0`, attainment as `0.0%`.
 - Charts: matplotlib, saved PNG at 150 dpi. One chart per file, titled with
@@ -109,6 +114,8 @@ file, what you computed, and what you are inferring.
 - Always write to `workspace/exports/`, then print the full path and a two-line
   summary of what is in the file.
 - Never overwrite an existing export — suffix with the date if the name collides.
+- Exports default to the LATEST run. Always state which `run_id` was exported —
+  a run made in another window is a real possibility, and the numbers differ.
 
 ## Running the pipeline
 
