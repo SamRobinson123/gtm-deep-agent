@@ -160,3 +160,57 @@ def test_the_allow_list_does_not_pre_approve_edits_outside_workspace():
     for rule in allow:
         if rule.startswith(("Write(", "Edit(")):
             assert "workspace/" in rule, f"{rule} auto-approves edits outside workspace/"
+
+
+# --- the verifier subagent (v2 step 6) ----------------------------------------
+
+def test_the_verifier_exists_and_can_compute():
+    """A checker that can only read cannot re-derive anything. It needs Bash to
+    run its own scratch script — that is the whole point of an INDEPENDENT
+    re-derivation rather than a re-reading."""
+    sub = options.build_options().agents["verifier"]
+    assert set(sub.tools) >= {"Read", "Glob", "Grep", "Bash"}
+
+
+def test_the_verifier_can_write_a_scratch_script_but_not_edit():
+    """Write is required and the first acceptance run proved it: without it the
+    verifier could RUN a scratch script but not CREATE one, and returned CANNOT
+    VERIFY. It is confined by hooks.py (no docs/, CLAUDE.md, data/, runs/) and by
+    settings.json (only Write(workspace/**) is pre-approved).
+
+    Edit stays out — a verifier that can modify existing files could 'fix' the
+    thing it disagrees with rather than reporting it."""
+    sub = options.build_options().agents["verifier"]
+    assert "Write" in sub.tools
+    for t in ("Edit", "NotebookEdit"):
+        assert t not in sub.tools
+
+
+def test_the_verifier_has_no_warehouse_access():
+    """It checks what the maker used. Re-pulling would make it a second maker."""
+    sub = options.build_options().agents["verifier"]
+    assert not any(t.startswith("mcp__gtm") for t in sub.tools)
+
+
+def test_the_verifier_is_told_to_re_derive_not_to_re_read():
+    """The failure mode being designed against: a checker that reads the maker's
+    CSV, sees the number matches itself, and reports agreement."""
+    prompt = options.VERIFIER.prompt.lower()
+    assert "manifest" in prompt
+    assert "independent" in prompt or "yourself" in prompt
+    assert "agree" in prompt and "disagree" in prompt
+
+
+def test_the_verifier_reports_a_delta_rather_than_a_verdict_alone():
+    """"Disagree" with no number is unactionable — the size says whether it is a
+    rounding artefact or a broken assumption."""
+    assert "delta" in options.VERIFIER.prompt.lower()
+
+
+def test_maker_and_checker_do_not_share_a_context_window():
+    """An AgentDefinition runs in its own window. If the verifier were ever
+    folded into the main prompt it would inherit the maker's mistakes, which
+    defeats the entire mechanism."""
+    o = options.build_options()
+    assert "verifier" in o.agents
+    assert options.VERIFIER.prompt not in o.system_prompt["append"]

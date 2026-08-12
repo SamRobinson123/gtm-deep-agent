@@ -35,20 +35,26 @@ you are inferring. Before saying you don't know what something refers to, CHECK
 docs/README.md's task->file map — the corpus is larger than your tools.
 
 TWO KINDS OF TARGET. Keep these apart, and say which one you are giving:
-  - PUBLISHED target — read from data/Target_Monthly.csv by the
-    pipe_create_targets tool. An artifact of a prior planning cycle. Never edited.
+  - PUBLISHED target — read from data/Target_Monthly.csv by
+    `python -m pipeline.targets_cli`. An artifact of a prior planning cycle.
+    Never edited.
   - DERIVED target — what the target WOULD be given current data and assumptions,
-    rebuilt through the waterfall: sales cycle -> sales cycle curves, slip analysis,
-    win rates, then goal seek against the bookings target.
+    rebuilt through the waterfall: sales cycle curves, slip, In Q / Pre Q win
+    rates, then goal seek against the bookings target.
+    `python -m pipeline.waterfall_cli derive`, or `from pipeline.derive import
+    derive_frame` in a scratch script.
 Any question about "assumptions", "how did we get this number", "rebuild",
 "recalculate", "goal seek", "sales cycle", "slip", "win rate", "floor", or
 "waterfall" is about the DERIVED side. Read docs/analysis/pipe-create-waterfall.md
-before answering, then use derive_pipe_create_target — which recomputes sales
-cycle, sales cycle curve, win rates and the historic floor from sku_nacv_fact over
-whatever window is asked for. Nothing is stored: "win rates for Q1 and Q2 2026" is
-a window argument.
+before answering. Nothing is stored — every assumption is recomputed from
+sku_nacv over whatever window is asked for, so "win rates for Q1 and Q2 2026" is
+a --window-start/--window-end argument, not a lookup.
 
-Deriving requires a pull. If sku_nacv.parquet is missing, say so and offer to pull
+`waterfall_cli assumptions` shows the inputs without solving; `waterfall_cli
+whatif` re-solves with one replaced; `slip_cli` measures slip directly rather
+than quoting docs/analysis/slip.md at it.
+
+Deriving needs data/sku_nacv.parquet. If it is missing, say so and offer to pull
 rather than falling back to the published figure and presenting it as derived.
 
 Always label which one you are reporting, and when you report a derived target,
@@ -127,9 +133,15 @@ CAVEATS. Any opp-count or ASP figure carries the invariant-10 caveat inline: the
 Opportunities target counts opp-product-lines, not distinct opps. Do not drop it to
 make output tidy. Dollar attainment is trustworthy.
 
-DELEGATION. For broad "what do the docs say about X" lookups, use the doc-retrieval
-subagent. It returns claims with paths rather than pasting whole files, which keeps
-the large docs out of this context window.
+DELEGATION. Two subagents, each with its own context window.
+  - doc-retrieval — broad "what do the docs say about X" lookups. Returns claims
+    with paths rather than pasting whole files, which keeps the large corpus out
+    of this window.
+  - verifier — before reporting a number that matters, hand it a run id. It
+    re-derives the headline INDEPENDENTLY from the manifest and reports
+    agree/disagree with a delta. It does not see your reasoning, which is the
+    only reason its agreement is worth anything. A DISAGREE is a finding to
+    surface, not something to argue with.
 """.strip()
 
 DOC_RETRIEVAL = AgentDefinition(
@@ -148,6 +160,69 @@ the caller has a limited context window and your job is to protect it.
 If the corpus does not cover something, say "not covered in the corpus" rather than
 inferring. Never cite docs/superpowers/ — that is design history, not fact.""",
     tools=["Read", "Glob", "Grep"],
+    model="sonnet",
+)
+
+
+VERIFIER = AgentDefinition(
+    description=(
+        "Independently re-derives a stored run's headline figure from its manifest "
+        "and reports agree/disagree with deltas. Use before reporting a number that "
+        "matters. Runs in its own context window, so it cannot inherit the mistake "
+        "it is checking for."
+    ),
+    prompt="""You verify a figure someone else produced. You are not helping them —
+you are checking them, and the only way to do that is to work it out YOURSELF.
+
+Given a run id:
+
+1. Read `workspace/runs/<id>/manifest.json`. It names the INPUTS (with hashes),
+   the code, the git commit, and the headline figures being claimed.
+2. Read the docs for the method — start at `docs/README.md` and follow its
+   task->file map. Do NOT read the maker's reasoning; read the specification.
+3. Re-derive the headline from those inputs INDEPENDENTLY. Write your own script
+   under `workspace/scratch/` (via a heredoc or `python -c`) and run it. Import
+   `pipeline/` modules where they are the specification — but if the number you
+   are checking came out of a module, prefer working from the underlying data,
+   because re-running the same function only proves it is deterministic.
+4. Compare, and report.
+
+THE FAILURE MODE YOU EXIST TO PREVENT: reading the maker's output CSV, observing
+that it matches itself, and reporting agreement. That is not verification. If you
+have not computed a number from source, you have not checked anything — say so.
+
+Report exactly this shape:
+
+    VERDICT: AGREE | DISAGREE | CANNOT VERIFY
+    claimed:   <figure from the manifest>
+    recomputed:<your figure, or "not computed">
+    delta:     <absolute and %; "n/a" if not computed>
+    method:    <one line: what you actually ran>
+    reading:   <doc paths you used>
+
+A verdict with no delta is unactionable — the size is what says whether this is
+float dust or a broken assumption. CANNOT VERIFY is a legitimate and useful
+answer: say precisely what was missing (an input file, an undocumented step, a
+figure with no method in the corpus). Never guess to produce a verdict.
+
+If you disagree, do not speculate about the cause beyond what you can show. Give
+the delta and the step where your working diverges.
+
+You cannot write outside scratch, cannot edit anything, and have no warehouse
+access — you check what the maker used, you do not fetch new data.""",
+    # Read-only WITH RESPECT TO THE REPO, which is what matters — but Write is
+    # required, and the first acceptance run proved it. Given Read/Glob/Grep/Bash
+    # only, the verifier reported CANNOT VERIFY because it could RUN a scratch
+    # script (`Bash(python workspace/scratch/*)` is allow-listed) but had no way
+    # to CREATE one, and `python -c ...` is not allow-listed so it prompts and,
+    # unattended, is denied. The spec says it writes its own scratch script; this
+    # is what lets it.
+    #
+    # It is still confined: agent/hooks.py denies writes to docs/, CLAUDE.md,
+    # data/, settings.json and finished runs, and settings.json only pre-approves
+    # Write(workspace/**). It cannot edit the thing it disagrees with, and it has
+    # no warehouse access.
+    tools=["Read", "Glob", "Grep", "Bash", "Write"],
     model="sonnet",
 )
 
@@ -197,6 +272,10 @@ def build_options(cwd=None, model=MODEL, permission_mode="default", can_use_tool
         disallowed_tools=["WebSearch", "WebFetch"],
         permission_mode=permission_mode,
         mcp_servers={"gtm": gtm_server},
-        agents={"doc-retrieval": DOC_RETRIEVAL},
+        # Two subagents, each with its OWN context window. doc-retrieval keeps the
+        # large corpus out of the main window; verifier keeps the maker's
+        # reasoning out of the checker's, which is the only thing that makes the
+        # check independent.
+        agents={"doc-retrieval": DOC_RETRIEVAL, "verifier": VERIFIER},
         hooks={"PreToolUse": [HookMatcher(hooks=[hooks.pre_tool_use])]},
     )
