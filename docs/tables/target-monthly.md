@@ -24,7 +24,9 @@ for c in df.select_dtypes(include='str').columns:        # so do the values
 ```
 
 Both strips are mandatory — see gotcha 1. Read the file **once** and pass the
-frame down; `pipe_create.py` and `coverage.py` must not each re-read it.
+frame down: `pipeline/config.targets_raw()` is the single reader that applies
+this recipe, every consumer (`agent/targets.py`, `agent/waterfall.py`) goes
+through it, and no other module may re-read the CSV independently.
 
 Month columns are derived from the quarter start, never hardcoded
 (root `CLAUDE.md` invariant 1):
