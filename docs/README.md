@@ -35,6 +35,9 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | Task | Load these files |
 |------|-----------------|
 | **What the agent can do, its tools, and where the walls are** | [`agent-architecture.md`](agent-architecture.md) — read before adding a tool or when a capability seems missing |
+| **How to COMPUTE something** — no tool covers it | Write a script in `workspace/scratch/`, run it, read it, delete it. Import `pipeline/` modules rather than re-deriving. See [`agent-architecture.md`](agent-architecture.md) "The tools". |
+| **How to VERIFY a figure before reporting it** | `pipeline/checks.py` → `checks.run_all(df)`. **There are no golden output numbers** — say which layer backed the number. See [`agent-architecture.md`](agent-architecture.md) "Verification". |
+| **What earlier sessions already learned** | `workspace/notes/journal.md` — read at session start; findings, dead ends, open questions. |
 | Any SQL query | [`sql/conventions.md`](sql/conventions.md) always, then the relevant table file(s) |
 | Ready-made query templates to adapt | [`sql/conventions.md`](sql/conventions.md) → [`sql/patterns.md`](sql/patterns.md) |
 | Current opp-level pipeline state | [`sql/conventions.md`](sql/conventions.md) → [`tables/opportunity.md`](tables/opportunity.md) |
@@ -68,6 +71,11 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 
 ```
 README.md  (you are here)
+│
+├── agent-architecture.md  ← the AGENT itself, not the data: its three tools, the
+│                             pipeline/ modules that replaced the rest, the six
+│                             boundaries, and how runs/lineage work.
+│                             read before changing what the agent can do
 │
 ├── sql/
 │   ├── conventions.md     ← read before ANY SQL; defines stage logic, dates,
@@ -122,14 +130,15 @@ README.md  (you are here)
 ├── analysis/
 │   ├── slip.md             ← what slip is, how much moves, WHERE IT LANDS
 │   │                          (destination curves by quarter offset), serial
-│   │                          slip, value drift, opp-level tracing. The
-│   │                          destination half is measured but NOT in the model.
+│   │                          slip, value drift, opp-level tracing. In Q / Pre Q
+│   │                          is a TIMING split — read before quoting a rate.
 │   │                          reads from → tables/opp-daily-snapshot.md
 │   │                          feeds → analysis/pipe-create-waterfall.md (Step 2)
 │   ├── pipe-create-waterfall.md ← how the pipe create TARGET is derived: sales cycle
-│   │                               weights Q0..Q+8, win rates, bookings roll-up.
-│   │                               RECONSTRUCTED from the legacy xlsm, unconfirmed.
-│   │                               NOT implemented in Python.
+│   │                               weights Q0..Q+8, In Q / Pre Q win rates, roll-up.
+│   │                               IMPLEMENTED (pipeline/waterfall_cli.py); start at
+│   │                               "THE MODEL AS IT STANDS". Derived totals are NOT
+│   │                               reconciled to published.
 │   │                               reads from → reference/legacy-pipe-create-xlsm.md
 │   │                               feeds → tables/target-monthly.md
 │   ├── coverage-curve.md   ← coverage mechanics: open pipe, booked, LTB, WoW
