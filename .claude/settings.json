@@ -4,9 +4,12 @@
       "Bash(python workspace/scratch/*)",
       "Bash(python -m pipeline.*)",
       "Bash(python -m pytest*)",
+      "Bash(rm workspace/scratch/*)",
       "PowerShell(python workspace/scratch/*)",
       "PowerShell(python -m pipeline.*)",
       "PowerShell(python -m pytest*)",
+      "PowerShell(Remove-Item workspace/scratch/*)",
+      "PowerShell(del workspace/scratch/*)",
       "Write(workspace/**)",
       "Edit(workspace/**)"
     ]

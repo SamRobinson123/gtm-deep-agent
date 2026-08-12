@@ -146,6 +146,11 @@ def test_thinking_is_free_and_acting_on_the_world_is_approved():
                  "PowerShell(python workspace/scratch/*)",
                  "PowerShell(python -m pipeline.*)",
                  "PowerShell(python -m pytest*)",
+                 # Cleanup must be as free as creation, or scratch never gets
+                 # deleted: the live test proved the agent leaves its script
+                 # behind when Remove-Item prompts unattended.
+                 "Bash(rm workspace/scratch/*)",
+                 "PowerShell(Remove-Item workspace/scratch/*)",
                  "Write(workspace/**)",
                  "Edit(workspace/**)"):
         assert rule in allow, f"missing allow rule: {rule}"
