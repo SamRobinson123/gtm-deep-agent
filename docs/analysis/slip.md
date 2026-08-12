@@ -567,6 +567,27 @@ quarter end. Without that guard the starting population is empty, `slip_rate` is
 0/0, and the caller sees a confident **0.0%** — which is how slip silently
 contributed nothing for several sessions.
 
+### Pre-Q slip needs history BEFORE the historic quarter, and we do not have it
+
+`pre_q_slip()` reads the prior-year quarter at the same **lead time** — for a
+quarter 52 days away, it reads 52 days before that quarter opened. The oldest
+window in `HIST_SNAP_WINDOWS` starts on **2025-07-01, which is exactly Q3 FY25's
+start**, so there is nothing before it to read.
+
+Consequence: **Pre-Q slip is measurable for Q4 FY26 and later, and NOT for
+Q3 FY26.** Running with an `as_of` before 2026-07-01 makes Q3 a future quarter
+and the term fails cleanly:
+
+```
+PRE-Q SLIP NOT INCLUDED for Q3 FY26 — MissingData: no snapshot within 7 days of
+2025-06-15, the point 16 days before Q3 FY25 opened.
+```
+
+That is the guard working, not a bug — the alternative is a confident 0.0%. It
+matters most at **annual planning time**, the regime where every quarter is a
+future one and Pre-Q slip applies to all of them. Fixing it means extending
+`HIST_SNAP_WINDOWS` back into Q2 FY25 and re-pulling `snapshot_hist`.
+
 If you add a quarter to the analysis, add its range to `HIST_SNAP_WINDOWS` and
 re-pull `snapshot_hist`.
 
