@@ -26,7 +26,22 @@ CLI_MODULES = [
     "pipeline.waterfall_cli",
     "pipeline.slip_cli",
     "pipeline.export_cli",
+    "pipeline.pull_cli",
 ]
+
+
+def test_pull_cli_status_needs_no_warehouse():
+    """The no-argument form is the freshness check the operating rules route to
+    before any 'as of today' derive — it must work offline, from cache alone."""
+    from pipeline import pull_cli
+
+    assert pull_cli.main([]) == 0
+
+
+def test_pull_cli_rejects_unknown_query_names():
+    from pipeline import pull_cli
+
+    assert pull_cli.main(["not_a_query"]) == 1
 
 
 @pytest.mark.parametrize("name", CLI_MODULES)

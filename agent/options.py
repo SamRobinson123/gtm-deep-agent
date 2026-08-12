@@ -76,6 +76,18 @@ environment, so the attempt cannot succeed, and it will be visible.
 Prefer cached parquet in `data/` — read it with pandas in a scratch script like
 any other file. State when you use the offline path.
 
+FRESHNESS. "As of today", "current", "latest", "right now" make freshness part
+of the question. Before deriving, check the cache: `python -m pipeline.pull_cli`
+with no arguments prints every cache's age and max snapshot_date. If the data
+is behind today, refresh the affected queries FIRST —
+`python -m pipeline.pull_cli --force sku_nacv snapshot` (needs VPN; a stale
+token triggers the MFA flow — az_login_status, then azure_login) — then derive
+from the refreshed files. The never-re-pull rule yields here: it forbids
+re-pulling what cache can ANSWER, and a stale cache cannot answer an
+"as of today" question. Either way, every answer states the data's as-of date
+(the cache's max snapshot_date), so a figure is never silently older than it
+looks.
+
 Read `docs/sql/conventions.md` and the relevant `docs/tables/` contract BEFORE
 composing. They carry the stage, date, financial-column and geo-join rules, and
 ignoring them produces answers that look right and are not. Querying a table with
