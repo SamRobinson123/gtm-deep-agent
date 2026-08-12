@@ -16,7 +16,7 @@ from __future__ import annotations
 from claude_agent_sdk import AgentDefinition, ClaudeAgentOptions, HookMatcher
 
 from agent import hooks
-from agent.tools import TOOL_NAMES, gtm_server
+from agent.tools import gtm_server
 from pipeline import config
 
 MODEL = "claude-sonnet-5"
@@ -86,6 +86,22 @@ If the connection fails, call az_login_status, then azure_login — that opens t
 browser MFA prompt, and the database scope needs its own sign-in even when a
 general `az login` is live.
 
+REQUESTS ARE GOALS, NOT TOOL NAMES. A scenario request that `whatif` cannot
+express — clamping a territory to its floor, dropping the floor where existing
+pipe is zero, any structural change to how the target is set — is not out of
+scope. It is a scratch-script derive: import `pipeline.derive.derive_frame`,
+re-solve, apply the stated modification, record a run, and report before/after
+with the delta per affected territory. Never substitute a task you can do
+(verify, re-run, re-quote the unchanged number) for the one that was asked.
+If you genuinely cannot express the change, say exactly what is missing and stop.
+
+FOLLOW-UPS. A follow-up refers to the most recent run and answer unless it says
+otherwise. Before computing, restate your interpretation in one line — e.g.
+"Interpreting as: clamp SLED to its historic floor, remove the floor where
+existing pipe is zero, re-solve Q3 FY26" — so a misreading is visible before it
+becomes a wrong number. If the interpretation is genuinely ambiguous at the
+grain or scope level, ask instead (and end the turn there).
+
 COMPUTE. When a question needs computation, write a script in
 `workspace/scratch/`, run it, read the result, delete it. That is the loop — you
 are not limited to what a tool already does.
@@ -142,8 +158,10 @@ DELEGATION. Two subagents, each with its own context window.
     reasoning, which is the only reason its check is worth anything) and writes
     the script to workspace/scratch/verify_<run_id>.py. It cannot execute —
     that is your half: when it returns PENDING EXECUTION, run
-    `python -m pipeline.verify_cli <run_id>` and report the relay's verdict and
-    delta VERBATIM. Do not edit its script first — changing the checker's logic
+    `python -m pipeline.verify_cli <run_id>` and report the relay's VERDICT and
+    DELTA verbatim — those two lines only. Its method, limitations and reading
+    list get a one-line summary, never pasted whole; they must not crowd out
+    the answer. Do not edit its script first — changing the checker's logic
     before running it defeats the check. A DISAGREE is a finding to surface,
     not something to argue with.
 """.strip()
@@ -280,18 +298,20 @@ def build_options(cwd=None, model=MODEL, permission_mode="default", can_use_tool
             "preset": "claude_code",
             "append": OPERATING_RULES,
         },
-        # v2: the full thinking tool set. Write/Edit were disallowed in v1; the
-        # agent now writes itself a script in workspace/scratch/, runs it, reads
-        # the result and deletes it. Removing these re-cages it.
-        #
-        # The controls are elsewhere: agent/hooks.py denies writes to docs/,
-        # CLAUDE.md, data/, settings.json and finished runs; .claude/settings.json
-        # decides what runs without an approval prompt; and the Synapse
-        # connection string is absent from os.environ (see main.load_secrets).
+        # allowed_tools is the AUTO-APPROVE list, not an availability list —
+        # built-ins and mcp_servers tools are available regardless. Listing a
+        # tool here approves it before can_use_tool or a settings.json rule is
+        # ever consulted (CanUseToolShadowedWarning, observed 2026-08-12: the
+        # UI's query-approval card never fired because mcp__gtm__query was in
+        # this list). So it carries ONLY what may run without anyone looking:
+        # pure reads. Write/Edit/Bash/query fall through to .claude/settings.json
+        # (which pre-approves e.g. Bash(python workspace/scratch/*)) and then to
+        # the relay prompt — which is the second access control on warehouse
+        # pulls that build_options' docstring promises.
         allowed_tools=[
-            "Read", "Write", "Edit", "NotebookEdit",
-            "Glob", "Grep", "Bash", "Task", "TodoWrite",
-            *TOOL_NAMES,
+            "Read", "Glob", "Grep", "Task", "TodoWrite",
+            "mcp__gtm__az_login_status", "mcp__gtm__list_queries",
+            "mcp__gtm__list_runs", "mcp__gtm__show_run",
         ],
         # The one capability v2 does NOT widen. A web result has no contract and
         # no lineage; answers come from docs/ and the warehouse.

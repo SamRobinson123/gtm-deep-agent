@@ -23,14 +23,27 @@ ROOT = Path(config.ROOT)
 def test_the_full_thinking_tool_set_is_available():
     """v2's premise: the agent writes itself a script, runs it, reads the result.
 
-    Write and Edit were DISALLOWED in v1 — `test_write_tools_are_disallowed` is
-    retired in this commit, deliberately, because its assertion is now exactly
-    backwards. Without these the agent cannot think in scratch, which is the
-    whole redesign.
+    AVAILABILITY is governed by disallowed_tools — a built-in not listed there
+    is available. This test asserted membership in allowed_tools until
+    2026-08-12, which was the wrong list: allowed_tools AUTO-APPROVES, and
+    carrying Bash/Write/query there shadowed can_use_tool and settings.json
+    (CanUseToolShadowedWarning), silently disabling the UI's approval card on
+    warehouse pulls. Write and Edit were DISALLOWED in v1 — that assertion is
+    retired because it is now exactly backwards.
     """
-    allowed = set(options.build_options().allowed_tools)
+    disallowed = set(options.build_options().disallowed_tools)
     for t in ("Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task", "TodoWrite"):
-        assert t in allowed, f"{t} must be available for scratch-script thinking"
+        assert t not in disallowed, f"{t} must be available for scratch-script thinking"
+
+
+def test_auto_approval_stays_read_only():
+    """allowed_tools bypasses every prompt, so it may hold only pure reads.
+    mcp__gtm__query appearing here would silently remove the warehouse
+    approval — the exact regression observed on 2026-08-12."""
+    allowed = set(options.build_options().allowed_tools)
+    for t in ("Bash", "Write", "Edit", "NotebookEdit",
+              "mcp__gtm__query", "mcp__gtm__azure_login"):
+        assert t not in allowed, f"{t} must not be auto-approved"
 
 
 # --- 2. the network stays shut ------------------------------------------------
