@@ -8,11 +8,9 @@ Two deliberate deviations from the doc, both marked DEVIATION below:
   2. The CSV is loaded lazily and cached, rather than read at import time.
 """
 import functools
-import os
 from pathlib import Path
 
 import pandas as pd
-from dotenv import load_dotenv
 
 ROOT = Path(__file__).parent.parent
 DATA = ROOT / "data"
@@ -24,8 +22,17 @@ RUNS = ROOT / "workspace" / "runs"
 TARGET_MONTHLY_CSV = DATA / "Target_Monthly.csv"
 HEADCOUNT_XLSX = DATA / "Headcount.xlsx"
 
-load_dotenv(ROOT / ".env")
-SYNAPSE_CONN_STR = os.environ.get("SYNAPSE_CONN_STR")
+# NO load_dotenv() HERE, and no SYNAPSE_CONN_STR module attribute.
+#
+# This module is imported by every pipeline module, every test and every scratch
+# script the agent writes. An import-time load_dotenv() therefore exported the
+# connection string into os.environ by a side door — which would have defeated
+# main.py's selective export entirely, since the agent never has to run main.py
+# to import config.
+#
+# The connection string is read from the file at call time by
+# pipeline.pull.synapse_conn_str() and is never assigned to os.environ.
+# tests/test_env_isolation.py enforces both halves.
 
 # Oldest first; [0] MUST stay the in-flight quarter — PRE_QUARTER_BUFFER_START and
 # coverage.py's verified week-1 anchor logic both assume the buffer sits immediately

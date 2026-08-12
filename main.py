@@ -8,11 +8,45 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
 
 import anyio
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
-load_dotenv()
+ROOT = Path(__file__).resolve().parent
+DEFAULT_ENV = ROOT / ".env"
+
+# The ONLY variables that reach os.environ, and therefore the only ones any
+# subprocess can inherit. Each entry needs a reason recorded here.
+#
+#   ANTHROPIC_API_KEY — read by the Claude Code CLI, which the SDK spawns as a
+#   CHILD PROCESS. It cannot be passed in-band; the environment is the interface.
+#
+# SYNAPSE_CONN_STR is deliberately absent. v1 stopped `cat .env` with a Bash
+# prefix allowlist; v2 gives the agent general Bash, so that lever is gone and
+# the boundary lives here instead. Nothing the agent spawns can inherit a
+# variable that was never exported — a scratch script reaching for it gets a
+# KeyError. pipeline/pull.py reads it from the file at call time.
+#
+# If the spawned CLI ever needs another variable, add it here WITH a reason.
+# Never restore a blanket load_dotenv(): that re-opens the hole silently.
+EXPORTED_TO_CLI = ("ANTHROPIC_API_KEY",)
+
+
+def load_secrets(env_path=None) -> list[str]:
+    """Export only EXPORTED_TO_CLI from the .env. Returns the NAMES exported.
+
+    Names, never values — the return lands in logs and error paths, so it has to
+    be safe to print.
+    """
+    values = dotenv_values(env_path or DEFAULT_ENV)
+    exported = []
+    for name in EXPORTED_TO_CLI:
+        v = values.get(name)
+        if v:                       # an empty key authenticates AS empty and
+            os.environ[name] = v    # 401s, rather than falling back to claude.ai
+            exported.append(name)
+    return exported
 
 
 def preflight():
@@ -55,6 +89,7 @@ def cli():
     ap.add_argument("--model", help="override the model id")
     args = ap.parse_args()
 
+    load_secrets()
     for p in preflight():
         print(f"[startup] {p}", file=sys.stderr)
 

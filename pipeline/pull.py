@@ -13,11 +13,36 @@ from __future__ import annotations
 import struct
 
 import pandas as pd
+from dotenv import dotenv_values
 
 from agent import sqlguard
 from pipeline import config, queries
 
 SQL_COPT_SS_ACCESS_TOKEN = 1256  # pyodbc connection attribute for a raw AAD access token
+
+# Module-level so a test can point it elsewhere without touching the filesystem.
+ENV_PATH = config.ROOT / ".env"
+
+
+def synapse_conn_str() -> str:
+    """The Synapse connection string, read from .env AT CALL TIME.
+
+    `dotenv_values` rather than `load_dotenv`: the latter mutates os.environ as a
+    side effect, and that side effect is precisely what v2's secrets isolation
+    exists to prevent. Once the string is in the environment, every subprocess
+    the agent spawns inherits it, and general Bash makes that reachable.
+
+    So the value lives only for the duration of the call, on the stack. Do not
+    cache it in a module global, and do not assign it to os.environ.
+    See tests/test_env_isolation.py.
+    """
+    v = dotenv_values(ENV_PATH).get("SYNAPSE_CONN_STR")
+    if not v:
+        raise RuntimeError(
+            f"SYNAPSE_CONN_STR is not set — add it to {ENV_PATH}. It is read from "
+            f"that file at call time and is deliberately absent from the "
+            f"environment, so exporting it in a shell will not help.")
+    return v
 
 
 DB_SCOPE = "https://database.windows.net/.default"
@@ -100,8 +125,6 @@ def get_conn(auto_login: bool = True, on_status=None):
     """
     import pyodbc
 
-    if not config.SYNAPSE_CONN_STR:
-        raise RuntimeError("SYNAPSE_CONN_STR is not set — check .env")
 
     def say(msg):
         if on_status:
@@ -119,7 +142,7 @@ def get_conn(auto_login: bool = True, on_status=None):
 
     token_bytes = token.encode("utf-16-le")
     token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
-    return pyodbc.connect(config.SYNAPSE_CONN_STR, attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct})
+    return pyodbc.connect(synapse_conn_str(), attrs_before={SQL_COPT_SS_ACCESS_TOKEN: token_struct})
 
 
 def auth_status() -> dict:
