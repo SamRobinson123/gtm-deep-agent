@@ -139,6 +139,13 @@ def test_thinking_is_free_and_acting_on_the_world_is_approved():
     for rule in ("Bash(python workspace/scratch/*)",
                  "Bash(python -m pipeline.*)",
                  "Bash(python -m pytest*)",
+                 # On Windows the spawned CLI exposes PowerShell, not Bash — a
+                 # live acceptance run proved Bash(...) rules do not cover it
+                 # and `python -m pipeline.verify_cli` prompted. Same commands,
+                 # both shells.
+                 "PowerShell(python workspace/scratch/*)",
+                 "PowerShell(python -m pipeline.*)",
+                 "PowerShell(python -m pytest*)",
                  "Write(workspace/**)",
                  "Edit(workspace/**)"):
         assert rule in allow, f"missing allow rule: {rule}"
@@ -198,13 +205,27 @@ def test_the_verifier_is_told_to_re_derive_not_to_re_read():
     prompt = options.VERIFIER.prompt.lower()
     assert "manifest" in prompt
     assert "independent" in prompt or "yourself" in prompt
-    assert "agree" in prompt and "disagree" in prompt
+    assert "output csv" in prompt
 
 
-def test_the_verifier_reports_a_delta_rather_than_a_verdict_alone():
-    """"Disagree" with no number is unactionable — the size says whether it is a
-    rounding artefact or a broken assumption."""
-    assert "delta" in options.VERIFIER.prompt.lower()
+def test_the_verifier_and_the_relay_agree_on_the_contract():
+    """The verifier writes to a fixed path and prints RECOMPUTED lines; the
+    relay executes that path and parses those lines. The two halves are defined
+    in different files, so the contract is asserted in one place — here."""
+    prompt = options.VERIFIER.prompt
+    assert "workspace/scratch/verify_<run_id>.py" in prompt
+    assert "RECOMPUTED" in prompt
+    assert "PENDING EXECUTION" in prompt
+
+    from pipeline import verify_cli
+    import inspect
+    src = inspect.getsource(verify_cli)
+    assert 'f"verify_{run_id}.py"' in src
+    assert "RECOMPUTED" in src
+
+    rules = options.OPERATING_RULES
+    assert "pipeline.verify_cli" in rules, (
+        "the main agent owns the execution half; the rules must say so")
 
 
 def test_maker_and_checker_do_not_share_a_context_window():

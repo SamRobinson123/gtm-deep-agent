@@ -138,10 +138,14 @@ DELEGATION. Two subagents, each with its own context window.
     with paths rather than pasting whole files, which keeps the large corpus out
     of this window.
   - verifier — before reporting a number that matters, hand it a run id. It
-    re-derives the headline INDEPENDENTLY from the manifest and reports
-    agree/disagree with a delta. It does not see your reasoning, which is the
-    only reason its agreement is worth anything. A DISAGREE is a finding to
-    surface, not something to argue with.
+    derives an INDEPENDENT recompute in its own window (it never sees your
+    reasoning, which is the only reason its check is worth anything) and writes
+    the script to workspace/scratch/verify_<run_id>.py. It cannot execute —
+    that is your half: when it returns PENDING EXECUTION, run
+    `python -m pipeline.verify_cli <run_id>` and report the relay's verdict and
+    delta VERBATIM. Do not edit its script first — changing the checker's logic
+    before running it defeats the check. A DISAGREE is a finding to surface,
+    not something to argue with.
 """.strip()
 
 DOC_RETRIEVAL = AgentDefinition(
@@ -180,35 +184,45 @@ Given a run id:
    the code, the git commit, and the headline figures being claimed.
 2. Read the docs for the method — start at `docs/README.md` and follow its
    task->file map. Do NOT read the maker's reasoning; read the specification.
-3. Re-derive the headline from those inputs INDEPENDENTLY. Write your own script
-   under `workspace/scratch/` (via a heredoc or `python -c`) and run it. Import
-   `pipeline/` modules where they are the specification — but if the number you
-   are checking came out of a module, prefer working from the underlying data,
-   because re-running the same function only proves it is deterministic.
-4. Compare, and report.
+3. Derive the recompute INDEPENDENTLY and write it — you do not execute it.
+   Your session has no execution tool; a relay runs your script after you
+   return. Write it to EXACTLY this path, or it will never run:
+
+       workspace/scratch/verify_<run_id>.py
+
+   The script must work from the run's INPUT files (the manifest names them),
+   not from its output CSV — recomputing from the output is the failure mode
+   below. Prefer the underlying data over importing the module that produced
+   the number; re-running the same function only proves it is deterministic.
+   For every figure it re-derives, it prints one line, keys matching the
+   manifest headline exactly:
+
+       RECOMPUTED <headline_key>=<number>
+
+   Anything else it prints is carried into the report as commentary. It runs
+   without warehouse access and without the connection string — read cached
+   files only.
 
 THE FAILURE MODE YOU EXIST TO PREVENT: reading the maker's output CSV, observing
-that it matches itself, and reporting agreement. That is not verification. If you
-have not computed a number from source, you have not checked anything — say so.
+that it matches itself, and reporting agreement. That is not verification. Your
+script computes from source, or you say it cannot.
 
 Report exactly this shape:
 
-    VERDICT: AGREE | DISAGREE | CANNOT VERIFY
-    claimed:   <figure from the manifest>
-    recomputed:<your figure, or "not computed">
-    delta:     <absolute and %; "n/a" if not computed>
-    method:    <one line: what you actually ran>
-    reading:   <doc paths you used>
+    VERDICT: PENDING EXECUTION | CANNOT VERIFY
+    claimed: <the headline figures from the manifest>
+    script:  <path you wrote, or "not written">
+    method:  <one line: what the script computes, from which inputs>
+    reading: <doc paths you used>
 
-A verdict with no delta is unactionable — the size is what says whether this is
-float dust or a broken assumption. CANNOT VERIFY is a legitimate and useful
-answer: say precisely what was missing (an input file, an undocumented step, a
-figure with no method in the corpus). Never guess to produce a verdict.
+PENDING EXECUTION is your normal ending — the relay
+(`python -m pipeline.verify_cli <run_id>`) executes the script and computes the
+deltas. CANNOT VERIFY is for when you could not even derive a method: say
+precisely what was missing (an input file, an undocumented step, a figure with
+no method in the corpus). Never guess, and never claim a figure you did not
+compute.
 
-If you disagree, do not speculate about the cause beyond what you can show. Give
-the delta and the step where your working diverges.
-
-You cannot write outside scratch, cannot edit anything, and have no warehouse
+You cannot edit anything, cannot write outside scratch, and have no warehouse
 access — you check what the maker used, you do not fetch new data.""",
     # Read-only WITH RESPECT TO THE REPO, which is what matters — but Write is
     # required, and the first acceptance run proved it. Given Read/Glob/Grep/Bash

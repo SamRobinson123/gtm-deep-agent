@@ -4,6 +4,9 @@
       "Bash(python workspace/scratch/*)",
       "Bash(python -m pipeline.*)",
       "Bash(python -m pytest*)",
+      "PowerShell(python workspace/scratch/*)",
+      "PowerShell(python -m pipeline.*)",
+      "PowerShell(python -m pytest*)",
       "Write(workspace/**)",
       "Edit(workspace/**)"
     ]
