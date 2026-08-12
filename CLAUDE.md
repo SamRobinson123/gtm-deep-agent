@@ -20,10 +20,13 @@ the grain level (Geo vs Region vs Territory, week vs QTD), ask before computing.
 | `data/` | Local input data. **Read-only.** Too large to read into context — load with pandas, never `Read` wholesale. Contracts live in `docs/tables/`. |
 | `data/Target_Monthly.csv` | The only source of targets. Contract: `docs/tables/target-monthly.md`. |
 | `data/legacy/*.xlsm` | The superseded Excel model. Reconciliation baseline only, never a source of truth. |
-| `workspace/exports/` | Write ALL generated files here — xlsx, png, csv. Never anywhere else. |
-| `<REPO>` | The pipeline repo — pull.py, pipe_create.py, coverage.py, config.py. **Does not exist yet**; the source lives in `docs/analysis/gtm-dashboard.md`. |
-| `<REPO>/data/` | Cached parquet from the Synapse pull. Read-only to you. |
-| `<REPO>/output/` | Model outputs: gtm_pipe_create / gtm_coverage / gtm_timepoints (.parquet + .json) |
+| `workspace/exports/` | Generated deliverables — xlsx, png, csv. Written ONLY by `export_excel` / `export_chart`. |
+| `workspace/runs/` | Immutable run manifests + outputs. Every tool that produces a figure writes one; `list_runs` / `show_run` read them. |
+| `agent/` | The agent itself. `tools.py` (the tool surface), `waterfall.py` (the model), `options.py` (prompt + permissions), `sqlguard.py`, `exports.py`, `hooks.py`, `lineage.py`. |
+| `pipeline/` | `config.py` (quarters, targets, month columns), `queries.py` (**the registry — adding a bulk query needs human review**), `pull.py`. |
+| `gtm_ui/` | Local FastAPI chat UI. Binds 127.0.0.1 only, no auth. |
+| `docs/analysis/pipe-create-waterfall.md` | **How the target is derived.** Start at "THE MODEL AS IT STANDS". |
+| `docs/analysis/slip.md` | Slip — the In Q / Pre Q timing split, destinations, cohorts. Read before quoting any slip figure. |
 
 ## Which doc to read
 

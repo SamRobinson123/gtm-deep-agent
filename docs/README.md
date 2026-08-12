@@ -34,7 +34,9 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 
 | Task | Load these files |
 |------|-----------------|
+| **What the agent can do, its tools, and where the walls are** | [`agent-architecture.md`](agent-architecture.md) — read before adding a tool or when a capability seems missing |
 | Any SQL query | [`sql/conventions.md`](sql/conventions.md) always, then the relevant table file(s) |
+| Ready-made query templates to adapt | [`sql/conventions.md`](sql/conventions.md) → [`sql/patterns.md`](sql/patterns.md) |
 | Current opp-level pipeline state | [`sql/conventions.md`](sql/conventions.md) → [`tables/opportunity.md`](tables/opportunity.md) |
 | Live product-level bookings or pipeline | [`sql/conventions.md`](sql/conventions.md) → [`tables/sku-nacv-fact.md`](tables/sku-nacv-fact.md) |
 | Historical pipeline / trend / QoQ | [`sql/conventions.md`](sql/conventions.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
