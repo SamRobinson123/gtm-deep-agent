@@ -9,6 +9,9 @@ data/
 *.xlsx
 *.parquet
 Target_Monthly.csv
+# Notebooks are copies of the owner's internal models and carry executed
+# output cells with real figures. Read them in place; never commit one.
+*.ipynb
 
 # Pipeline outputs, run lineage, and generated exports.
 # workspace/runs/ holds real GTM figures — never commit.
