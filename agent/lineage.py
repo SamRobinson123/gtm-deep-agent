@@ -22,6 +22,19 @@ RUNS_DIR = config.RUNS
 INDEX = RUNS_DIR / "index.jsonl"
 LATEST = RUNS_DIR / "latest.json"
 
+# The modules whose versions a manifest records. Every path here must exist —
+# sha256_file silently returns None for a missing file, so a stale entry
+# records nothing while looking like coverage ("pipe_create.py": null in every
+# manifest until 2026-08-13, hashing a module this repo never had).
+# tests/test_lineage.py asserts existence.
+CODE_HASHED = (
+    ("config.py", "pipeline/config.py"),
+    ("queries.py", "pipeline/queries.py"),
+    ("targets.py", "agent/targets.py"),
+    ("derive.py", "pipeline/derive.py"),
+    ("waterfall.py", "agent/waterfall.py"),
+)
+
 
 def _utc_now():
     return datetime.now(timezone.utc)
@@ -136,12 +149,7 @@ class Run:
             "month_columns": config.month_columns(qs),
             "code": {
                 name: sha256_file(config.ROOT / rel)
-                for name, rel in (
-                    ("config.py", "pipeline/config.py"),
-                    ("queries.py", "pipeline/queries.py"),
-                    ("pipe_create.py", "pipeline/pipe_create.py"),
-                    ("targets.py", "agent/targets.py"),
-                )
+                for name, rel in CODE_HASHED
             },
             "inputs": self._inputs,
             "outputs": self._outputs,

@@ -72,3 +72,14 @@ def test_earlier_run_survives_a_newer_iteration(tmp_path):
 
     assert (first.dir / "manifest.json").read_bytes() == before
     assert json.loads((second.dir / "manifest.json").read_text())["headline"]["pipe_target"] == 2
+
+
+def test_every_hashed_code_path_exists():
+    """sha256_file returns None for a missing file, so a stale CODE_HASHED entry
+    records nothing while looking like coverage — every manifest carried
+    "pipe_create.py": null until 2026-08-13, hashing a module this repo never
+    had. A rename must fail the suite, not a run."""
+    from pipeline import config
+
+    for name, rel in lineage.CODE_HASHED:
+        assert (config.ROOT / rel).exists(), f"CODE_HASHED entry {name} -> {rel} does not exist"
