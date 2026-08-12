@@ -82,8 +82,9 @@ def test_sql_tool_is_never_auto_approved():
 
 @pytest.mark.parametrize("name", list(queries.REGISTRY))
 def test_every_template_is_read_only(name):
+    """Returns the OFF-CONTRACT tables, so an empty list means fully documented."""
     sql, _, _ = queries.REGISTRY[name]
-    assert sqlguard.assert_read_only(sql, name) is sql
+    assert sqlguard.assert_read_only(sql, name) == []
 
 
 @pytest.mark.parametrize("bad", [
@@ -105,7 +106,7 @@ def test_string_literals_do_not_trip_keywords():
     """A legitimate value must not be mistaken for a keyword."""
     sql = ("SELECT * FROM [sfdc_trf].[opportunity_live] "
            "WHERE StageName NOT IN ('Closed - Duplicate', 'Created')")
-    assert sqlguard.assert_read_only(sql)
+    assert sqlguard.assert_read_only(sql) == []
 
 
 # --- the table allowlist ----------------------------------------------------
@@ -124,17 +125,39 @@ def test_composed_analytical_query_is_allowed():
       ON b.Bookings_Team_Static = c.Bookings_Team_Static
     GROUP BY c.Bookings_Team_Static
     """
-    assert sqlguard.assert_read_only(sql)
+    assert sqlguard.assert_read_only(sql) == []
 
 
 def test_cte_name_is_not_mistaken_for_a_table():
     assert "cohort" in sqlguard.cte_names("WITH cohort AS (SELECT 1) SELECT * FROM cohort")
 
 
-def test_undocumented_table_is_refused():
-    """Querying without a documented contract is refused, even read-only."""
+def test_an_undocumented_table_warns_but_runs():
+    """Changed 2026-08-11. Being off-contract is a CORRECTNESS caveat, not a
+    safety one — blocking it stopped legitimate investigation. The table is
+    reported so the caller can say the result rests on no documented contract."""
+    off = sqlguard.assert_read_only("SELECT * FROM [dbo].[secret_payroll]")
+    assert off == ["dbo.secret_payroll"]
+
+
+def test_strict_tables_restores_the_hard_refusal():
     with pytest.raises(sqlguard.UnsafeSQL, match="not documented"):
-        sqlguard.assert_read_only("SELECT * FROM [dbo].[secret_payroll]")
+        sqlguard.assert_read_only("SELECT * FROM [dbo].[secret_payroll]",
+                                  strict_tables=True)
+
+
+@pytest.mark.parametrize("write", [
+    "INSERT INTO t VALUES (1)",
+    "CREATE VIEW v AS SELECT 1",
+    "DROP TABLE t",
+    "UPDATE t SET a = 1",
+    "SELECT a INTO newtbl FROM [sfdc_trf].[opportunity_live]",
+])
+def test_writing_to_the_database_is_still_absolutely_refused(write):
+    """The line the model owner drew: compose and run any READ, never a write.
+    Relaxing the table check must not have relaxed this."""
+    with pytest.raises(sqlguard.UnsafeSQL):
+        sqlguard.assert_read_only(write)
 
 
 @pytest.mark.parametrize("t", ["sfdc_trf.opportunity_live", "rep.trf_opp_daily_snapshot_new"])

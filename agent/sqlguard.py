@@ -9,6 +9,11 @@ rejected.
 Second control, not implemented here: every composed query is shown to the user in
 an approval card and does not run until approved. This module decides what is even
 allowed to be offered.
+
+Updated 2026-08-11: the DOCUMENTED-TABLE check is advisory, not a refusal. The
+agent is meant to investigate freely; being off-contract is a correctness caveat
+to report, not a reason to block. Read-only enforcement is unchanged and remains
+absolute.
 """
 from __future__ import annotations
 
@@ -95,11 +100,29 @@ def cte_names(sql: str) -> set[str]:
     return {m.group(1).lower() for m in re.finditer(r"(?:\bWITH\s+|,\s*)([A-Za-z_]\w*)\s+AS\s*\(", stripped, re.I)}
 
 
-def assert_read_only(sql: str, name: str = "<query>", check_tables: bool = True) -> str:
-    """Raise UnsafeSQL unless `sql` is a single read against documented tables.
+def assert_read_only(sql: str, name: str = "<query>", check_tables: bool = True,
+                     strict_tables: bool = False) -> list[str]:
+    """Raise UnsafeSQL unless `sql` is a single READ. Return off-contract tables.
 
-    `check_tables=False` is only for the four registry templates, whose tables are
-    documented by construction.
+    Two different things are being enforced here and they are not equally hard:
+
+    SAFETY — non-negotiable, always raises. Single statement, begins with SELECT
+    or WITH, and contains no FORBIDDEN keyword (INSERT/UPDATE/DELETE/DROP/CREATE/
+    MERGE/EXEC/...). This is the line the model owner drew on 2026-08-11: the
+    agent may write and run any query it likes, but may not write to the database
+    or create views.
+
+    CONTRACT — advisory by default. A table with no docs/tables/ entry can be
+    queried, but the caller is told which ones so it can say the result rests on
+    no documented contract. This used to raise, which blocked legitimate
+    investigation on a correctness concern rather than a safety one. Pass
+    strict_tables=True to restore the hard refusal.
+
+    `check_tables=False` skips the contract check entirely — only for the registry
+    templates, whose tables are documented by construction.
+
+    Returns the sorted list of off-contract tables (empty when all are documented),
+    NOT the sql. Callers that want the sql back already have it.
     """
     if not sql or not sql.strip():
         raise UnsafeSQL(f"{name}: empty query")
@@ -124,13 +147,15 @@ def assert_read_only(sql: str, name: str = "<query>", check_tables: bool = True)
         if re.search(pattern, upper):
             raise UnsafeSQL(f"{name}: forbidden keyword {kw!r}")
 
-    if check_tables:
-        allowed = ALLOWED_TABLES | cte_names(sql)
-        unknown = sorted({t for t in tables_in(sql) if t not in allowed})
-        if unknown:
-            raise UnsafeSQL(
-                f"{name}: table(s) not documented in docs/tables/: {', '.join(unknown)}. "
-                "Querying an undocumented table means working without a contract. "
-                "Add a docs/tables/ entry and extend ALLOWED_TABLES first."
-            )
-    return sql
+    if not check_tables:
+        return []
+
+    allowed = ALLOWED_TABLES | cte_names(sql)
+    unknown = sorted({t for t in tables_in(sql) if t not in allowed})
+    if unknown and strict_tables:
+        raise UnsafeSQL(
+            f"{name}: table(s) not documented in docs/tables/: {', '.join(unknown)}. "
+            "Querying an undocumented table means working without a contract. "
+            "Add a docs/tables/ entry and extend ALLOWED_TABLES first."
+        )
+    return unknown

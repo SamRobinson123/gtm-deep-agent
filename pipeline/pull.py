@@ -143,7 +143,7 @@ def cached_path(name: str):
 
 
 def run_query(name: str, conn=None) -> pd.DataFrame:
-    """Execute one registry query. `name` must be one of the four.
+    """Execute one registry query. `name` must be one in queries.REGISTRY.
 
     sqlguard re-asserts read-only at call time — defence in depth against a bad edit
     to queries.py, not a check on anything the agent authored.

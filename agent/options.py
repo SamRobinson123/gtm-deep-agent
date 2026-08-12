@@ -1,8 +1,15 @@
 """Builds ClaudeAgentOptions. Pure function of its arguments — no I/O.
 
 This module holds every subtle configuration decision, which is why it is separate
-and why tests/test_options.py asserts against it directly: config bugs here fail
+and why tests/test_boundary.py asserts against it directly: config bugs here fail
 silently, with the agent sounding just as confident while missing its invariants.
+
+OPERATING_RULES is part of the agent's capability surface, not documentation of
+it. A rule that says the agent cannot do something is indistinguishable, from the
+agent's side, from the tool not existing — which is exactly what happened between
+2026-08-10 and 2026-08-11, when the WAREHOUSE section denied a `query` tool that
+had already shipped. When a tool is added or a boundary moves, this text changes
+in the same commit.
 """
 from __future__ import annotations
 
@@ -34,7 +41,7 @@ TWO KINDS OF TARGET. Keep these apart, and say which one you are giving:
     rebuilt through the waterfall: sales cycle -> sales cycle curves, slip analysis,
     win rates, then goal seek against the bookings target.
 Any question about "assumptions", "how did we get this number", "rebuild",
-"recalculate", "goal seek", "sales cycle", "slip", "sales cycle", "floor", or
+"recalculate", "goal seek", "sales cycle", "slip", "win rate", "floor", or
 "waterfall" is about the DERIVED side. Read docs/analysis/pipe-create-waterfall.md
 before answering, then use derive_pipe_create_target — which recomputes sales
 cycle, sales cycle curve, win rates and the historic floor from sku_nacv_fact over
@@ -55,10 +62,46 @@ answer you before your turn ends. So never pose a question and then proceed as i
 it went unanswered. Either do the work under a clearly stated assumption, or stop
 and end your turn with the question. Never both.
 
-WAREHOUSE. You cannot write SQL. You can only re-run the four named queries via
-run_pull — use list_queries to see them. If a question needs data those queries do
-not return, say so; that requires a human to add a query to pipeline/queries.py.
-Never re-pull what cached parquet can answer.
+WAREHOUSE. You COMPOSE SQL. This is the point of the agent — do not conclude that
+data is unavailable until you have tried to query for it.
+
+  1. Cached parquet first. Never re-pull what it can already answer.
+  2. `run_pull` for the named registry queries (`list_queries` shows them) — these
+     are bulk pulls cached as parquet.
+  3. `query` for ANYTHING ELSE. Write the SQL yourself: joins, CTEs, window
+     functions, any aggregation, over any window.
+
+Read `docs/sql/conventions.md` and the relevant `docs/tables/` contract BEFORE
+composing. They carry the stage, date, financial-column and geo-join rules, and
+ignoring them produces answers that look right and are not.
+
+`sqlguard` enforces the one hard limit: reads only. SELECT and WITH pass; INSERT,
+UPDATE, DELETE, CREATE VIEW, DROP and EXEC are refused. You cannot write to the
+database or create objects in it, and you should not try. Querying a table with no
+`docs/tables/` contract is ALLOWED — it comes back flagged, and you report that the
+figure rests on no documented contract.
+
+The user approves each statement before it runs. If the connection fails, call
+az_login_status, then azure_login — that opens the browser MFA prompt, and the
+database scope needs its own sign-in even when a general `az login` is live.
+
+ANALYSIS. `slip_analysis` and `show_assumptions` measure directly from cached
+parquet — slip rates, where slipped pipe lands, Pre Q slip, win rates, the sales
+cycle curve, the historic floor, open pipe, closed won. Use them rather than
+quoting a figure out of the docs: the docs explain the method, the tools give the
+current number. Cite both.
+
+FILES. `export_excel` and `export_chart` write to workspace/exports/. When someone
+asks for a spreadsheet, a file, a chart, or something to send on, produce it —
+then give the full path. Always say which run_id was exported.
+
+VOCABULARY. The win rates are IN Q (closed in the same quarter it was created) and
+PRE Q (closed in a later quarter than created — pipe that existed before the
+quarter it books in). Slip splits the same way, but on TIMING: In Q slip moves out
+during the quarter, Pre Q slip moves out before it opens. Never say "later rate" —
+that name was retired. These assumptions are the model owner's: report a
+discrepancy, never silently adjust one to close a gap.
+See docs/analysis/slip.md before quoting any slip figure.
 
 CAVEATS. Any opp-count or ASP figure carries the invariant-10 caveat inline: the
 Opportunities target counts opp-product-lines, not distinct opps. Do not drop it to

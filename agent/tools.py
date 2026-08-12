@@ -56,7 +56,7 @@ async def az_login_status(args):
     return _ok(f"Logged in as {acct.get('user', {}).get('name')} on subscription {acct.get('name')!r} ({acct.get('id')}).")
 
 
-@tool("list_queries", "List the four named report queries the agent is permitted to run against Synapse, with what each returns.", {})
+@tool("list_queries", "List the named report queries that can be pulled and cached as parquet, with what each returns. These are the CACHED bulk pulls — for anything else, compose SQL with the `query` tool rather than concluding the data is unavailable.", {})
 async def list_queries(args):
     lines = ["The complete set of queries that can be run (no others are possible):"]
     for name, (_, filename, desc) in queries.REGISTRY.items():
@@ -67,7 +67,7 @@ async def list_queries(args):
     return _ok("\n".join(lines))
 
 
-@tool("run_pull", "Re-run one of the four named report queries against Synapse and cache it as parquet. Cache-first: returns the existing file without querying unless force=True. Requires VPN and a live `az login`.", {"query_name": str, "force": bool})
+@tool("run_pull", "Re-run one of the named registry queries against Synapse and cache it as parquet (see list_queries). Cache-first: returns the existing file without querying unless force=True. Requires VPN and a live `az login`.", {"query_name": str, "force": bool})
 async def run_pull(args):
     name = args.get("query_name")
     force = bool(args.get("force", False))
@@ -373,12 +373,18 @@ async def azure_login(args):
 
 @tool(
     "query",
-    "Compose and run a read-only SQL query against Synapse for analysis the four "
-    "standard report queries cannot answer â€” e.g. win rates, sales cycle, or "
-    "sales cycle curves over a chosen window. SELECT/WITH only, against tables "
-    "documented in docs/tables/. Read the relevant docs/tables/ contract and "
-    "docs/sql/conventions.md BEFORE composing. The user sees and approves the exact "
-    "SQL before it runs. Results are saved to a run with lineage.",
+    "Compose and run ANY read-only SQL query against Synapse. THIS IS THE MAIN "
+    "INVESTIGATION TOOL — reach for it whenever cached parquet and the five "
+    "registry queries cannot answer the question, rather than saying the data is "
+    "unavailable. Write the SQL yourself: joins, CTEs, window functions, any "
+    "aggregation, over any window. SELECT/WITH only — writes (INSERT, UPDATE, "
+    "DELETE, CREATE VIEW, DROP, EXEC) are refused outright. A table with no "
+    "docs/tables/ contract may be queried, and is reported back so you can flag "
+    "it. Read docs/sql/conventions.md and the relevant docs/tables/ contract "
+    "BEFORE composing — they carry the stage, date and financial-column rules "
+    "that separate a right answer from a plausible-looking one. The user approves "
+    "the exact SQL before it runs; if the connection fails, call az_login_status "
+    "then azure_login. Results are saved to a run with lineage.",
     {"sql": str, "purpose": str, "max_rows": int},
 )
 async def query(args):
@@ -386,11 +392,15 @@ async def query(args):
     purpose = (args.get("purpose") or "").strip() or "ad-hoc analysis"
     max_rows = int(args.get("max_rows") or 50_000)
 
+    # Returns the OFF-CONTRACT tables rather than raising on them. Only a WRITE
+    # raises now — being undocumented is a correctness caveat to report, not a
+    # reason to block an investigation.
     try:
-        sqlguard.assert_read_only(sql, "query")
+        off_contract = sqlguard.assert_read_only(sql, "query")
     except sqlguard.UnsafeSQL as e:
-        return _ok(f"Refused: {e}\n\nThe query was not run. Rewrite it as a read against "
-                   f"documented tables, or ask the user to extend the allowlist.")
+        return _ok(f"Refused: {e}\n\nThe query was not run. Only reads are permitted — "
+                   f"rewrite it as a SELECT or WITH. Writing to the database or creating "
+                   f"views is outside what this agent can do, by design.")
     if max_rows > sqlguard.MAX_ROWS:
         max_rows = sqlguard.MAX_ROWS
 
@@ -420,6 +430,8 @@ async def query(args):
         run.add_output(out, rows=len(df)).add_output(run.dir / "query.sql")
         run.headline(purpose=purpose, rows=len(df), columns=list(df.columns)[:20])
         run.warn("composed-query-not-a-standard-report")
+        if off_contract:
+            run.warn("query-touches-undocumented-tables")
         if truncated:
             run.warn("result-truncated")
         run_dir = run.dir
@@ -430,7 +442,10 @@ async def query(args):
         + (f"  (TRUNCATED at {max_rows:,})" if truncated else "")
         + f"\n\n{head}"
         + ("\n... (first 30 rows shown; full result in the run)" if len(df) > 30 else "")
-        + f"\n\nThis was a composed query, not a standard report â€” state that when reporting "
+        + (f"\n\nOFF CONTRACT: {', '.join(off_contract)} — no docs/tables/ entry, so no "
+           f"documented contract covers these columns. The query ran; say so when "
+           f"reporting figures from it." if off_contract else "")
+        + f"\n\nThis was a composed query, not a standard report — state that when reporting "
           f"figures from it.\nRun stored: {run_dir}"
     )
 
@@ -444,7 +459,13 @@ async def query(args):
     "This is the DERIVED target. It is NOT the published target in Target_Monthly.csv "
     "(use pipe_create_targets for that). Requires a pull. Read "
     "docs/analysis/pipe-create-waterfall.md before interpreting the output.",
-    {"quarters": str, "grain": str, "window_start": str, "window_end": str, "slip_quarters": str},
+    # as_of is what selects the run REGIME: at or after a quarter's start it is
+    # in flight (Pre Q slip already happened, closed won is observed); before it,
+    # the quarter is a future one and carries a Pre Q slip haircut. It was read
+    # but not declared until 2026-08-11, so the regime could never be set.
+    # slip_quarters was declared but no longer read — removed rather than left to
+    # be passed and silently ignored.
+    {"quarters": str, "grain": str, "window_start": str, "window_end": str, "as_of": str},
 )
 async def derive_pipe_create_target(args):
     import pandas as pd
