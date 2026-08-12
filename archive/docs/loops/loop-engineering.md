@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # Loop Engineering — Context
 
 **When to load**: Designing an autonomous loop or scheduled automation — anything where a system prompts the agent on a cadence instead of you prompting it turn-by-turn. Also load when deciding whether a task should be a one-off prompt or a standing loop.

@@ -3,7 +3,6 @@
 **When to load**: Pulling or refreshing raw call summaries; debugging `pull_call_summaries.py`; any task that needs the call-note text itself (not just the derived binary signals).
 **Source**: `[transcripts_lookup].[Call_Review]` / `.[Call_Transcript]`, in Synapse's **serverless "Built-in" pool**, database `AIDatabase`.
 **Pulled by**: `pipeline/pull_call_summaries.py` → `data/call_summaries.csv`
-**Hands off to**: `pipeline/extract_signals.py` (keyword extraction) → [`tables/call-signals.md`](call-signals.md)
 
 **Only `opp_id` + `summary` are pulled** — deliberately. `transcripts_lookup.Opportunity`
 also carries `account_id`/`contact_id`/`employee_id`/`opp_stage`, but nothing downstream
@@ -83,15 +82,12 @@ python pipeline/pull_call_summaries.py    # needs VPN — writes data/call_summa
 python pipeline/extract_signals.py        # offline — writes data/call_signals_features.csv
 ```
 
-Both run automatically as steps 2–3 of `python pipeline/run.py`. See
-[`analysis/gtm-dashboard.md`](../analysis/gtm-dashboard.md) → "Pipeline layout" for the full step order.
+Both run automatically as steps 2–3 of `python pipeline/run.py`.
 
 ---
 
 ## Handoff
 
-- Raw call text → `pipeline/extract_signals.py` keyword-matches this into the binary
-  signal columns documented in [`tables/call-signals.md`](call-signals.md)
 - The notebook (`notebooks/win_probability.ipynb`, Cell 6e/6f) also reads this file
   directly to attach `Call_Summaries` (list of raw strings) to each scored row —
   display-only, never a model feature

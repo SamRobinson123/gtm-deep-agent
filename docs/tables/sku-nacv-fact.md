@@ -362,5 +362,3 @@ ORDER BY Product_NACV DESC
 
 - Need geo columns (Geo, Region, Territory) → load [`tables/territory-mapping.md`](territory-mapping.md)
 - Need Stage_Age or S1_Age features → load [`tables/opp-daily-snapshot.md`](opp-daily-snapshot.md)
-- Building the win probability model → load [`models/win-probability-design.md`](../models/win-probability-design.md)
-- Building the full pipeline → load [`analysis/gtm-dashboard.md`](../analysis/gtm-dashboard.md)

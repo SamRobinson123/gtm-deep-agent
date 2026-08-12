@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # GTM Intelligence Dashboard — Context
 
 **When to load**: Building the GTM intelligence dashboard or running the full pipeline. This is the integration layer — it ties all other files together.  

@@ -47,7 +47,6 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | Win / loss analysis | [`sql/conventions.md`](sql/conventions.md) → [`tables/opportunity.md`](tables/opportunity.md) |
 | Pulling or debugging raw call transcripts | [`tables/call-transcripts.md`](tables/call-transcripts.md) |
 | Linking a call to its opp/account/owner (transcript-side dims) | [`tables/transcripts-lookup.md`](tables/transcripts-lookup.md) |
-| Call sentiment or signals per opportunity | [`tables/call-transcripts.md`](tables/call-transcripts.md) → [`tables/call-signals.md`](tables/call-signals.md) |
 | Coverage curve — open pipe, LTB, coverage WoW | [`analysis/coverage-curve.md`](analysis/coverage-curve.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
 | **Pipe Create — weekly actual vs target, allocation, attainment** | [`models/pipe-create.md`](models/pipe-create.md) → [`tables/target-monthly.md`](tables/target-monthly.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) → [`tables/territory-mapping.md`](tables/territory-mapping.md). Root `CLAUDE.md` invariants apply. |
 | **Anything involving targets, attainment, or ASP** | [`tables/target-monthly.md`](tables/target-monthly.md) — mandatory load recipe, whitespace and case-collision gotchas |
@@ -56,14 +55,8 @@ and SQL. If the two ever contradict, stop and surface it rather than choosing.
 | **Slip** — how much moves out, **where it lands**, serial slip, tracing one opp | [`analysis/slip.md`](analysis/slip.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
 | **Pre-Q vs In-Q slip**, and what supplies a future quarter vs an in-flight one | [`analysis/slip.md`](analysis/slip.md) — the timing-split and supply/drain sections. **Read before quoting either rate.** |
 | Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
-| Win probability model — design decisions | [`models/win-probability-design.md`](models/win-probability-design.md) |
-| Win probability model — writing or modifying code | [`models/win-probability-design.md`](models/win-probability-design.md) → [`models/implementation.md`](models/implementation.md) |
-| GTM intelligence dashboard | [`analysis/gtm-dashboard.md`](analysis/gtm-dashboard.md) → all files it references |
-| Running the full pipeline | [`analysis/gtm-dashboard.md`](analysis/gtm-dashboard.md) (pipeline section) |
 | Adding a new table context file | [`sql/conventions.md`](sql/conventions.md) — follow the same contract format |
-| Competitor threat / build-vs-buy risk in deals | [`reference/tricentis-competitive.md`](reference/tricentis-competitive.md) |
 | Note change lineage / staleness check on an AE note | [`tables/opportunity-field-history.md`](tables/opportunity-field-history.md) |
-| Designing an autonomous loop / scheduled automation | [`loops/loop-engineering.md`](loops/loop-engineering.md) |
 
 ---
 
@@ -103,29 +96,19 @@ README.md  (you are here)
 │   │                              queries that group by geography
 │   ├── call-transcripts.md ← [transcripts_lookup].* (Synapse serverless "Built-in"
 │   │                            pool, database AIDatabase) — raw call summaries pull
-│   │                            hands off to → tables/call-signals.md (extraction)
-│   ├── transcripts-lookup.md ← [transcripts_lookup] dimension tables: Opportunity,
-│   │                            Employee, Call_Review, Account (same serverless pool)
-│   │                            — call→opp→account/owner bridge; anonymized names,
-│   │                            two opp_id formats. relates to → call-transcripts.md
-│   └── call-signals.md    ← call_signals_features.csv (derived from call-transcripts.md
-│                              via pipeline/extract_signals.py — fully automated pull)
-│                              hands off to → models/win-probability-design.md (features)
+│   └── transcripts-lookup.md ← [transcripts_lookup] dimension tables: Opportunity,
+│                                Employee, Call_Review, Account (same serverless pool)
+│                                — call→opp→account/owner bridge; anonymized names,
+│                                two opp_id formats. relates to → call-transcripts.md
 │
 ├── models/
-│   ├── pipe-create.md             ← pipeline/pipe_create.py: weekly actual-vs-target
-│   │                                 pipe creation. Extracted from gtm-dashboard.md,
-│   │                                 which now points here. Day-weighted allocation,
-│   │                                 MIN(snapshot_date) actuals, no CloseDate filter.
-│   │                                 reads from → tables/opp-daily-snapshot.md
-│   │                                 reads from → tables/territory-mapping.md
-│   ├── win-probability-design.md  ← what the model does, features, data sources
-│   │                                 hands off to → models/implementation.md (code)
-│   │                                 reads from → tables/sku-nacv-fact.md
-│   │                                 reads from → tables/opp-daily-snapshot.md
-│   │                                 reads from → tables/call-signals.md
-│   └── implementation.md          ← complete Python code; requires design.md first
-│                                     hands off to → analysis/gtm-dashboard.md (integration)
+│   └── pipe-create.md             ← pipeline/pipe_create.py: weekly actual-vs-target
+│                                     pipe creation (originally extracted from the
+│                                     dashboard project's docs, now archived under
+│                                     archive/docs/). Day-weighted allocation,
+│                                     MIN(snapshot_date) actuals, no CloseDate filter.
+│                                     reads from → tables/opp-daily-snapshot.md
+│                                     reads from → tables/territory-mapping.md
 │
 ├── analysis/
 │   ├── slip.md             ← what slip is, how much moves, WHERE IT LANDS
@@ -141,22 +124,12 @@ README.md  (you are here)
 │   │                               reconciled to published.
 │   │                               reads from → reference/legacy-pipe-create-xlsm.md
 │   │                               feeds → tables/target-monthly.md
-│   ├── coverage-curve.md   ← coverage mechanics: open pipe, booked, LTB, WoW
-│   │                          reads from → tables/opp-daily-snapshot.md
-│   │                          hands off to → analysis/gtm-dashboard.md (integration)
-│   └── gtm-dashboard.md    ← ties everything together: pipeline + dashboard spec
-│                              reads from → ALL files above
-│                              this is the integration layer
+│   └── coverage-curve.md   ← coverage mechanics: open pipe, booked, LTB, WoW
+│                              reads from → tables/opp-daily-snapshot.md
 │
-├── reference/
-│   └── tricentis-competitive.md ← what Tricentis sells + competitor landscape + build-vs-buy
-│                                   signals; recognizes rival/DIY mentions in call text
-│                                   used by → gtm-risk-report skill
-│
-└── loops/
-    └── loop-engineering.md ← tool-agnostic reference for designing autonomous loops
-                               (5 primitives + memory); standalone, no dependencies
-                               relates to → analysis/gtm-dashboard.md (loop the pipeline)
+└── reference/
+    └── legacy-pipe-create-xlsm.md ← the superseded Excel model — reconciliation
+                                      baseline only, never a source of truth
 ```
 
 ---
@@ -171,6 +144,5 @@ README.md  (you are here)
 | `[sharepoint].[Map_Booking_Team_Static_live]` | `bts` | `sharepoint` | [`tables/territory-mapping.md`](tables/territory-mapping.md) |
 | `[transcripts_lookup].[Call_Review]`/`.[Call_Transcript]` | `cr`/`ct` | `transcripts_lookup` (serverless `AIDatabase`) | [`tables/call-transcripts.md`](tables/call-transcripts.md) |
 | `[transcripts_lookup].[Opportunity]`/`.[Employee]`/`.[Account]`/`.[Call_Review]` | `xo`/`te`/`ta`/`cr` | `transcripts_lookup` (serverless `AIDatabase`) | [`tables/transcripts-lookup.md`](tables/transcripts-lookup.md) |
-| `call_signals_features.csv` | `signals` | CSV (derived — no longer manual) | [`tables/call-signals.md`](tables/call-signals.md) |
 | `[rep].[trf_marketing_opps_dimension]` | `M` | `rep` | used in [`tables/sku-nacv-fact.md`](tables/sku-nacv-fact.md) |
 | `[src].[trf_account_dimension]` | `acc` | `src` | used in [`tables/sku-nacv-fact.md`](tables/sku-nacv-fact.md) |

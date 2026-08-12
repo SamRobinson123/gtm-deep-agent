@@ -7,8 +7,7 @@ fresh evidence or stale. Not for opp-level current state → [`tables/opportunit
 **Source table**: `[sfdc_trf].[opportunity_field_history_live]`
 **Primary key**: none — natural key is `(OpportunityId, Field, CreatedDate)`
 **Row grain**: one row per field-change event
-**Related**: [`tables/opportunity.md`](opportunity.md) (the fields this tracks) · [`models/implementation.md`](../models/implementation.md) (how the
-risk skill's shared candidate pull consumes this)
+**Related**: [`tables/opportunity.md`](opportunity.md) (the fields this tracks)
 
 ---
 

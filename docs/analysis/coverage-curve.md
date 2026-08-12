@@ -2,7 +2,6 @@
 
 **When to load**: Building or understanding coverage metrics — open pipe, booked, LTB, coverage multiple, WoW delta.  
 **Requires**: [`tables/opp-daily-snapshot.md`](../tables/opp-daily-snapshot.md) (primary data source) · [`tables/territory-mapping.md`](../tables/territory-mapping.md) (geo breakdown)  
-**Used by**: [`analysis/gtm-dashboard.md`](gtm-dashboard.md) (coverage view in the dashboard)  
 **This is NOT**: A forecast or recommendation engine — it is purely observational point-in-time pipeline state.
 
 **What this is**: A point-in-time view of pipeline health using the daily snapshot table.  
@@ -180,6 +179,5 @@ Conversion has degraded year-over-year — this is real, not a calculation artif
 
 ## Handoff
 
-- Building the full GTM intelligence dashboard → load [`analysis/gtm-dashboard.md`](gtm-dashboard.md)
 - Need snapshot table column details → load [`tables/opp-daily-snapshot.md`](../tables/opp-daily-snapshot.md)
 - Need geo breakdown → load [`tables/territory-mapping.md`](../tables/territory-mapping.md)

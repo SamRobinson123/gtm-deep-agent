@@ -4,8 +4,7 @@
 
 **Source**: `[transcripts_lookup].[Opportunity]` / `.[Employee]` / `.[Call_Review]` / `.[Account]`, in Synapse's **serverless "Built-in" (on-demand) pool**, database `AIDatabase` — *not* the dedicated pool `SYNAPSE_CONN_STR` points at. Same AAD identity / `az login` / token scope; only the host (`<workspace>-ondemand.sql.azuresynapse.net`) and `Database=AIDatabase` differ. See [`tables/call-transcripts.md`](call-transcripts.md) → "Why this is a separate endpoint" for the connection-string derivation (`pipeline/pull_call_summaries.py::_serverless_conn_str`).
 
-**Related**: [`tables/call-transcripts.md`](call-transcripts.md) (the `Call_Review`→`Call_Transcript` pull that produces `summary`) · [`tables/opportunity.md`](opportunity.md) (the authoritative SFDC opp) · [`models/win-probability-design.md`](../models/win-probability-design.md) (why call *stage* is never a feature)
-
+**Related**: [`tables/call-transcripts.md`](call-transcripts.md) (the `Call_Review`→`Call_Transcript` pull that produces `summary`) · [`tables/opportunity.md`](opportunity.md) (the authoritative SFDC opp)
 > **Physical shape**: these are serverless views/external tables over the lake. **Every column is `nvarchar(max)`, every column is nullable, and there are no primary keys, foreign keys, or column statistics.** Types below are *semantic* (what the value means), not declared SQL types. Because there are no stats, `JOIN`/`LEN()`/`GROUP BY` on these run slow — expect multi-minute serverless queries on the full tables.
 
 ---
@@ -188,5 +187,5 @@ filter/clamp; **INFO** = a number worth knowing.
 - Validating / regression-testing the call-context query → `pipeline/validate_call_context.py` (this § Proofs)
 - Need the call **text** (`summary`) → [`tables/call-transcripts.md`](call-transcripts.md) (`Call_Review` ⋈ `Call_Transcript`, the automated pull)
 - Need real stage / ARR / geo for these opps → filter to 18-char `opp_id`, then join out to [`tables/opportunity.md`](opportunity.md) (and [`tables/territory-mapping.md`](territory-mapping.md) for geo)
-- Building call-derived model features → those come from `summary` via `pipeline/extract_signals.py` → [`tables/call-signals.md`](call-signals.md); **nothing in these four dimension tables is a model feature** (esp. not `opp_stage`) — see [`models/win-probability-design.md`](../models/win-probability-design.md)
+- Building call-derived model features → (originally extracted from the dashboard project's docs, now archived under archive/docs/); **nothing in these four dimension tables is a model feature** (esp. not `opp_stage`)
 - Refreshing / debugging the serverless connection → `pipeline/pull_call_summaries.py` and the connection note in [`tables/call-transcripts.md`](call-transcripts.md)

@@ -1,7 +1,7 @@
 # Pipe Create Model — `pipeline/pipe_create.py`
 
-**Extracted from [`../analysis/gtm-dashboard.md`](../analysis/gtm-dashboard.md).**
-That file remains the integration layer; this file is the model itself.
+(originally extracted from the dashboard project's docs, now archived under
+archive/docs/) This file is the model itself.
 
 Read the Pipe Create invariants in the project root `CLAUDE.md` before changing
 anything here. Load order for Pipe Create work:

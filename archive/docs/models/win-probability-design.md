@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # Win Probability Model — Design & Context
 
 **When to load**: Before writing any model code. Defines target variable, features, data sources, train/score split.  

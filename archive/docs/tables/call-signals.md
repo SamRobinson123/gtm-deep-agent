@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # Call Signals — call_signals_features.csv
 
 **When to load**: Any task using call sentiment data — signal analysis, model features, dashboard signal view.  

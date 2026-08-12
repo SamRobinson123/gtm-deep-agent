@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # Tricentis — What We Sell & Who We Compete With
 
 **When to load**: Any task that reasons about *competitive threat* or *build-vs-buy* risk in a

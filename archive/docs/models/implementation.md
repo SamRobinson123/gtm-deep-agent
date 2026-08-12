@@ -1,3 +1,6 @@
+> **ARCHIVED — not context.** See `archive/README.md`. Describes the old
+> dashboard project, not this repo.
+
 # Win Probability Model — Implementation
 
 **When to load**: When writing or modifying model training/scoring code.  

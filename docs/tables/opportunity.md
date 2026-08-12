@@ -197,4 +197,3 @@ Each product has: `{Product}_ARR__c` · `{Product}_ATR__c` · `{Product}_Uplift_
 - Need geo/region/territory columns → load [`tables/territory-mapping.md`](territory-mapping.md)
 - Need product-level ARR breakdown → load [`tables/sku-nacv-fact.md`](sku-nacv-fact.md) instead
 - Need historical pipeline state → load [`tables/opp-daily-snapshot.md`](opp-daily-snapshot.md) instead
-- Building the win probability model → load [`models/win-probability-design.md`](../models/win-probability-design.md)
