@@ -21,8 +21,14 @@ from pipeline import config
 
 
 def resolve_run(run_id=None):
-    """A run id, defaulting to the most recent. Returns (run_id, csv_path)."""
-    runs = lineage.list_runs()
+    """A run id, defaulting to the most recent. Returns (run_id, csv_path).
+
+    Lists and reads from the SAME root (config.RUNS). lineage.list_runs()
+    defaults to its own module constant, which is captured at import — letting
+    the two diverge meant the index could name a run this function then failed
+    to find on disk.
+    """
+    runs = lineage.list_runs(config.RUNS)
     if not runs:
         raise ValueError("No runs recorded yet. Derive a target first, then export it.")
     rid = run_id or runs[-1]["run_id"]
@@ -157,10 +163,105 @@ def to_chart(run_id=None, kind="pipe_create", quarter=None, name=None):
             f"DERIVED figures — state that when sharing.")
 
 
+def to_pdf(run_id=None, name=None, title=None):
+    """A stored run as a PDF report: title, caveat block, per-quarter tables.
+
+    A PDF is the output most likely to be forwarded to someone with no context
+    around it, so the caveats travel IN the document: the DERIVED-not-published
+    warning, the run id (traceability), and every caveat slug the manifest
+    carries. Same write boundary as everything else — a NAME goes in, never a
+    path.
+    """
+    import json
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import landscape, letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer,
+                                    Table, TableStyle)
+
+    rid, csv = resolve_run(run_id)
+    df = pd.read_csv(csv)
+    df = df.rename(columns={a: b for a, b in LEGACY_COLUMNS.items() if a in df.columns})
+
+    manifest = {}
+    mpath = config.RUNS / rid / "manifest.json"
+    if mpath.exists():
+        manifest = json.loads(mpath.read_text(encoding="utf-8"))
+
+    path = exports.export_path(name or f"report_{csv.stem}_{rid[:17]}", ".pdf")
+
+    styles = getSampleStyleSheet()
+    caveat_style = ParagraphStyle(
+        "caveat", parent=styles["Normal"], fontSize=8.5,
+        textColor=colors.HexColor("#8a3324"), leading=11)
+    meta_style = ParagraphStyle(
+        "meta", parent=styles["Normal"], fontSize=8, textColor=colors.grey)
+
+    story = [Paragraph(title or f"GTM report — {csv.stem}", styles["Title"]),
+             Paragraph(f"run {rid}", meta_style),
+             Spacer(1, 6)]
+
+    # The caveats are the first content, not a footnote. DERIVED-not-published
+    # is stated even when the manifest predates warning slugs, because this
+    # exporter cannot know the reader's context.
+    story.append(Paragraph(
+        "DERIVED figures unless a row says otherwise — computed from current "
+        "data and assumptions, NOT the published target.", caveat_style))
+    for slug in manifest.get("caveats", []) + manifest.get("warnings", []):
+        story.append(Paragraph(f"caveat: {slug}", caveat_style))
+    story.append(Spacer(1, 12))
+
+    money = MONEY_COLS = [c for c in df.columns if exports.MONEY.search(c)
+                          and not exports.RATE.search(c)]
+
+    def rendered(col, v):
+        if pd.isna(v):
+            return "—"
+        if exports.RATE.search(col) and isinstance(v, float):
+            return f"{v:.1%}"
+        if col in MONEY_COLS and isinstance(v, (int, float)):
+            return f"${v:,.0f}"
+        return str(v)
+
+    groups = df.groupby("quarter", sort=False) if "quarter" in df.columns else [("All", df)]
+    for q, g in groups:
+        # Cap the column count so the table fits a landscape page; the Excel
+        # export carries the full width, and the PDF is a report, not a dump.
+        cols = [c for c in g.columns if c != "quarter"][:8]
+        story.append(Paragraph(str(q), styles["Heading2"]))
+        data = [[c.replace("_", " ") for c in cols]]
+        for _, row in g.iterrows():
+            data.append([rendered(c, row[c]) for c in cols])
+        t = Table(data, repeatRows=1)
+        t.setStyle(TableStyle([
+            ("FONT", (0, 0), (-1, -1), "Helvetica", 7.5),
+            ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 7.5),
+            ("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.black),
+            ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.HexColor("#cccccc")),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 14))
+
+    doc = SimpleDocTemplate(str(path), pagesize=landscape(letter),
+                            leftMargin=0.6 * inch, rightMargin=0.6 * inch,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+                            title=title or csv.stem)
+    doc.build(story)
+
+    return (f"{path}\n"
+            f"{len(df)} rows from run {rid} as a PDF report.\n"
+            f"DERIVED figures — the caveat is printed in the document itself.")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for cmd in ("excel", "chart"):
+    for cmd in ("excel", "chart", "pdf"):
         p = sub.add_parser(cmd)
         p.add_argument("--run-id", dest="run_id")
         p.add_argument("--name")
@@ -168,10 +269,16 @@ def main(argv=None):
             p.add_argument("--kind", default="pipe_create",
                            choices=["pipe_create", "waterfall"])
             p.add_argument("--quarter")
+        if cmd == "pdf":
+            p.add_argument("--title")
     a = ap.parse_args(argv)
     try:
-        print(to_excel(a.run_id, a.name) if a.cmd == "excel"
-              else to_chart(a.run_id, a.kind, a.quarter, a.name))
+        if a.cmd == "excel":
+            print(to_excel(a.run_id, a.name))
+        elif a.cmd == "chart":
+            print(to_chart(a.run_id, a.kind, a.quarter, a.name))
+        else:
+            print(to_pdf(a.run_id, a.name, a.title))
     except Exception as e:
         print(f"Failed: {type(e).__name__}: {e}")
         return 1

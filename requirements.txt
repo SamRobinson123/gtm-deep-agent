@@ -1,0 +1,39 @@
+# GTM deep agent — everything the repo imports, pinned to what is verified working.
+#
+# This file did not exist until 2026-08-12: matplotlib and reportlab were
+# installed ad hoc mid-session and a fresh clone could not run anything. The v2
+# agent may edit its own pipeline code, so the dependency list has to be real —
+# tests/test_requirements.py asserts every top-level import in agent/ and
+# pipeline/ is declared here.
+#
+# Loosen pins deliberately, not by drift. pandas 3.x specifically: the code
+# relies on pandas-3 `str` dtype semantics (astype(str) keeps NaN as missing),
+# and agent/exports.py documents the trap.
+
+# core dataframe stack
+pandas==3.0.5
+pyarrow==25.0.1
+
+# deliverables — Excel, charts, images, PDF reports
+openpyxl==3.1.5
+matplotlib==3.11.1
+reportlab==5.0.0
+pillow==12.3.0
+
+# the agent itself
+claude-agent-sdk==0.2.134
+anyio==4.14.2
+python-dotenv==1.2.2
+
+# warehouse access (pull-only deps; offline paths never import these)
+pyodbc==5.3.0
+azure-identity==1.25.3
+
+# local chat UI
+fastapi==0.141.1
+uvicorn==0.52.1
+pydantic==2.13.4
+
+# tests
+pytest==9.1.1
+httpx==0.28.1

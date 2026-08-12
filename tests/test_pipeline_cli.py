@@ -126,3 +126,99 @@ def test_the_demoted_tools_are_gone_from_the_tool_surface(gone):
     from agent import tools
 
     assert gone not in {t.name for t in tools.GTM_TOOLS}
+
+
+# --- PDF export (v2 output-capability gap) --------------------------------------
+
+def _fake_run(tmp_path, monkeypatch):
+    """A minimal stored run the exporter can read, without touching real runs."""
+    import json
+    import pandas as pd
+    from pipeline import config
+
+    rid = "2026-08-12T000000Z_pdf123"
+    d = tmp_path / rid
+    d.mkdir(parents=True)
+    pd.DataFrame({
+        "quarter": ["Q3 FY26", "Q3 FY26", "Q4 FY26"],
+        "Territory": ["T1", "T2", "T1"],
+        "bookings_target": [100.0, 200.0, 300.0],
+        "pipe_create_target": [1000.0, 2000.0, 3000.0],
+        "pre_q_win_rate": [0.15, 0.12, 0.14],
+    }).to_csv(d / "derived_pipe_create.csv", index=False)
+    (d / "manifest.json").write_text(json.dumps({
+        "run_id": rid, "caveats": ["invariant-10-opportunities-unit"],
+        "warnings": ["derived-not-published-target"],
+        "headline": {"derived_Q3 FY26": 3000.0, "derived_Q4 FY26": 3000.0},
+    }), encoding="utf-8")
+    (tmp_path / "index.jsonl").write_text(
+        json.dumps({"run_id": rid}) + "\n", encoding="utf-8")
+    monkeypatch.setattr(config, "RUNS", tmp_path)
+    return rid
+
+
+def test_pdf_export_writes_a_real_pdf_inside_the_boundary(tmp_path, monkeypatch):
+    """Same write boundary as every other deliverable: a NAME goes in, never a
+    path, and the file lands in exports. %PDF is the four-byte magic — a zero
+    byte 'pdf' that Excel-style tests would miss is the classic silent failure."""
+    from agent import exports
+    from pipeline import export_cli
+
+    rid = _fake_run(tmp_path, monkeypatch)
+    monkeypatch.setattr(exports, "EXPORTS", tmp_path / "out")
+
+    msg = export_cli.to_pdf(run_id=rid, name="test_report", title="Test report")
+    pdfs = list((tmp_path / "out").glob("*.pdf"))
+    assert len(pdfs) == 1
+    assert pdfs[0].read_bytes()[:4] == b"%PDF"
+    assert rid in msg, "the message must say which run was exported"
+
+
+def _pdf_text(path):
+    """Crude text recovery: inflate every content stream and keep printables.
+
+    Good enough to assert a phrase made it into the document; no PDF library
+    needed, so the test suite gains no dependency for one assertion."""
+    import base64
+    import re
+    import zlib
+    raw = path.read_bytes()
+    out = []
+    for m in re.finditer(rb"stream\r?\n(.*?)endstream", raw, re.S):
+        data = m.group(1)
+        # reportlab wraps Flate in ASCII85 ("...~>"), so try that first, then
+        # bare Flate, then give up and keep the raw bytes.
+        for decode in (lambda d: zlib.decompress(base64.a85decode(d, adobe=True)),
+                       zlib.decompress,
+                       lambda d: d):
+            try:
+                out.append(decode(data))
+                break
+            except Exception:
+                continue
+    return b"\n".join(out).decode("latin-1", errors="replace")
+
+
+def test_pdf_export_carries_the_derived_warning(tmp_path, monkeypatch):
+    """A PDF is the output most likely to be forwarded to someone with no
+    context. The derived-not-published caveat travels in the document itself,
+    not only in the chat message around it."""
+    from agent import exports
+    from pipeline import export_cli
+
+    rid = _fake_run(tmp_path, monkeypatch)
+    monkeypatch.setattr(exports, "EXPORTS", tmp_path / "out")
+    export_cli.to_pdf(run_id=rid, name="caveat_check")
+
+    pdf = next((tmp_path / "out").glob("*.pdf"))
+    text = _pdf_text(pdf)
+    assert "DERIVED" in text, "the derived-not-published caveat must be IN the PDF"
+    assert rid in text, "the run id must be IN the PDF so the figure stays traceable"
+
+
+def test_pdf_export_without_runs_fails_with_a_pointer(tmp_path, monkeypatch):
+    from pipeline import config, export_cli
+    monkeypatch.setattr(config, "RUNS", tmp_path / "empty")
+    (tmp_path / "empty").mkdir()
+    with pytest.raises(ValueError, match="[Nn]o runs"):
+        export_cli.to_pdf()

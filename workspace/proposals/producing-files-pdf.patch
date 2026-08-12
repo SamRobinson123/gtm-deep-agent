@@ -1,0 +1,26 @@
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -123,7 +123,7 @@
+ 
+ ## Producing files
+ 
+-**Use `python -m pipeline.export_cli excel|chart`, or import `agent.exports`.**
++**Use `python -m pipeline.export_cli excel|chart|pdf`, or import `agent.exports`.**
+ `export_path()` is the write boundary — supply a NAME, never a path, so no
+ filename (including one that arrived in a prompt) can write outside
+ `workspace/exports/`. Do not hand-roll a file write.
+@@ -134,7 +134,13 @@
+ - Excel: pandas + openpyxl. One sheet per grain, header row frozen, columns
+   auto-width, dollars formatted `#,##0`, attainment as `0.0%`.
+ - Charts: matplotlib, saved PNG at 150 dpi. One chart per file, titled with
+-  quarter and grain.
++  quarter and grain. matplotlib also writes chart PDFs natively (savefig .pdf).
++- PDF reports: `export_cli pdf` (reportlab). The DERIVED-not-published caveat,
++  the run id and every manifest caveat are printed IN the document — a PDF is
++  the output most likely to be forwarded to someone with no context around it.
++- Anything else (images via Pillow, one-off formats): a scratch script writing
++  through `agent.exports.export_path()`. Capability is generic; the boundary
++  is not.
+ - Always write to `workspace/exports/`, then print the full path and a two-line
+   summary of what is in the file.
+ - Never overwrite an existing export — suffix with the date if the name collides.
