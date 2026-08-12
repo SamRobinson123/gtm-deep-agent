@@ -238,3 +238,36 @@ def test_az_is_resolved_via_which_not_bare_name():
     assert 'shutil.which("az")' in src
     assert '["az", "account"' not in src, "must not invoke az by bare name"
     assert '"az", "login"' not in src, "must not invoke az by bare name"
+
+
+# --- tool schemas match what the handlers actually read -----------------------
+
+def _tool_arg_keys(fn_src):
+    """Every args.get("x") / args["x"] key a handler reads."""
+    import re
+    return set(re.findall(r'args\.get\(\s*["\'](\w+)["\']', fn_src)) | \
+           set(re.findall(r'args\[\s*["\'](\w+)["\']\s*\]', fn_src))
+
+
+@pytest.mark.parametrize("t", [t for t in tools.GTM_TOOLS], ids=lambda t: t.name)
+def test_tool_schema_matches_the_args_the_handler_reads(t):
+    """A key read but not declared can never be set by the model; a key declared
+    but not read is silently ignored. Both happened: derive_pipe_create_target
+    read `as_of` without declaring it, so the in-flight vs future regime could
+    not be selected, and declared `slip_quarters` long after it stopped reading
+    it. Neither shows up in any other test.
+    """
+    import inspect
+    src = inspect.getsource(t.handler)
+    read = _tool_arg_keys(src)
+    declared = set(t.input_schema or {})
+
+    undeclared = read - declared
+    assert not undeclared, (
+        f"{t.name} reads {sorted(undeclared)} but does not declare them — "
+        f"the model can never set them")
+
+    unread = declared - read
+    assert not unread, (
+        f"{t.name} declares {sorted(unread)} but never reads them — "
+        f"the model can pass them and be silently ignored")

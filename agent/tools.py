@@ -162,6 +162,27 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     # solved — Q3 FY26 from Q3 FY25, Q4 FY26 from Q4 FY25. Slip is seasonal, so
     # applying one quarter's rate to every quarter imports the wrong shape.
     notes, existing = [], {}
+
+    def slip_override(q, name):
+        """A slip override for this quarter, applying to every key.
+
+        The slip assumptions are consumed HERE, before derive_targets runs, not
+        in its loop with the others — they shape the existing-pipe input rather
+        than the solve. Resolved with the same _override_for() the solve uses, so
+        the two accept identical shapes; a per-key slip override would need a
+        Series and is not offered yet.
+        """
+        if not overrides:
+            return None
+        for key in ("*", "All"):
+            v = waterfall._override_for(overrides, q, key).get(name)
+            if v is not None:
+                return v
+        seen = {waterfall._override_for(overrides, q, k).get(name)
+                for k in overrides if isinstance(overrides.get(k), dict)}
+        seen.discard(None)
+        return seen.pop() if len(seen) == 1 else None
+
     for i, q in enumerate(qs):
         h = waterfall.prior_year_quarter(q)
 
@@ -197,12 +218,27 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
                 notes.append(f"SLIP INFLOW NOT INCLUDED {config.fq_label(earlier)} -> "
                              f"{config.fq_label(q)} — {type(e).__name__}: {e}")
 
+        # A challenged slip assumption replaces the measured one and is recorded,
+        # so a what-if row can never be mistaken for a measured one.
+        for name, val in (("pre_q_slip_rate", slip_override(q, "pre_q_slip_rate")),
+                          ("in_q_slip_rate", slip_override(q, "in_q_slip_rate")),
+                          ("slip_inflow", slip_override(q, "slip_inflow"))):
+            if val is None:
+                continue
+            if name == "pre_q_slip_rate":
+                pq = val
+            elif name == "slip_inflow":
+                inflow = val
+            notes.append(f"OVERRIDE {config.fq_label(q)} {name} = {val} "
+                         f"(replaces the measured value)")
+
         try:
             existing[q] = waterfall.existing_pipe_bookings(
                 q, [h], sku=sku, grain=grain,
                 slip_from_points={h: waterfall.slip_anchor(q, as_of, h)},
                 window=window, slip_snapshot_file="snapshot_hist.parquet",
-                pre_q_slip_rate=pq, slip_inflow_pipe=inflow)
+                pre_q_slip_rate=pq, slip_inflow_pipe=inflow,
+                in_q_slip_rate=slip_override(q, "in_q_slip_rate"))
         except Exception as e:
             notes.append(f"SLIP NOT INCLUDED for {config.fq_label(q)} "
                          f"(needs {config.fq_label(h)}) — {type(e).__name__}: {e}")
@@ -247,9 +283,11 @@ async def _derive_frame(quarters: str, grain: str = "Territory", overrides=None,
     "what_if_assumption",
     "Recompute a derived pipe create target with one assumption replaced, for a "
     "single territory or all of them. Use when someone challenges an input — "
-    "'I don't believe the in-quarter win rate is 3%, call it 40%, what does the "
-    "target become?'. Assumptions: in_quarter_win_rate, pre_q_win_rate, q0_weight, "
-    "expected_from_existing_pipe, historic_floor. Rates are fractions (0.40, not 40).",
+    "'I don't believe the In Q win rate is 3%, call it 40%, what does the target "
+    "become?'. Assumptions: in_quarter_win_rate, pre_q_win_rate, q0_weight, "
+    "expected_from_existing_pipe, historic_floor, in_q_slip_rate, pre_q_slip_rate, "
+    "slip_inflow. Rates are fractions (0.40, not 40). The three slip assumptions "
+    "apply across every key rather than one — use key='*' for them.",
     {"key": str, "assumption": str, "value": float, "quarters": str},
 )
 async def what_if_assumption(args):
@@ -738,10 +776,172 @@ async def export_chart(args):
                f"DERIVED figures — state that when sharing.")
 
 
+@tool(
+    "slip_analysis",
+    "MEASURE slip from the cached snapshot feed, rather than quoting a figure out "
+    "of docs/analysis/slip.md. Read that file first for the method, then use this "
+    "for the number, and cite both. kinds: "
+    "'rate' — won/lost/slipped/held and the slip rate for a COMPLETED quarter; "
+    "'destinations' — which later quarter the slipped pipe landed in, by offset; "
+    "'pre_q' — the share of a FUTURE quarter's pipe that leaks out before it opens, "
+    "read at the same lead time a year earlier (empty for a quarter already "
+    "started: its Pre Q slip has happened and is inside the observed balance); "
+    "'forecast' — prior-year rate x prior-year destination curve, in dollars; "
+    "'cohort' — slip split by CREATE DATE, which is a different axis from Pre Q / "
+    "In Q and must never be quoted as those rates. "
+    "Slip needs a completed quarter and contiguous snapshot coverage.",
+    {"quarter": str, "kind": str, "grain": str, "as_of": str},
+)
+async def slip_analysis(args):
+    import pandas as pd
+    from agent import waterfall
+
+    kind = (args.get("kind") or "rate").strip().lower()
+    grain = args.get("grain") or "Territory"
+    as_of = args.get("as_of") or str(pd.Timestamp.today().date())
+    try:
+        q = targets.resolve_quarter((args.get("quarter") or "").strip() or None)
+    except ValueError as e:
+        return _ok(str(e))
+
+    HIST = "snapshot_hist.parquet"
+    label = config.fq_label(q)
+    # For a quarter in flight, the like-for-like historic anchor is the equivalent
+    # point a year earlier, not that quarter's start — the population still open
+    # mid-quarter is enriched in non-closers, so its rate is higher.
+    prior = waterfall.prior_year_quarter(q)
+    point = waterfall.slip_anchor(q, as_of, prior)
+
+    try:
+        if kind == "rate":
+            g = waterfall.slip(prior, grain, from_point=point, snapshot_file=HIST)
+            t = g[["starting_open_pipe", "won", "lost", "slipped", "held"]].sum()
+            # Dollars and a rate in one frame: a single float_format renders
+            # 0.639 as "1". Format the rate to text before printing.
+            show = g.copy()
+            show["slip_rate"] = show["slip_rate"].map(
+                lambda x: "—" if pd.isna(x) else f"{x:.1%}")
+            body = show.to_string(float_format=lambda x: f"{x:,.0f}")
+            head = (f"SLIP RATE for {label}, measured on {config.fq_label(prior)} "
+                    f"from {g.attrs['from_point']} ({g.attrs['days_remaining']}d left)\n"
+                    f"  starting open pipe ${t.starting_open_pipe:,.0f}\n"
+                    f"  slipped ${t.slipped:,.0f} = {t.slipped/t.starting_open_pipe:.1%}"
+                    f"  |  won {t.won/t.starting_open_pipe:.1%}"
+                    f"  lost {t.lost/t.starting_open_pipe:.1%}"
+                    f"  held {t.held/t.starting_open_pipe:.1%}")
+
+        elif kind == "destinations":
+            d = waterfall.slip_destinations(prior, from_point=point, snapshot_file=HIST)
+            body = "\n".join(
+                f"  Q+{int(k)}: {v:6.1%}  ${d.attrs['dollars'][k]:>14,.0f}" for k, v in d.items())
+            head = (f"WHERE {label}'s SLIP LANDS, from {config.fq_label(prior)} "
+                    f"(anchor {d.attrs['from_point']})\n"
+                    f"  ${d.attrs['slipped_value']:,.0f} slipped across "
+                    f"{d.attrs['opps']} opps")
+
+        elif kind == "pre_q":
+            r = waterfall.pre_q_slip(q, as_of, grain=grain, snapshot_file=HIST)
+            if not len(r):
+                return _ok(f"PRE Q SLIP for {label}: none — {r.attrs.get('reason')}. "
+                           f"This is correct, not missing data: a quarter already "
+                           f"under way has had its Pre Q slip, and it is already "
+                           f"inside the observed open pipe.")
+            head = (f"PRE Q SLIP for {label}: {r.attrs['pooled_rate']:.1%} at "
+                    f"{r.attrs['lead_days']}d lead, measured on "
+                    f"{r.attrs['measured_on']} read {r.attrs['read_at']}")
+            body = r.to_string(float_format=lambda x: f"{x:.1%}")
+
+        elif kind == "forecast":
+            f = waterfall.slip_forecast(q, grain=grain, as_of=as_of, snapshot_file=HIST)
+            head = f"SLIP FORECAST for {label}, from {config.fq_label(prior)}"
+            body = f.to_string(float_format=lambda x: f"{x:,.0f}")
+
+        elif kind == "cohort":
+            g = waterfall.slip_by_cohort(prior, snapshot_file=HIST)
+            head = (f"SLIP BY CREATE-DATE COHORT on {config.fq_label(prior)}\n"
+                    f"  *** These are NOT the Pre Q / In Q slip rates. Those are a "
+                    f"TIMING split and both act on existing open pipe. This splits "
+                    f"by when the pipe was CREATED — a different axis. Never quote "
+                    f"these as Pre Q / In Q. See docs/analysis/slip.md. ***\n"
+                    f"  re-slip cohort observable here: "
+                    f"{g.attrs['reslip_observable']}")
+            body = g.to_string(float_format=lambda x: f"{x:,.3f}")
+        else:
+            return _ok("Unknown kind. Use rate, destinations, pre_q, forecast or cohort.")
+    except waterfall.MissingData as e:
+        return _ok(f"Cannot measure slip: {e}")
+    except Exception as e:
+        return _ok(f"Slip analysis failed: {type(e).__name__}: {e}")
+
+    return _ok(f"{head}\n\n{body}\n\n"
+               f"Measured from data/{HIST}. Method and caveats: docs/analysis/slip.md.")
+
+
+@tool(
+    "show_assumptions",
+    "Show the INPUTS a derived target rests on, without solving for one: In Q and "
+    "Pre Q win rates, the sales cycle curve (quarter-offset weights), the historic "
+    "floor, open pipe in the quarter, and closed won to date. Use when someone "
+    "asks why a target is what it is, or challenges an input, before reaching for "
+    "what_if_assumption. Rates are recomputed from sku_nacv over the window given "
+    "— nothing is stored.",
+    {"quarter": str, "grain": str, "window_start": str, "window_end": str},
+)
+async def show_assumptions(args):
+    import pandas as pd
+    from agent import waterfall
+
+    grain = args.get("grain") or "Territory"
+    window = None
+    if args.get("window_start") and args.get("window_end"):
+        window = (args["window_start"], args["window_end"])
+    try:
+        q = targets.resolve_quarter((args.get("quarter") or "").strip() or None)
+        sku = waterfall.load_sku(grain)
+    except (ValueError, waterfall.MissingData) as e:
+        return _ok(f"Cannot show assumptions: {e}")
+
+    rates = waterfall.win_rates(sku, window, grain).rename(
+        columns={"in_quarter": "In Q win rate", "pre_q": "Pre Q win rate"})
+    curve = waterfall.sales_cycle_weights(sku, window, grain)
+    floor = waterfall.historic_floor(sku, q, grain)
+
+    parts = [f"ASSUMPTIONS for {config.fq_label(q)}, grain={grain}"
+             + (f", window {window[0]}..{window[1]}" if window else ", full history"),
+             "",
+             "WIN RATES — In Q closes in its create quarter, Pre Q closes later.",
+             rates.to_string(float_format=lambda x: f"{x:.1%}"),
+             "",
+             "SALES CYCLE CURVE — share of created pipe closing at each quarter "
+             "offset. Q0 x In Q win rate is the yield the goal seek divides by.",
+             curve.to_string(float_format=lambda x: f"{x:.3f}"),
+             "",
+             "HISTORIC FLOOR — same quarter last year's actual creation.",
+             floor.to_string(float_format=lambda x: f"{x:,.0f}")]
+
+    # Observed state is optional: it needs a snapshot pull, and the fitted
+    # assumptions above are still worth showing without one.
+    for name, fn in (("OPEN PIPE dated into the quarter", waterfall.open_pipe_at),
+                     ("CLOSED WON to date", waterfall.closed_won_at)):
+        try:
+            s = fn(q, grain)
+            parts += ["", f"{name} — ${s.sum():,.0f} total",
+                      s.sort_values(ascending=False).head(15).to_string(
+                          float_format=lambda x: f"{x:,.0f}")]
+        except Exception as e:
+            parts += ["", f"{name}: unavailable ({type(e).__name__}: {str(e)[:100]})"]
+
+    parts += ["", "These are the DERIVED side's inputs. Challenge one with "
+                  "what_if_assumption. Method: docs/analysis/pipe-create-waterfall.md."]
+    return _ok("\n".join(parts))
+
+
 GTM_TOOLS = [
     az_login_status,
     azure_login,
     derive_pipe_create_target,
+    slip_analysis,
+    show_assumptions,
     list_queries,
     run_pull,
     query,

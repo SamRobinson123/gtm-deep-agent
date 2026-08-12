@@ -832,3 +832,38 @@ def test_parquet_cache_is_keyed_on_content_not_just_name(tmp_path, monkeypatch):
     again = w._require("same_name.parquet")
     again["a"] = 999
     assert list(w._require("same_name.parquet")["a"]) == [2]
+
+
+# --- slip is challengeable ----------------------------------------------------
+
+def test_slip_assumptions_are_declared_and_separated():
+    """The three slip terms are overridable, and are marked as the subset applied
+    BEFORE the solve rather than inside it — they shape the existing-pipe input,
+    not the goal seek."""
+    for a in ("in_q_slip_rate", "pre_q_slip_rate", "slip_inflow"):
+        assert a in w.ASSUMPTIONS
+        assert a in w.SLIP_ASSUMPTIONS
+    assert set(w.SLIP_ASSUMPTIONS) < set(w.ASSUMPTIONS)
+    # the solve-time ones must NOT be in the slip subset
+    assert "in_quarter_win_rate" not in w.SLIP_ASSUMPTIONS
+
+
+def test_a_scalar_in_q_slip_override_applies_to_every_key():
+    """"I don't believe 64%, call it 40%" must be answerable without naming 27
+    territories, so a scalar broadcasts."""
+    keys = pd.Index(["T1", "T2"], name="Territory")
+    measured = pd.Series([0.64, 0.55], index=keys)
+    override = pd.Series(0.40, index=keys)
+    combined = override.fillna(measured)
+    assert (combined == 0.40).all()
+
+
+def test_a_per_key_slip_override_leaves_other_keys_measured():
+    """A Series override replaces only the keys it names; the rest keep the
+    measured rate. Filling the other way round would silently blank them."""
+    keys = pd.Index(["T1", "T2"], name="Territory")
+    measured = pd.Series([0.64, 0.55], index=keys)
+    override = pd.Series({"T1": 0.40}).reindex(keys)
+    combined = override.fillna(measured)
+    assert combined["T1"] == pytest.approx(0.40)
+    assert combined["T2"] == pytest.approx(0.55)

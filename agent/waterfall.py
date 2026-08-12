@@ -488,7 +488,16 @@ def derive_targets(
 
 
 ASSUMPTIONS = ("in_quarter_win_rate", "pre_q_win_rate", "q0_weight",
-               "expected_from_existing_pipe", "historic_floor")
+               "expected_from_existing_pipe", "historic_floor",
+               # Slip terms. These are consumed EARLIER than the others — in
+               # existing_pipe_bookings(), before derive_targets() runs — because
+               # they shape the existing-pipe input rather than the solve. See
+               # SLIP_ASSUMPTIONS below and its use in agent/tools.py.
+               "in_q_slip_rate", "pre_q_slip_rate", "slip_inflow")
+
+# The subset applied before the solve, not inside it. Kept as its own tuple so a
+# caller can ask "is this override mine to apply?" instead of hardcoding names.
+SLIP_ASSUMPTIONS = ("in_q_slip_rate", "pre_q_slip_rate", "slip_inflow")
 
 
 def _override_for(overrides, quarter_start, key) -> dict:
@@ -1254,7 +1263,8 @@ def closed_won_at(quarter_start, grain="Territory", as_of=None) -> pd.Series:
 def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territory",
                            window=None, as_of=None, slip_from_points=None,
                            slip_snapshot_file="snapshot.parquet",
-                           pre_q_slip_rate=None, slip_inflow_pipe=None) -> pd.Series:
+                           pre_q_slip_rate=None, slip_inflow_pipe=None,
+                           in_q_slip_rate=None) -> pd.Series:
     """Bookings expected from pipe that ALREADY exists, slip- and win-rate-adjusted.
 
         adjusted = open_pipe x (1 - pre_q_slip) + slip_inflow
@@ -1296,6 +1306,14 @@ def existing_pipe_bookings(quarter_start, slip_quarters, sku=None, grain="Territ
 
     keys = open_pipe.index
     sr = slip_rate.reindex(keys).fillna(slip_rate.mean() if len(slip_rate) else 0.0)
+    if in_q_slip_rate is not None:
+        # A challenge to the measured In Q slip. Applied per key where a Series is
+        # given, or across the board for a scalar — "I don't believe 64%, call it
+        # 40%" has to be answerable without naming 27 territories.
+        ov = (pd.Series(in_q_slip_rate).reindex(keys)
+              if hasattr(in_q_slip_rate, "get") or isinstance(in_q_slip_rate, pd.Series)
+              else pd.Series(float(in_q_slip_rate), index=keys))
+        sr = ov.fillna(sr)
     # The PRE-Q win rate, not the In Q one. Pipe already open at quarter start was
     # created in an earlier quarter, so its analogue is `pre_q` — deals that closed
     # in a quarter after the one that created them. Using in_quarter here applies a
