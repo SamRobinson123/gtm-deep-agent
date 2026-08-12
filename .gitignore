@@ -18,6 +18,10 @@ Target_Monthly.csv
 output/
 workspace/exports/
 workspace/runs/
+# Ephemeral thinking. Scripts written, run, read and deleted — nothing here is
+# durable, and a leftover is disposable rather than a work product.
+workspace/scratch/*
+!workspace/scratch/README.md
 
 # Python
 .venv/
