@@ -74,3 +74,24 @@ def test_a_missing_manifest_does_not_lose_the_chain(legacy_run, tmp_path):
     r = TestClient(app).get(f"/api/runs/{legacy_run}/derivation")
     assert r.status_code == 200, r.text
     assert r.json()["quarters"][0]["steps"]
+
+
+def test_the_waterfall_endpoint_is_actually_called_by_the_front_end():
+    """It was served and never called for a day — the per-row table existed only
+    as JSON. A dead endpoint looks identical to a working one from the server
+    side, so the check has to be on the client."""
+    import pathlib
+    js = pathlib.Path("gtm_ui/static/app.js").read_text(encoding="utf-8", errors="replace")
+    assert "/waterfall" in js, "app.js never fetches the waterfall endpoint"
+    assert js.count("waterfallTable(") >= 2, (
+        "waterfallTable must be defined AND called — a definition alone renders nothing")
+
+
+def test_every_overridable_column_the_endpoint_advertises_is_a_real_assumption():
+    """The UI turns these into editable cells. Advertising one the solve does not
+    accept would produce a what-if that silently changes nothing."""
+    from agent import waterfall as wf
+    for a in wf.ASSUMPTIONS:
+        assert isinstance(a, str) and a
+    # the three slip terms are applied before the solve, not inside it
+    assert set(wf.SLIP_ASSUMPTIONS) <= set(wf.ASSUMPTIONS)

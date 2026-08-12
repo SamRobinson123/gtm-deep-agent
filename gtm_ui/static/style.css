@@ -286,3 +286,34 @@ td.null{color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){
   .bar i{animation:none}
 }
+
+/* ---------- per-row waterfall ----------
+   Collapsed by default: the ledger is the answer, this is the evidence behind
+   it. Opening 27 rows unasked buries the number the user came for. */
+.wf{margin:14px 0 4px;border:1px solid var(--rule);border-radius:10px;background:var(--raise);overflow:hidden}
+.wf>summary{display:flex;align-items:baseline;gap:10px;padding:11px 14px;cursor:pointer;
+  list-style:none;user-select:none;border-bottom:1px solid transparent}
+.wf>summary::-webkit-details-marker{display:none}
+.wf>summary::before{content:"▸";color:var(--ink-3);font-size:11px;transition:transform .15s}
+.wf[open]>summary::before{transform:rotate(90deg)}
+.wf[open]>summary{border-bottom-color:var(--rule)}
+.wf>summary:hover{background:var(--sink)}
+.wf-q{font-weight:600;font-size:13px}
+.wf-meta{color:var(--ink-3);font-size:11.5px;margin-left:auto;font-variant-numeric:tabular-nums}
+.wf-flag{color:var(--suspect);font-weight:600}
+.wf-wrap{max-height:420px}
+
+/* A flagged row is marked on its leading edge rather than by tinting the whole
+   row — a full tint fights the money columns and makes the table hard to read. */
+.wf tbody tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--suspect)}
+.wf tbody tr.flagged td:first-child::after{content:"!";margin-left:7px;color:var(--suspect);font-weight:700}
+.wf tbody tr.flagged:hover{background:var(--suspect-soft)}
+
+/* Overridable cells look editable only on hover, so the table still reads as
+   data at rest rather than as a form. */
+.wf td.ovr{cursor:cell;position:relative}
+.wf td.ovr:hover{background:var(--clamp-soft);box-shadow:inset 0 0 0 1px var(--clamp)}
+.ovr-in{width:100%;min-width:74px;border:1px solid var(--clamp);border-radius:4px;
+  padding:2px 5px;font:inherit;text-align:right;background:var(--paper);color:var(--ink)}
+.ovr-in:focus{outline:2px solid var(--clamp);outline-offset:1px}
+.wf-note{margin:8px 14px;color:var(--ink-3);font-size:11.5px}
