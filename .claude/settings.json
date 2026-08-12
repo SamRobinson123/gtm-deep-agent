@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python workspace/scratch/*)",
+      "Bash(python -m pipeline.*)",
+      "Bash(python -m pytest*)",
+      "Write(workspace/**)",
+      "Edit(workspace/**)"
+    ]
+  }
+}

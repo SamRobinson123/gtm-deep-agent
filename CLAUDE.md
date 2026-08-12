@@ -96,6 +96,21 @@ file, what you computed, and what you are inferring.
 
 ---
 
+## Response length — keep it short
+
+**Default to one paragraph.** Answer the thing asked, then stop. Do not append
+a summary of what you just did, a list of what changed, or what you plan next.
+
+- Asking a question: one short paragraph, plain language, no tables or option
+  lists. State the situation, the choice, and what happens either way.
+- Reporting work: the outcome and the one thing worth knowing. If there is a
+  real finding, that is the paragraph — not an addition to it.
+- Long output is for what was *asked for* — a table of figures, a file, an
+  analysis. It is not for narrating process.
+
+Detail on request. A wall of text the reader skims is worse than three lines
+they act on.
+
 ## Output conventions
 
 - Dollars as `$201,789,918`. Attainment as a percentage to one decimal.

@@ -62,38 +62,58 @@ answer you before your turn ends. So never pose a question and then proceed as i
 it went unanswered. Either do the work under a clearly stated assumption, or stop
 and end your turn with the question. Never both.
 
-WAREHOUSE. You COMPOSE SQL. This is the point of the agent — do not conclude that
-data is unavailable until you have tried to query for it.
+WAREHOUSE. You compose SQL through the `query` tool ONLY. It is validated
+read-only and shown to the user for approval — write it to be read. Never attempt
+Synapse access through Bash or a script: the connection string is not in your
+environment, so the attempt cannot succeed, and it will be visible.
 
-  1. Cached parquet first. Never re-pull what it can already answer.
-  2. `run_pull` for the named registry queries (`list_queries` shows them) — these
-     are bulk pulls cached as parquet.
-  3. `query` for ANYTHING ELSE. Write the SQL yourself: joins, CTEs, window
-     functions, any aggregation, over any window.
+Prefer cached parquet in `data/` — read it with pandas in a scratch script like
+any other file. State when you use the offline path.
 
 Read `docs/sql/conventions.md` and the relevant `docs/tables/` contract BEFORE
 composing. They carry the stage, date, financial-column and geo-join rules, and
-ignoring them produces answers that look right and are not.
+ignoring them produces answers that look right and are not. Querying a table with
+no `docs/tables/` contract is allowed — it comes back flagged, and you report that
+the figure rests on no documented contract.
 
-`sqlguard` enforces the one hard limit: reads only. SELECT and WITH pass; INSERT,
-UPDATE, DELETE, CREATE VIEW, DROP and EXEC are refused. You cannot write to the
-database or create objects in it, and you should not try. Querying a table with no
-`docs/tables/` contract is ALLOWED — it comes back flagged, and you report that the
-figure rests on no documented contract.
+If the connection fails, call az_login_status, then azure_login — that opens the
+browser MFA prompt, and the database scope needs its own sign-in even when a
+general `az login` is live.
 
-The user approves each statement before it runs. If the connection fails, call
-az_login_status, then azure_login — that opens the browser MFA prompt, and the
-database scope needs its own sign-in even when a general `az login` is live.
+COMPUTE. When a question needs computation, write a script in
+`workspace/scratch/`, run it, read the result, delete it. That is the loop — you
+are not limited to what a tool already does.
 
-ANALYSIS. `slip_analysis` and `show_assumptions` measure directly from cached
-parquet — slip rates, where slipped pipe lands, Pre Q slip, win rates, the sales
-cycle curve, the historic floor, open pipe, closed won. Use them rather than
-quoting a figure out of the docs: the docs explain the method, the tools give the
-current number. Cite both.
+Import `agent.lineage` and record a Run for any number you intend to REPORT;
+scratch exploration needs no lineage. Run `pipeline.checks` on any output before
+reporting from it. Reusable logic belongs in `pipeline/` as a module, not in a
+scratch script that gets deleted — propose the move when you notice you have
+written the same thing twice.
 
-FILES. `export_excel` and `export_chart` write to workspace/exports/. When someone
-asks for a spreadsheet, a file, a chart, or something to send on, produce it —
-then give the full path. Always say which run_id was exported.
+VERIFICATION. There are no golden output numbers for this model. The docs are the
+spec; conformance to them is what verification means here.
+
+Every figure you report states WHICH LAYER backed it:
+  - "passes internal consistency (checks.py)"
+  - "reconciles to the legacy workbook within 0.3% at Geo level"
+  - or, honestly, "computed but UNVERIFIED — no check covers it"
+An unverified number is allowed. An unlabelled one is not. Cite the doc for
+logic; cite the check for numbers.
+
+MEMORY. Start by reading `workspace/notes/journal.md` if it exists — it carries
+findings, dead ends and open questions from earlier sessions. Before ending a
+substantial task, append what was learned. A dead end recorded is worth as much
+as a result.
+
+SELF-MODIFICATION. You may edit `pipeline/`, `agent/` and `tests/` with approval.
+You may NEVER edit `docs/`, `CLAUDE.md`, or your own permission rules in
+`.claude/settings.json` — those are human-curated, and an agent that rewrites the
+context it reasons from can drift with no trace. Propose such changes as a diff
+in `workspace/proposals/` and say so.
+
+FILES. Deliverables go to `workspace/exports/` per CLAUDE.md's output
+conventions — never overwrite; suffix with the date on collision. Give the full
+path, and say which run_id produced the figures.
 
 VOCABULARY. The win rates are IN Q (closed in the same quarter it was created) and
 PRE Q (closed in a later quarter than created — pipe that existed before the
@@ -159,8 +179,22 @@ def build_options(cwd=None, model=MODEL, permission_mode="default", can_use_tool
             "preset": "claude_code",
             "append": OPERATING_RULES,
         },
-        allowed_tools=["Read", "Glob", "Grep", "Task", "Bash", *TOOL_NAMES],
-        disallowed_tools=["Write", "Edit", "NotebookEdit", "WebSearch", "WebFetch"],
+        # v2: the full thinking tool set. Write/Edit were disallowed in v1; the
+        # agent now writes itself a script in workspace/scratch/, runs it, reads
+        # the result and deletes it. Removing these re-cages it.
+        #
+        # The controls are elsewhere: agent/hooks.py denies writes to docs/,
+        # CLAUDE.md, data/, settings.json and finished runs; .claude/settings.json
+        # decides what runs without an approval prompt; and the Synapse
+        # connection string is absent from os.environ (see main.load_secrets).
+        allowed_tools=[
+            "Read", "Write", "Edit", "NotebookEdit",
+            "Glob", "Grep", "Bash", "Task", "TodoWrite",
+            *TOOL_NAMES,
+        ],
+        # The one capability v2 does NOT widen. A web result has no contract and
+        # no lineage; answers come from docs/ and the warehouse.
+        disallowed_tools=["WebSearch", "WebFetch"],
         permission_mode=permission_mode,
         mcp_servers={"gtm": gtm_server},
         agents={"doc-retrieval": DOC_RETRIEVAL},

@@ -182,39 +182,16 @@ def test_allowlist_covers_the_tables_the_derivation_needs(t):
 
 
 # --- options ----------------------------------------------------------------
-
-def test_system_prompt_is_the_preset_not_none():
-    """Regression test for the hello.py bug.
-
-    With system_prompt=None the SDK does not inject CLAUDE.md, so the agent runs
-    with none of its invariants while sounding just as confident.
-    """
-    o = options.build_options()
-    assert isinstance(o.system_prompt, dict)
-    assert o.system_prompt["preset"] == "claude_code"
-    assert "invariant-10" in o.system_prompt["append"] or "opp-product-lines" in o.system_prompt["append"]
-
-
-def test_write_tools_are_disallowed():
-    o = options.build_options()
-    for t in ("Write", "Edit", "WebSearch", "WebFetch"):
-        assert t in o.disallowed_tools
-
-
-def test_setting_sources_is_project_only():
-    o = options.build_options()
-    assert o.setting_sources == ["project"]
-
-
-def test_permission_mode_is_not_bypass():
-    """The prompt is a second access control, not friction to optimise away."""
-    assert options.build_options().permission_mode != "bypassPermissions"
-
-
-def test_doc_retrieval_subagent_is_read_only():
-    o = options.build_options()
-    sub = o.agents["doc-retrieval"]
-    assert set(sub.tools) <= {"Read", "Glob", "Grep"}
+#
+# MOVED 2026-08-11, v2 step 3 -> tests/test_options.py, which now also asserts
+# the settings.json allow rules and the new OPERATING_RULES sections.
+#
+# One of them did not move, it was RETIRED: `test_write_tools_are_disallowed`
+# asserted that Write and Edit were in disallowed_tools. In v2 that is exactly
+# backwards — the agent writes itself a script in workspace/scratch/, runs it and
+# deletes it, and without Write/Edit it cannot think at all. test_options.py
+# carries `test_write_and_edit_are_no_longer_disallowed` in its place, so a merge
+# that restores the v1 list fails loudly instead of silently re-caging the agent.
 
 
 # --- Azure CLI resolution ---------------------------------------------------
