@@ -2,7 +2,7 @@
 
 **When to load**: You need to link a call back to its opportunity, account owner (employee), or account *within the transcript schema itself* — e.g. "which AE ran this call", "how many calls per account", building a call-level bridge. For the raw call **text** (`summary`) load [`tables/call-transcripts.md`](call-transcripts.md) instead; for anything about the SFDC pipeline (real stage, ARR, geo) go to [`tables/opportunity.md`](opportunity.md).
 
-**Source**: `[transcripts_lookup].[Opportunity]` / `.[Employee]` / `.[Call_Review]` / `.[Account]`, in Synapse's **serverless "Built-in" (on-demand) pool**, database `AIDatabase` — *not* the dedicated pool `SYNAPSE_CONN_STR` points at. Same AAD identity / `az login` / token scope; only the host (`<workspace>-ondemand.sql.azuresynapse.net`) and `Database=AIDatabase` differ. See [`tables/call-transcripts.md`](call-transcripts.md) → "Why this is a separate endpoint" for the connection-string derivation (`pipeline/pull_call_summaries.py::_serverless_conn_str`).
+**Source**: `[transcripts_lookup].[Opportunity]` / `.[Employee]` / `.[Call_Review]` / `.[Account]`, in Synapse's **serverless "Built-in" (on-demand) pool**, database `AIDatabase` — *not* the dedicated pool `SYNAPSE_CONN_STR` points at. Same AAD identity / `az login` / token scope; only the host (`<workspace>-ondemand.sql.azuresynapse.net`) and `Database=AIDatabase` differ. See [`tables/call-transcripts.md`](call-transcripts.md) → "Why this is a separate endpoint" for the connection-string derivation.
 
 **Related**: [`tables/call-transcripts.md`](call-transcripts.md) (the `Call_Review`→`Call_Transcript` pull that produces `summary`) · [`tables/opportunity.md`](opportunity.md) (the authoritative SFDC opp)
 > **Physical shape**: these are serverless views/external tables over the lake. **Every column is `nvarchar(max)`, every column is nullable, and there are no primary keys, foreign keys, or column statistics.** Types below are *semantic* (what the value means), not declared SQL types. Because there are no stats, `JOIN`/`LEN()`/`GROUP BY` on these run slow — expect multi-minute serverless queries on the full tables.
@@ -110,7 +110,7 @@ LEFT  JOIN  [transcripts_lookup].[Account]     ta ON xo.account_id  = ta.account
 
 2. **The 779 hashed opps are also the blank-stage opps.** Exactly 779 rows have a blank `opp_stage` — the same population as the hashed IDs. So the anonymized opps carry no stage at all.
 
-3. **`opp_stage` / `stage_before_call` are unusable as stage.** Point-in-time (stage *at call/extract time*), frequently blank, and they mix two naming conventions in the same column — legacy `Stage 2 - In Discussion` / `Stage 5 - Closed Won` alongside current `2 - Qualification Status` / `1 - Discovery`. The authoritative outcome is `StageName` in [`tables/opportunity.md`](opportunity.md); this is exactly why `pull_call_summaries.py` deliberately refuses to pull `opp_stage`.
+3. **`opp_stage` / `stage_before_call` are unusable as stage.** Point-in-time (stage *at call/extract time*), frequently blank, and they mix two naming conventions in the same column — legacy `Stage 2 - In Discussion` / `Stage 5 - Closed Won` alongside current `2 - Qualification Status` / `1 - Discovery`. The authoritative outcome is `StageName` in [`tables/opportunity.md`](opportunity.md); this is exactly why the summaries pull (see [`tables/call-transcripts.md`](call-transcripts.md)) deliberately excludes `opp_stage`.
 
 4. **`account_name` is fake.** 100% synthetic (`'Account_' + account_id`). Never surface it as a customer name — resolve `account_id` against the SFDC account tables for the real name.
 
@@ -124,12 +124,13 @@ LEFT  JOIN  [transcripts_lookup].[Account]     ta ON xo.account_id  = ta.account
 
 The call-context pull (call `summary` + `call_time` joined to each opp's stage, geo,
 dates, NACV) is a **cross-pool, call-grain merge**, which has two classic failure modes.
-`pipeline/validate_call_context.py` runs 16 checks against live data to catch both.
+A 16-check validation script caught both (the script belonged to the dashboard project
+and is not in this repo; re-validating means recomposing these checks in a scratch
+script against the `query` tool). Its check design and last verified results follow —
+the findings are real knowledge and stand on their own.
 
-**Run**: `python pipeline/validate_call_context.py` (needs VPN + `az login`; ~6 min — it
-pulls the serverless calls, scopes the dedicated pull to just those opp_ids, merges, asserts).
-Exit code is non-zero only on a hard-invariant **FAIL**; **WARN** = a real data-quality gap to
-filter/clamp; **INFO** = a number worth knowing.
+**Severity model**: a hard-invariant **FAIL** breaks the merge; **WARN** = a real
+data-quality gap to filter/clamp; **INFO** = a number worth knowing.
 
 ### What it guards against
 
@@ -184,8 +185,8 @@ filter/clamp; **INFO** = a number worth knowing.
 
 ## Handoff
 
-- Validating / regression-testing the call-context query → `pipeline/validate_call_context.py` (this § Proofs)
-- Need the call **text** (`summary`) → [`tables/call-transcripts.md`](call-transcripts.md) (`Call_Review` ⋈ `Call_Transcript`, the automated pull)
+- Validating / regression-testing the call-context query → this § Proofs (the original validation script is not in this repo — recompose the checks in a scratch script if re-validating)
+- Need the call **text** (`summary`) → [`tables/call-transcripts.md`](call-transcripts.md) (`Call_Review` ⋈ `Call_Transcript`, the pull query there)
 - Need real stage / ARR / geo for these opps → filter to 18-char `opp_id`, then join out to [`tables/opportunity.md`](opportunity.md) (and [`tables/territory-mapping.md`](territory-mapping.md) for geo)
 - Building call-derived model features → (originally extracted from the dashboard project's docs, now archived under archive/docs/); **nothing in these four dimension tables is a model feature** (esp. not `opp_stage`)
-- Refreshing / debugging the serverless connection → `pipeline/pull_call_summaries.py` and the connection note in [`tables/call-transcripts.md`](call-transcripts.md)
+- Refreshing / debugging the serverless connection → the connection note in [`tables/call-transcripts.md`](call-transcripts.md)
