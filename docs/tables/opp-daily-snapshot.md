@@ -1,6 +1,6 @@
 # Daily Snapshot Opportunities — trf_opp_daily_snapshot_new
 
-**When to load**: Historical pipeline state, trend analysis, QoQ movement, coverage curve, stage age features for the model.  
+**When to load**: Historical pipeline state, trend analysis, QoQ movement, coverage curve, stage age features (`Stage_Age`, `S1_Age`).  
 **Requires first**: [`sql/conventions.md`](../sql/conventions.md)  
 **Also load**: [`tables/territory-mapping.md`](territory-mapping.md) for geo grouping  
 **Not for**: Current opp state → [`tables/opportunity.md`](opportunity.md) · Live product bookings → [`tables/sku-nacv-fact.md`](sku-nacv-fact.md)  

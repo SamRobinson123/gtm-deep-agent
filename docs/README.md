@@ -2,10 +2,12 @@
 
 **This is the entry point. Read this file first on every task.**
 
-Claude Code: this folder is the single source of truth for all Tricentis GTM
-data contracts, SQL patterns, model logic, and pipeline code. Load only the
-files your specific task needs — do not load everything. The task→file map
-below tells you exactly what to load.
+This folder is the context corpus for the Pipe Create analytics agent — data
+contracts, SQL conventions, and model logic. It is the single source of truth
+for how the Tricentis GTM data is read and how the model works, and this file
+is the single routing table (the root `CLAUDE.md` defers to it by design).
+Load only the files your specific task needs — do not load everything. The
+task→file map below tells you exactly what to load.
 
 **Three exclusions.** `superpowers/specs/` holds design documents and decision
 history — it is *not* context, and nothing in it may be cited as fact about the
@@ -35,12 +37,31 @@ than choosing.
 
 ## Task → file map
 
+### The operating loop — every session
+
 | Task | Load these files |
 |------|-----------------|
 | **What the agent can do, its tools, and where the walls are** | [`agent-architecture.md`](agent-architecture.md) — read before adding a tool or when a capability seems missing |
 | **How to COMPUTE something** — no tool covers it | Write a script in `workspace/scratch/`, run it, read it, delete it. Import `pipeline/` modules rather than re-deriving. See [`agent-architecture.md`](agent-architecture.md) "The tools". |
-| **How to VERIFY a figure before reporting it** | `pipeline/checks.py` → `checks.run_all(df)`. **There are no golden output numbers** — say which layer backed the number. See [`agent-architecture.md`](agent-architecture.md) "Verification". |
+| **How to VERIFY a figure before reporting it** | **Which layer depends on the output shape.** `pipeline/checks.py` targets the weekly published-target shape (`target_created` etc. from `targets_cli`); it does not apply to `waterfall_cli derive` output (Territory×Quarter rows with `pipe_create_target`, `binding`, …) — route waterfall solves to the **verifier subagent**, not `checks.run_all`. **There are no golden output numbers** — say which layer backed the number. See [`agent-architecture.md`](agent-architecture.md) "Verification". |
 | **What earlier sessions already learned** | `workspace/notes/journal.md` — read at session start; findings, dead ends, open questions. |
+
+### Pipe Create — the main work
+
+| Task | Load these files |
+|------|-----------------|
+| **Where the pipe create TARGET comes from** — the whole derivation, In Q / Pre Q win rates, sales cycle curves, the two run regimes | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — **start at "THE MODEL AS IT STANDS"**; implemented, but derived totals are not reconciled to published |
+| **Pipe Create — weekly actual vs target, allocation, attainment** | [`models/pipe-create.md`](models/pipe-create.md) → [`tables/target-monthly.md`](tables/target-monthly.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) → [`tables/territory-mapping.md`](tables/territory-mapping.md). Root `CLAUDE.md` invariants apply. |
+| **Anything involving targets, attainment, or ASP** | [`tables/target-monthly.md`](tables/target-monthly.md) — mandatory load recipe, whitespace and case-collision gotchas |
+| Per-AE targets, AE capacity, pipeline per AE, headcount | [`tables/headcount.md`](tables/headcount.md) → [`tables/target-monthly.md`](tables/target-monthly.md) |
+| **Slip** — how much moves out, **where it lands**, serial slip, tracing one opp | [`analysis/slip.md`](analysis/slip.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
+| **Pre-Q vs In-Q slip**, and what supplies a future quarter vs an in-flight one | [`analysis/slip.md`](analysis/slip.md) — the timing-split and supply/drain sections. **Read before quoting either rate.** |
+| Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
+
+### SQL and table reference
+
+| Task | Load these files |
+|------|-----------------|
 | Any SQL query | [`sql/conventions.md`](sql/conventions.md) always, then the relevant table file(s) |
 | Ready-made query templates to adapt | [`sql/conventions.md`](sql/conventions.md) → [`sql/patterns.md`](sql/patterns.md) |
 | Current opp-level pipeline state | [`sql/conventions.md`](sql/conventions.md) → [`tables/opportunity.md`](tables/opportunity.md) |
@@ -48,18 +69,11 @@ than choosing.
 | Historical pipeline / trend / QoQ | [`sql/conventions.md`](sql/conventions.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
 | Any geo / territory / region grouping | [`sql/conventions.md`](sql/conventions.md) → [`tables/territory-mapping.md`](tables/territory-mapping.md) |
 | Win / loss analysis | [`sql/conventions.md`](sql/conventions.md) → [`tables/opportunity.md`](tables/opportunity.md) |
+| Note change lineage / staleness check on an AE note | [`tables/opportunity-field-history.md`](tables/opportunity-field-history.md) |
 | Pulling or debugging raw call transcripts | [`tables/call-transcripts.md`](tables/call-transcripts.md) |
 | Linking a call to its opp/account/owner (transcript-side dims) | [`tables/transcripts-lookup.md`](tables/transcripts-lookup.md) |
 | Coverage curve — open pipe, LTB, coverage WoW | [`analysis/coverage-curve.md`](analysis/coverage-curve.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
-| **Pipe Create — weekly actual vs target, allocation, attainment** | [`models/pipe-create.md`](models/pipe-create.md) → [`tables/target-monthly.md`](tables/target-monthly.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) → [`tables/territory-mapping.md`](tables/territory-mapping.md). Root `CLAUDE.md` invariants apply. |
-| **Anything involving targets, attainment, or ASP** | [`tables/target-monthly.md`](tables/target-monthly.md) — mandatory load recipe, whitespace and case-collision gotchas |
-| Per-AE targets, AE capacity, pipeline per AE, headcount | [`tables/headcount.md`](tables/headcount.md) → [`tables/target-monthly.md`](tables/target-monthly.md) |
-| **Where the pipe create TARGET comes from** — the whole derivation, In Q / Pre Q win rates, sales cycle curves, the two run regimes | [`analysis/pipe-create-waterfall.md`](analysis/pipe-create-waterfall.md) — **start at "THE MODEL AS IT STANDS"**; implemented, but derived totals are not reconciled to published |
-| **Slip** — how much moves out, **where it lands**, serial slip, tracing one opp | [`analysis/slip.md`](analysis/slip.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
-| **Pre-Q vs In-Q slip**, and what supplies a future quarter vs an in-flight one | [`analysis/slip.md`](analysis/slip.md) — the timing-split and supply/drain sections. **Read before quoting either rate.** |
-| Reconciling against the old Excel model / investigating invariant 10 | [`reference/legacy-pipe-create-xlsm.md`](reference/legacy-pipe-create-xlsm.md) |
 | Adding a new table context file | [`sql/conventions.md`](sql/conventions.md) — follow the same contract format |
-| Note change lineage / staleness check on an AE note | [`tables/opportunity-field-history.md`](tables/opportunity-field-history.md) |
 
 ---
 
@@ -81,6 +95,9 @@ README.md  (you are here)
 ├── tables/
 │   ├── opportunity.md     ← [sfdc_trf].[opportunity_live] column contracts
 │   │                         hands off to → territory-mapping.md (geo join)
+│   ├── opportunity-field-history.md ← opportunity_field_history_live: when a note
+│   │                         field changed, who changed it, what it said before
+│   │                         relates to → tables/opportunity.md (the fields tracked)
 │   ├── sku-nacv-fact.md   ← [src].[sku_nacv_fact] product-level bookings
 │   │                         hands off to → territory-mapping.md (geo join)
 │   │                         hands off to → opp-daily-snapshot.md (age features)
@@ -105,9 +122,9 @@ README.md  (you are here)
 │                                two opp_id formats. relates to → call-transcripts.md
 │
 ├── models/
-│   └── pipe-create.md             ← pipeline/pipe_create.py: weekly actual-vs-target
-│                                     pipe creation (originally extracted from the
-│                                     dashboard project's docs, now archived under
+│   └── pipe-create.md             ← weekly actual-vs-target pipe creation
+│                                     (originally extracted from the dashboard
+│                                     project's docs, now archived under
 │                                     archive/docs/). Day-weighted allocation,
 │                                     MIN(snapshot_date) actuals, no CloseDate filter.
 │                                     reads from → tables/opp-daily-snapshot.md

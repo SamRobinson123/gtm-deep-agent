@@ -188,5 +188,5 @@ data-quality gap to filter/clamp; **INFO** = a number worth knowing.
 - Validating / regression-testing the call-context query → this § Proofs (the original validation script is not in this repo — recompose the checks in a scratch script if re-validating)
 - Need the call **text** (`summary`) → [`tables/call-transcripts.md`](call-transcripts.md) (`Call_Review` ⋈ `Call_Transcript`, the pull query there)
 - Need real stage / ARR / geo for these opps → filter to 18-char `opp_id`, then join out to [`tables/opportunity.md`](opportunity.md) (and [`tables/territory-mapping.md`](territory-mapping.md) for geo)
-- Building call-derived model features → (originally extracted from the dashboard project's docs, now archived under archive/docs/); **nothing in these four dimension tables is a model feature** (esp. not `opp_stage`)
+- Call-derived model features belonged to the retired dashboard project — **nothing in these four dimension tables is a model feature** (especially not `opp_stage`).
 - Refreshing / debugging the serverless connection → the connection note in [`tables/call-transcripts.md`](call-transcripts.md)
