@@ -7,11 +7,14 @@ data contracts, SQL patterns, model logic, and pipeline code. Load only the
 files your specific task needs — do not load everything. The task→file map
 below tells you exactly what to load.
 
-**Two exclusions.** `superpowers/specs/` holds design documents and decision
+**Three exclusions.** `superpowers/specs/` holds design documents and decision
 history — it is *not* context, and nothing in it may be cited as fact about the
-data or the models. And the project root's `CLAUDE.md` holds the Pipe Create
-invariants; those govern Pipe Create work, the hard rules below govern all data
-and SQL. If the two ever contradict, stop and surface it rather than choosing.
+data or the models. The repo root's `archive/` (outside this folder) holds
+retired context from the dashboard project — it is read-blocked for the agent
+and nothing in it may be cited. And the project root's `CLAUDE.md` holds the
+Pipe Create invariants; those govern Pipe Create work, the hard rules below
+govern all data and SQL. If the two ever contradict, stop and surface it rather
+than choosing.
 
 ---
 

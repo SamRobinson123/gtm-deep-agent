@@ -179,6 +179,22 @@ def test_design_specs_stay_read_denied():
     assert reason and "superpowers" in reason.lower()
 
 
+def test_archive_is_read_denied_with_docs_as_the_alternative():
+    """archive/ holds context retired from docs/ (dashboard era, 2026-08-12).
+    Location is status: the banner text alone stops nothing — this does. The
+    reason must point the agent back at docs/ instead."""
+    for p in ("archive/README.md", "archive/docs/analysis/gtm-dashboard.md"):
+        reason = denied(hooks.check_read(p))
+        assert reason and "docs/" in reason
+
+
+def test_archive_is_write_denied():
+    """History is not edited — an archive that can be revised afterwards is
+    not an archive."""
+    assert denied(hooks.check_write("archive/docs/tables/call-signals.md"))
+    assert denied(hooks.check_write("archive/new-file.md"))
+
+
 def test_reads_outside_the_project_are_now_allowed():
     """Read confinement is deleted. The agent may look at anything except
     credentials — it needs to read its own environment to work in it."""

@@ -21,6 +21,8 @@ considered decision about the agent's constitution:
 
   READ-DENIED    credential filenames
                  docs/superpowers/     decision history, NOT context
+                 archive/              retired context, NOT context (also
+                                       write-denied — history is not edited)
 
 Everything else — pipeline/, agent/, tests/, the rest of workspace/ — is
 editable with approval. That is the "build" half of think-and-build.
@@ -43,7 +45,20 @@ CREDENTIAL_PREFIXES = (".env.",)          # .env.local, .env.production, ...
 # Design specs record decisions, including rejected ones. Citing them as fact
 # about the data is exactly the failure mode docs/README.md warns about. This
 # denial outlives the read confinement that used to surround it.
-DENIED_READ_SUBPATHS = (config.ROOT / "docs" / "superpowers",)
+#
+# archive/ holds context files retired from docs/ (the dashboard-era corpus,
+# moved 2026-08-12). Location is status: outside docs/ means not citable, and
+# the banner text alone does not stop a read — this does.
+DENIED_READ_SUBPATHS = (
+    (config.ROOT / "docs" / "superpowers",
+     "Refused: docs/superpowers/ holds design specs and decision history, not "
+     "context. It must never be cited as fact about the data or the models. "
+     "Use docs/README.md to find the right context file."),
+    (config.ROOT / "archive",
+     "Refused: archive/ is retired context from the dashboard project, not "
+     "context — if the answer should exist, it lives under docs/; if docs/ "
+     "lacks it, say so rather than citing archived material."),
+)
 
 
 def _deny(reason: str):
@@ -95,6 +110,13 @@ def check_write(path: str):
     if _under(target, (config.ROOT / "data").resolve()):
         return _deny("Refused: data/ is read-only input. Write outputs to workspace/exports/.")
 
+    if _under(target, (config.ROOT / "archive").resolve()):
+        return _deny(
+            "Refused: archive/ preserves retired context as history, and history is "
+            "not edited. Live context changes go through workspace/proposals/ against "
+            "docs/."
+        )
+
     # Immutability, but only for runs that ALREADY exist — a path under a run id
     # that has not been created yet must not be pre-emptively denied, or the
     # guard would depend on the order operations happen in. lineage.Run writes
@@ -122,13 +144,9 @@ def check_read(path: str):
     if _is_credential(target.name):
         return _deny(f"Refused: {target.name} holds credentials and is never readable.")
 
-    for root in DENIED_READ_SUBPATHS:
+    for root, reason in DENIED_READ_SUBPATHS:
         if _under(target, root.resolve()):
-            return _deny(
-                "Refused: docs/superpowers/ holds design specs and decision history, not "
-                "context. It must never be cited as fact about the data or the models. "
-                "Use docs/README.md to find the right context file."
-            )
+            return _deny(reason)
     return None
 
 

@@ -353,4 +353,4 @@ appearing in the feed after they closed), where a single global `MAX(snapshot_da
 
 - Computing coverage curve → load [`analysis/coverage-curve.md`](../analysis/coverage-curve.md)
 - Need geo columns → load [`tables/territory-mapping.md`](territory-mapping.md)
-- Need Stage_Age / S1_Age for model features → this file is the source; join to [`tables/sku-nacv-fact.md`](sku-nacv-fact.md)
+- Need Stage_Age / S1_Age (opp age at a point in time) → this file is the source; join to [`tables/sku-nacv-fact.md`](sku-nacv-fact.md)

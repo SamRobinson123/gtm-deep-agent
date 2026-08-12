@@ -1,0 +1,10 @@
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -17,6 +17,7 @@ running it, and producing Excel exports and charts from its outputs.
+ | `docs/README.md` | **The context index. Read this first on every task.** It owns the task→file map. |
+ | `docs/` | The context corpus — data contracts, SQL patterns, model logic. Routed to by `docs/README.md`. |
+ | `docs/superpowers/specs/` | Design specs and history. **NOT context** — never cite as fact. |
++| `archive/` | Retired context from the dashboard project. **NOT context, read-blocked.** Never cite. |
+ | `data/` | Local input data. **Read-only.** Too large to read into context — load with pandas, never `Read` wholesale. Contracts live in `docs/tables/`. |
+ | `data/Target_Monthly.csv` | The only source of targets. Contract: `docs/tables/target-monthly.md`. |
+ | `data/legacy/*.xlsm` | The superseded Excel model. Reconciliation baseline only, never a source of truth. |
