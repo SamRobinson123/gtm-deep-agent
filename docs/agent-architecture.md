@@ -1,8 +1,8 @@
 # The agent — what it can do, and where the walls are
 
-**Status:** current as of 2026-08-11. This is the one file that describes the
-agent *itself* rather than the data. Everything else in `docs/` is the context
-corpus the agent reads; this is the machine that reads it.
+**Status:** current as of 2026-08-11, AFTER the v2 migration. This is the one
+file that describes the agent *itself* rather than the data. Everything else in
+`docs/` is the context corpus the agent reads; this is the machine that reads it.
 
 Read this when you are changing what the agent can do, when a capability seems
 missing, or when you are deciding whether something belongs in a tool or a doc.
@@ -26,32 +26,44 @@ and this file change in the same commit. That is the whole point of it.
 
 | Tool | What it does |
 |---|---|
-| `list_queries` | The registry of cacheable bulk pulls |
-| `run_pull` | Run one registry query, cache as parquet. Cache-first |
-| **`query`** | **Compose and run any read-only SQL.** The main investigation tool |
-| `pipe_create_targets` | PUBLISHED targets, read from `Target_Monthly.csv` |
-| `derive_pipe_create_target` | DERIVED target — the full waterfall solve |
-| `show_assumptions` | The inputs a target rests on, without solving |
-| `slip_analysis` | Slip: rate, destinations, Pre Q, forecast, create-date cohorts |
-| `what_if_assumption` | Re-solve with one assumption replaced |
-| `export_excel` / `export_chart` | Deliverables into `workspace/exports/` |
-| `list_runs` / `show_run` | Previous runs and their manifests |
+| **`query`** | **Compose and run any read-only SQL.** The one capability that stays a tool, because it is a security boundary |
 | `az_login_status` / `azure_login` | Azure session; `azure_login` opens the MFA prompt |
 
-Plus `Read`, `Glob`, `Grep`, `Task` and a narrow `Bash`. **`Write` and `Edit` are
-disallowed** — files leave through the export tools or not at all.
+**Three tools, and the count is asserted** in `tests/test_pipeline_cli.py`.
+Widening it is a test failure, not a drift.
+
+Everything else is ordinary code — runnable as `python -m pipeline.X` or
+importable by a scratch script, which is reviewable in a way a frozen tool
+interface is not:
+
+| Module | What it does |
+|---|---|
+| `pipeline.targets_cli` | PUBLISHED targets, read from `Target_Monthly.csv` |
+| `pipeline.waterfall_cli` | `derive` / `whatif` / `assumptions` — the DERIVED side |
+| `pipeline.slip_cli` | rate, destinations, pre_q, forecast, create-date cohorts |
+| `pipeline.export_cli` | Excel and charts into `workspace/exports/` |
+| `pipeline.checks` | `run_all(df)` — run before reporting any figure |
+| `pipeline.derive` | the shared assembly the waterfall CLI and the UI both use |
+| `agent.lineage` | `list_runs()`, and `Run` for recording a figure |
+
+Plus the full thinking tool set: `Read`, `Write`, `Edit`, `Glob`, `Grep`,
+`Bash`, `Task`, `TodoWrite`. **Only `WebSearch` and `WebFetch` are disallowed** —
+a web result has no contract and no lineage.
+
+The loop: **think in `workspace/scratch/`, remember in `workspace/notes/`,
+report through lineage.** Write a script, run it, read the result, delete it.
 
 ### PUBLISHED vs DERIVED
 
-The distinction the agent must never blur. `pipe_create_targets` reads a number a
-previous planning cycle produced. `derive_pipe_create_target` computes what the
-number *would be* from current data. Report which one, and when reporting a
+The distinction the agent must never blur. `pipeline.targets_cli` reads a number
+a previous planning cycle produced. `pipeline.waterfall_cli derive` computes what
+the number *would be* from current data. Report which one, and when reporting a
 derived figure give the published one and the delta beside it — the gap is the
 finding.
 
 ---
 
-## The four boundaries
+## The six boundaries
 
 Each is a single chokepoint, enforced in code rather than by the agent
 remembering. If you are adding capability, put it behind the matching one.
@@ -83,21 +95,38 @@ trying to detect traversal, so `../../etc/passwd` and `C:\Windows\evil` collapse
 to flat tokens; `_confine()` re-checks the resolved path. Never overwrites — a
 collision gets a date, then a counter.
 
-### 4. `agent/hooks.py` — read scope and shell
-Reads allowed under `docs/`, `data/`, `workspace/`, `pipeline/`, `agent/`,
-`tests/`. Denied: `docs/superpowers/` (design history, not fact) and `.env` and
-friends. Bash is restricted to `az` session commands — data access goes through
-the tools, and the allowlist checks for chained commands so
-`az account show && cat .env` cannot smuggle a second one through.
+### 4. `agent/hooks.py` — what no approval can grant
+The v1 read confinement and Bash allowlist are **deleted**. General Bash is the
+point, and the controls moved:
+
+- **write-denied:** `docs/**`, `CLAUDE.md`, `.claude/settings.json`, `.env*`,
+  `data/**`, and any *existing* `workspace/runs/<id>/`. Everything else —
+  `pipeline/`, `agent/`, `tests/` — is editable with approval.
+- **read-denied:** credential filenames, and `docs/superpowers/` (design
+  history, not fact). The credential rule also applies to Bash command strings.
+
+### 5. The environment — the real warehouse control
+`SYNAPSE_CONN_STR` is never placed in `os.environ` (`main.load_secrets`, and
+`pipeline/config.py` deliberately does not call `load_dotenv`). A scratch script
+asking for it gets a KeyError, so no subprocess can inherit it.
+`pipeline/pull.synapse_conn_str()` reads it from the file at call time.
+
+### 6. `.claude/settings.json` — where the friction falls
+`permission_mode` stays `"default"`. The allow rules make **thinking free and
+acting on the world approved**: scratch scripts, `python -m pipeline.*` and
+pytest run unprompted; repo edits, arbitrary Bash and the `query` tool still
+ask. The agent cannot edit this file.
 
 ---
 
 ## Runs and lineage
 
-Every tool that produces a figure opens a `lineage.Run`: input hashes, code
-hashes, git commit and dirtiness, headline figures, caveats and warnings, written
-to `workspace/runs/<id>/`. An earlier number stays inspectable after newer
-iterations exist, and `git_dirty` marks a run that cannot be reproduced.
+Every `pipeline/` CLI that produces a figure opens a `lineage.Run` — and any
+scratch computation whose number will be reported must do the same: input
+hashes, code hashes, git commit and dirtiness, headline figures, caveats and
+warnings, written to `workspace/runs/<id>/`. An earlier number stays inspectable
+after newer iterations exist, and `git_dirty` marks a run that cannot be
+reproduced.
 
 Exports and the UI default to the **latest** run. Always state which `run_id`
 produced a figure — a run made in another window is a real possibility and the
@@ -118,10 +147,22 @@ Endpoints beyond chat: `/api/runs`, `/api/runs/{id}/derivation` (the ledger) and
 
 ---
 
+## Verification — there are no golden numbers
+
+Established 2026-08-11: no verified golden output figures exist for this model.
+What is golden is the **process** — the docs. Four layers, strongest first:
+invariant property tests; `pipeline/checks.py`; aggregate-level reconciliation to
+the legacy workbook (a match is corroboration, a mismatch is a finding); and the
+verifier subagent, which re-derives a run in its own context window.
+
+**Every figure states which layer backed it.** An unverified number is allowed;
+an unlabelled one is not.
+
 ## Adding capability — the checklist
 
 1. **Behind which boundary?** New bulk query → `queries.py` (human review). Ad-hoc
-   read → already possible via `query`. New file type → `exports.py`.
+   read → already possible via `query`. Computation → a scratch script, or a
+   `pipeline/` module if it will be reused. New file type → `exports.py`.
 2. **Declare the schema exactly.** Every key the handler reads must be declared
    and every declared key must be read —
    `tests/test_boundary.py::test_tool_schema_matches_the_args_the_handler_reads`

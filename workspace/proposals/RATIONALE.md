@@ -1,12 +1,16 @@
-# Two patches awaiting review — v2 step 7
+# One patch awaiting review — v2 step 7
 
-Both files are part of the human-curated corpus, so the agent cannot apply them
+`CLAUDE.md` is part of the human-curated corpus, so the agent cannot apply this
 itself (`agent/hooks.py` denies the write and points here). Apply with:
 
     git apply workspace/proposals/claude-md-v2.patch
-    git apply workspace/proposals/agent-architecture-v2.patch
 
-Then delete this directory's patch files.
+Then delete the patch file.
+
+> **`agent-architecture-v2.patch` is gone: APPLIED 2026-08-11** by the operator,
+> who reviewed the content and had it written to `docs/agent-architecture.md`
+> directly. The doc now describes the v2 model — three tools, the six
+> boundaries, and the scratch/notes/lineage loop.
 
 ---
 
@@ -43,9 +47,10 @@ worst of the available states.
 The `<REPO>` path-table rows the spec asks to delete were already removed
 earlier on 2026-08-11; this is the last surviving `<REPO>` reference.
 
-## `agent-architecture-v2.patch`
+## `agent-architecture-v2.patch` — APPLIED, kept as a record of what changed
 
-Larger, because this document is *about* the capability model that changed.
+That document is *about* the capability model that changed, so it needed the
+larger edit.
 
 | Change | Why |
 |---|---|
