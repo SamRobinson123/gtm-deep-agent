@@ -1,0 +1,4534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<style data-omelette-injected>html,body{background:transparent}</style><script data-omelette-injected>(()=>{var j=["https://claude.ai","https://preview.claude.ai"];var x=true;var S=30000;var f=3000;document.addEventListener("DOMContentLoaded",()=>{const H=window.Babel;const G="om-src-id";if(H&&H.registerPlugin&&!(H.availablePlugins&&H.availablePlugins[G])){H.registerPlugin(G,({types:Y})=>({visitor:{JSXOpeningElement(U,Q){const J=U.node;if(J.name&&J.name.type==="JSXMemberExpression")return;for(let V=0;V<J.attributes.length;V++){const L=J.attributes[V];if(L.type==="JSXAttribute"&&L.name&&L.name.name==="data-om-id")return}const W=Q.file&&Q.file.opts&&Q.file.opts.filename||"?";const Z=J.loc&&J.loc.start;const z=`jsx:${W}:${J.start??0}:${Z?Z.line:0}:${Z?Z.column+1:0}`;J.attributes.push(Y.jsxAttribute(Y.jsxIdentifier("data-om-id"),Y.stringLiteral(z)))}}}))}const k="om-text-extract";let A=false;if(x&&H&&H.registerPlugin&&!(H.availablePlugins&&H.availablePlugins[k])){const Y=window.React;if(Y&&Y.useSyncExternalStore&&Y.createElement){A=true;const U={};const Q=new Set;let J=0;window.__omTextO=U;window.__omTextSet=(z)=>{for(const V in z){const L=z[V];if(L==null)delete U[V];else U[V]=L}J++;Q.forEach((V)=>V())};const W=(z)=>{Q.add(z);return()=>Q.delete(z)};const Z=()=>J;window.__OmT=function z(V){Y.useSyncExternalStore(W,Z,Z);return Y.createElement("span",{"data-om-text":V.i,className:"__om-t"},V.i in U?U[V.i]:V.children)};H.registerPlugin(k,({types:z})=>{const V={style:1,script:1,noscript:1,textarea:1,title:1,option:1,text:1,tspan:1,textPath:1};const L={placeholder:1,alt:1,title:1,label:1,"aria-label":1,"aria-description":1,"aria-placeholder":1};const _=($,C)=>z.logicalExpression("??",z.memberExpression(z.logicalExpression("||",z.memberExpression(z.identifier("window"),z.identifier("__omTextO")),z.objectExpression([])),z.stringLiteral($),true),C);const E=($)=>$.file&&$.file.opts&&$.file.opts.filename||"?";const B=($)=>$.file&&$.file.code||"";const b=($,C)=>{const X=(F)=>F&&F.start!=null&&F.end!=null&&(F.type==="StringLiteral"||F.type==="TemplateLiteral"&&F.expressions.length===0)?[F.start,F.end]:null;const N=X(C);if(N)return N;if(C&&C.type==="Identifier"){const F=$.scope.getBinding(C.name);if(F&&F.constant&&F.path.node.type==="VariableDeclarator"){return X(F.path.node.init)}}return null};const M=($,C,X)=>{const N=$.node;let F=false;const w=(K,q)=>{F=true;return z.jsxElement(z.jsxOpeningElement(z.jsxIdentifier("__OmT"),[z.jsxAttribute(z.jsxIdentifier("i"),z.stringLiteral(K))],false),z.jsxClosingElement(z.jsxIdentifier("__OmT")),[q],false)};const D=N.children.map((K)=>{if(K.type==="JSXText"){if(K.start==null||K.end==null)return K;const q=X.slice(K.start,K.end);const R=q.length-q.trimStart().length;const m=q.length-q.trimEnd().length;if(R+m>=q.length)return K;return w(`txt:${C}:${K.start+R}:${K.end-m}`,K)}if(K.type==="JSXExpressionContainer"){const q=b($,K.expression);if(q)return w(`str:${C}:${q[0]}:${q[1]}`,K)}return K});if(F)N.children=D};return{visitor:{JSXOpeningElement($,C){const X=$.node;const N=E(C);const F={};for(let w=0;w<X.attributes.length;w++){const D=X.attributes[w];if(D.type!=="JSXAttribute"||!D.name)continue;const K=D.name.name;if(!L[K])continue;if(!D.value||D.value.type!=="StringLiteral")continue;if(D.value.start==null||D.value.end==null)continue;const q=`txt:${N}:${D.value.start}:${D.value.end}`;F[K]=q;D.value=z.jsxExpressionContainer(_(q,z.stringLiteral(D.value.value)))}if(Object.keys(F).length){X.attributes.push(z.jsxAttribute(z.jsxIdentifier("data-om-text-attrs"),z.stringLiteral(JSON.stringify(F))))}},JSXElement($,C){const X=$.node.openingElement;const N=X&&X.name&&X.name.name;if(N==="__OmT")return;if(typeof N==="string"&&V[N])return;M($,E(C),B(C))},JSXFragment($,C){M($,E(C),B(C))}}}})}}const u=A?["transform-react-jsx-source",G,k]:["transform-react-jsx-source",G];document.querySelectorAll('script[type="text/babel"],script[type="text/jsx"]').forEach((Y,U)=>{const Q=Y.getAttribute("data-plugins")||"";const J=u.filter((W)=>Q.indexOf(W)<0);if(J.length){Y.setAttribute("data-plugins",Q?`${Q},${J.join(",")}`:J.join(","))}if(!Y.hasAttribute("data-filename")){Y.setAttribute("data-filename",Y.getAttribute("src")||`inline-${U}`)}})});var y=window.parent;if(y&&y!==window){const H=(Q,J)=>{try{y.postMessage({__omelette_log:true,type:Q,data:J},"*")}catch{}};["log","warn","error"].forEach((Q)=>{const J=console[Q];console[Q]=(...W)=>{const Z=W.map((z)=>{try{return typeof z==="object"?JSON.stringify(z):String(z)}catch{try{return String(z)}catch{return"[unstringifiable]"}}}).join(" ");H(Q,Z);J.apply(console,W)}});window.addEventListener("error",(Q)=>{const J=Q.target;if(J&&J!==window&&J.tagName){const W=J.src||J.href||"";H("resource_error",`${J.tagName} failed to load: ${W}`)}else{H("error",`${Q.message||"Unknown error"} at ${Q.filename||"?"}:${Q.lineno||0}:${Q.colno||0}`)}},true);window.addEventListener("unhandledrejection",(Q)=>{const J=Q.reason;const W=J instanceof Error?`${J.message} ${J.stack}`:String(J);H("error",`Unhandled rejection: ${W}`)});const G=()=>{try{y.postMessage({type:"omelette:height",height:document.documentElement.scrollHeight},"*")}catch{}};if(document.readyState==="complete")G();else window.addEventListener("load",G);if(window.ResizeObserver)new ResizeObserver(G).observe(document.documentElement);const k={};let A=0;window.claude={complete(Q){return new Promise((J,W)=>{if(!j.length){W(new Error("claude.complete: no parent origin"));return}const Z=`c${++A}`;const z=()=>setTimeout(()=>{delete k[Z];W(new Error(`claude.complete: no data for ${S/1000}s`))},S);const V=z();k[Z]={resolve:J,reject:W,text:"",t:V,arm:z};try{for(const L of j){y.postMessage({__om_api:true,id:Z,body:Q},L)}}catch(L){clearTimeout(V);delete k[Z];W(L)}})}};const u={};let Y=0;window.omelette={writeFile:(Q,J)=>new Promise((W,Z)=>{if(!j.length){W();return}const z=`f${++Y}`;const V=setTimeout(()=>{delete u[z];W()},f);u[z]={resolve:W,reject:Z,t:V};try{for(const L of j){y.postMessage({__om_file:true,id:z,op:"write",path:Q,content:J},L)}}catch{clearTimeout(V);delete u[z];W()}})};const U=(Q)=>{try{return JSON.stringify(Q)}catch{return JSON.stringify(String(Q))}};window.addEventListener("message",(Q)=>{if(j.indexOf(Q.origin)<0)return;if(Q.source!==y)return;const J=Q.data;if(!J)return;if(J.type==="omelette-preview-refresh"){if(typeof J.token!=="string"||!/^[0-9a-f.-]+$/.test(J.token))return;const z=Math.max(1,Math.floor((J.expiresAt||0)-Date.now()/1000));document.cookie="__Host-omelette-preview="+J.token+"; Path=/; Secure; SameSite=None; Partitioned; Max-Age="+z;return}if(J.__om_file_r){const z=u[J.id];if(!z)return;clearTimeout(z.t);delete u[J.id];if(J.ok)z.resolve();else z.reject(new Error(J.error||"write failed"));return}if(J.__om_api_r){const z=k[J.id];if(!z)return;if(J.error!=null){clearTimeout(z.t);delete k[J.id];z.reject(new Error(J.error));return}if(J.chunk!=null){clearTimeout(z.t);z.t=z.arm();z.text+=J.chunk;return}if(J.done){clearTimeout(z.t);delete k[J.id];z.resolve(J.text!=null?J.text:z.text);return}return}if(!J.__om_eval)return;const W=J;const Z=(z)=>{Q.source.postMessage({...z,__om_eval_r:1,id:W.id},Q.origin)};try{const z=(0,eval)(W.code);if(z&&typeof z.then==="function"){z.then((V)=>Z({ok:1,v:U(V)}),(V)=>Z({ok:0,e:String(V)}))}else{Z({ok:1,v:U(z)})}}catch(z){Z({ok:0,e:String(z)})}})}})();
+</script>
+
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>GTM Weekly Reporting · FY26 Q2</title>
+<link rel="icon" href="tricentis-favicon.ico"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+:root {
+  /* shadcn light mode — neutral surfaces, teal primary */
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --foreground: #0f172a;
+  --ink-2: #334155;
+  --ink-3: #64748b;
+  --ink-4: #94a3b8;
+  --primary: #1e5fbf;
+  --primary-hover: #174a96;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eaf2fd;
+  --muted: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --ring: #1e5fbf;
+
+  --good: #047857;
+  --good-soft: #ecfdf5;
+  --warn: #b45309;
+  --warn-soft: #fffbeb;
+  --bad: #b91c1c;
+  --bad-soft: #fee2e2;
+
+  --chart-1: #1e5fbf;
+  --chart-2: #5b8def;
+  --chart-3: #94a3b8;
+  --chart-4: #b45309;
+  --chart-5: #b91c1c;
+
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+  --shadow-pop: 0 8px 24px -4px rgb(15 23 42 / 0.10), 0 2px 6px -1px rgb(15 23 42 / 0.06);
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+  line-height: 1.5;
+}
+
+/* ---------- Layout shell ---------- */
+.shell { min-height: 100vh; background: var(--background); }
+.main { display: flex; flex-direction: column; background: var(--background); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .logo { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; }
+.brand .logo img { width: 28px; height: 28px; display: block; }
+.brand .wordmark { font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; color: var(--foreground); }
+.brand .product { display: block; font-size: 11px; color: var(--ink-3); font-weight: 400; margin-top: 1px; }
+
+/* ---------- Top bar ---------- */
+.topbar { position: sticky; top: 0; z-index: 40; background: var(--background); border-bottom: 1px solid var(--border); }
+.topbar-inner { padding: 0 28px; display: flex; align-items: center; gap: 16px; height: 60px; }
+.topbar .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); }
+.topbar .crumb .sep { color: var(--ink-4); }
+.topbar .crumb strong { color: var(--foreground); font-weight: 500; }
+.topbar .spacer { flex: 1; }
+.topbar-meta { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-3); }
+.topbar-meta .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; }
+.topbar-meta .pill .dot { width: 6px; height: 6px; background: var(--good); border-radius: 999px; }
+.topbar-meta strong { color: var(--foreground); font-weight: 500; }
+.icon-btn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); width: 34px; height: 34px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.icon-btn:hover { border-color: var(--border-strong); color: var(--foreground); }
+
+/* ---------- Page header ---------- */
+.page-head { padding: 24px 28px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.page-head h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.page-head p { margin: 4px 0 0; font-size: 13px; color: var(--ink-3); }
+
+/* Snapshot stamp — clean, monospaced, scannable */
+.snap-stamp { display: inline-grid; grid-template-columns: repeat(5, auto); align-items: center; gap: 0; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.snap-stamp .cell { padding: 8px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 130px; }
+.snap-stamp .cell + .cell { border-left: 1px solid var(--border); }
+.snap-stamp .k { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); }
+.snap-stamp .v { font-family: var(--mono); font-size: 13px; font-feature-settings: "tnum" 1; color: var(--foreground); font-weight: 500; }
+.snap-stamp .v .note { font-family: var(--sans); font-size: 10.5px; color: var(--ink-4); margin-left: 4px; font-weight: 400; }
+.snap-stamp .arrow { padding: 0 6px; color: var(--ink-4); font-size: 12px; align-self: center; }
+
+.page { padding: 20px 28px 80px; }
+
+/* ---------- Quarter tabs ---------- */
+.tabs { display: inline-flex; background: var(--muted); border: 1px solid var(--border); margin: 20px 0 0; border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
+.tab { appearance: none; border: 0; background: transparent; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink-3); padding: 6px 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; border-radius: 4px; }
+.tab:hover { color: var(--foreground); }
+.tab.is-active { background: var(--surface); color: var(--foreground); box-shadow: var(--shadow-card); }
+.tab .pill { font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 6px; background: var(--primary); color: var(--primary-foreground); font-weight: 600; border-radius: 4px; }
+.tab:not(.is-active) .pill { background: var(--primary-soft); color: var(--primary); }
+
+/* ---------- Filter bar ---------- */
+.filter-bar { position: sticky; top: 60px; z-index: 30; background: var(--background); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 16px 0 24px; padding: 12px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filter-bar .label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); margin-right: 6px; }
+.filter-bar .spacer { flex: 1; }
+.filter-bar .reset { appearance: none; border: 0; background: transparent; font: inherit; font-size: 12px; color: var(--ink-3); cursor: pointer; padding: 6px 8px; }
+.filter-bar .reset:hover { color: var(--foreground); text-decoration: underline; }
+.filter-bar .applied-count { font-size: 12px; color: var(--ink-3); font-family: var(--mono); }
+.filter-bar .applied-count strong { color: var(--foreground); font-weight: 500; }
+
+/* Dropdown trigger */
+.filter { position: relative; }
+.f-trigger { appearance: none; font: inherit; font-size: 13px; background: var(--surface); border: 1px solid var(--border); color: var(--foreground); padding: 6px 10px 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; min-height: 32px; border-radius: var(--radius-sm); }
+.f-trigger:hover { border-color: var(--border-strong); }
+.f-trigger.is-active { border-color: var(--foreground); }
+.f-trigger .ftxt { font-weight: 500; }
+.f-trigger .fcount { font-family: var(--mono); font-size: 11px; color: var(--primary-foreground); background: var(--primary); padding: 1px 6px; line-height: 1.5; border-radius: 999px; }
+.f-trigger .fcount.all { background: var(--muted); color: var(--ink-3); }
+.f-trigger .chev { color: var(--ink-3); font-size: 10px; }
+
+.f-pop { position: absolute; top: calc(100% + 4px); left: 0; min-width: 260px; max-width: 320px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-pop); z-index: 50; max-height: 360px; overflow: auto; border-radius: var(--radius-sm); }
+.f-pop .f-actions { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--ink-3); }
+.f-pop .f-actions button { appearance: none; border: 0; background: transparent; font: inherit; font-size: 11px; color: var(--primary); cursor: pointer; padding: 2px 6px; }
+.f-pop .f-actions button:hover { text-decoration: underline; }
+.f-group { padding: 4px 0; }
+.f-group + .f-group { border-top: 1px solid var(--border); }
+.f-grouphead { padding: 8px 12px 4px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-4); display: flex; align-items: center; justify-content: space-between; }
+.f-grouphead .pickgroup { font-family: var(--sans); font-size: 10.5px; color: var(--primary); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.f-grouphead .pickgroup:hover { text-decoration: underline; }
+.f-opt { display: flex; align-items: center; gap: 9px; padding: 6px 12px; font-size: 13px; cursor: pointer; user-select: none; }
+.f-opt:hover { background: var(--muted); }
+.f-opt input { margin: 0; accent-color: var(--primary); width: 14px; height: 14px; }
+.f-opt .opt-meta { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.f-opt.is-nested { padding-left: 28px; }
+.f-opt.is-radio { gap: 9px; }
+
+/* Tree mode */
+.f-tree-node { display: flex; align-items: center; gap: 8px; padding: 7px 12px; font-size: 13px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.f-tree-node:hover { background: #f0f3f7; }
+.f-tree-node .tchev { display: inline-flex; width: 12px; justify-content: center; color: var(--ink-3); font-size: 9px; transition: transform 120ms; }
+.f-tree-node.is-collapsed .tchev { transform: rotate(-90deg); }
+.f-tree-node input { margin: 0; accent-color: var(--primary); width: 14px; height: 14px; }
+.f-tree-node .glabel { font-weight: 500; }
+.f-tree-node .gcount { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.f-tree-children { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.f-tree-children:last-child { border-bottom: 0; }
+.f-tree-children .f-opt { padding-left: 36px; }
+.f-tree-empty { padding: 12px 14px; font-size: 12px; color: var(--ink-4); }
+
+/* Active filter chips inline */
+.chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; background: var(--primary-soft); color: var(--foreground); font-size: 11.5px; font-weight: 500; border: 1px solid var(--border); border-radius: 999px; }
+.chip button { appearance: none; border: 0; background: transparent; color: var(--primary); cursor: pointer; padding: 0 2px; font-size: 14px; line-height: 1; }
+.chip button:hover { color: var(--foreground); }
+
+/* ---------- KPI cards ---------- */
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat { background: var(--surface); border: 1px solid var(--border); padding: 18px 20px; display: flex; flex-direction: column; border-radius: var(--radius); box-shadow: var(--shadow-card); }
+.stat .label { font-size: 11px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.stat .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; font-feature-settings: "tnum" 1; }
+.stat.good .value { color: var(--good); }
+.stat.warn .value { color: var(--warn); }
+.stat.bad .value  { color: var(--bad); }
+.stat .sub { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); margin-top: 6px; flex-wrap: wrap; }
+.stat .sub .dot { width: 3px; height: 3px; background: var(--ink-4); }
+
+span.delta { display: inline-flex; align-items: center; gap: 3px; font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 1px 7px; border: 1px solid transparent; line-height: 1.5; letter-spacing: -0.01em; border-radius: 999px; }
+span.delta.delta-pos  { color: var(--good); background: var(--good-soft); border-color: var(--good-soft); }
+span.delta.delta-neg  { color: var(--bad);  background: var(--bad-soft);  border-color: var(--bad-soft); }
+span.delta.delta-zero, span.delta.delta-dash { color: var(--ink-3); background: var(--muted); border-color: var(--border); }
+
+/* ---------- Section (collapsible) ---------- */
+.section { margin-bottom: 20px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-card); overflow: hidden; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; cursor: pointer; user-select: none; background: var(--surface); border-bottom: 1px solid var(--border); }
+.section-head:hover { background: #f3f5f8; }
+.section.is-collapsed .section-head { border-bottom: 0; }
+.section-head .left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.section-head h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--foreground); }
+.section-head .desc { font-size: 12.5px; color: var(--ink-3); }
+.section-head .chev { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3); transition: transform 120ms; }
+.section.is-collapsed .chev { transform: rotate(-90deg); }
+.section-head .right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--ink-3); font-family: var(--mono); font-feature-settings: "tnum" 1; }
+.section-head .right .mini-kpi b { color: var(--foreground); font-weight: 500; }
+.section-head .right .mini-kpi + .mini-kpi { padding-left: 12px; border-left: 1px solid var(--border); }
+
+.section-body { display: block; overflow-x: auto; }
+.section.is-collapsed .section-body { display: none; }
+
+/* ---------- Table ---------- */
+table.t { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.t th, table.t td { padding: 10px 16px; text-align: right; vertical-align: middle; white-space: nowrap; }
+table.t th.l, table.t td.l { text-align: left; }
+table.t thead th { font-size: 12px; font-weight: 500; color: var(--ink-3); border-bottom: 1px solid var(--border); padding-top: 10px; padding-bottom: 10px; background: var(--background); }
+table.t thead tr.group-head th { font-size: 10.5px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; padding-top: 12px; padding-bottom: 4px; border-bottom: 0; background: transparent; }
+table.t thead tr.group-head th.span { text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+table.t thead tr.cols th { padding-top: 8px; }
+table.t tbody td { border-bottom: 1px solid var(--border); color: var(--foreground); }
+table.t tbody td.num, table.t tbody td.cov, table.t tbody td.delta { font-family: var(--mono); font-size: 12.5px; font-feature-settings: "tnum" 1; }
+table.t tbody td.cov.cov-good { color: var(--good); font-weight: 500; }
+table.t tbody td.cov.cov-warn { color: var(--warn); font-weight: 500; }
+table.t tbody td.cov.cov-bad  { color: var(--bad);  font-weight: 500; }
+table.t thead tr.cols th.delta-col,
+table.t tbody td.delta-col { text-align: center; }
+table.t tbody td.delta { padding: 10px 12px; }
+table.t tbody td.delta.delta-pos { color: var(--good); }
+table.t tbody td.delta.delta-neg { color: var(--bad); }
+table.t tbody td.delta.delta-zero, table.t tbody td.delta.delta-dash, table.t tbody td.cov.cov-dash { color: var(--ink-4); }
+table.t th.group-start, table.t td.group-start { border-left: 1px solid var(--border); }
+table.t tbody tr:last-child td { border-bottom: 0; }
+table.t tbody tr:hover td { background: var(--muted); }
+
+/* Expandable team rows */
+table.t tbody tr.row-team td.l { cursor: pointer; user-select: none; }
+table.t tbody tr.row-team td.l .row-chev { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-right: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink-2); transition: transform 120ms, background 120ms, border-color 120ms; font-size: 10px; vertical-align: -3px; }
+table.t tbody tr.row-team td.l:hover .row-chev { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+table.t tbody tr.row-team.is-collapsed td.l .row-chev { transform: rotate(-90deg); }
+table.t tbody tr.row-team td { background: var(--surface-2); border-top: 1px solid var(--border-strong); font-weight: 500; }
+table.t tbody tr.row-child td.l { padding-left: 42px; color: var(--ink-2); position: relative; cursor: pointer; user-select: none; }
+table.t tbody tr.row-child td.l .row-chev { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; margin-right: 6px; border: 1px solid var(--border); background: transparent; color: var(--ink-3); transition: transform 120ms, background 120ms, border-color 120ms, color 120ms; font-size: 9px; vertical-align: -2px; }
+table.t tbody tr.row-child td.l:hover .row-chev { border-color: var(--primary); color: var(--primary); }
+table.t tbody tr.row-child.is-collapsed td.l .row-chev { transform: rotate(-90deg); }
+table.t tbody tr.row-child.has-children td.l { font-weight: 500; color: var(--foreground); }
+table.t tbody tr.row-grandchild td.l { padding-left: 70px; color: var(--ink-3); font-size: 12.5px; }
+table.t tbody tr.row-grandchild td { background: #fcfcfd; }
+table.t tbody tr.row-grandchild td.num, table.t tbody tr.row-grandchild td.cov, table.t tbody tr.row-grandchild td.delta { font-size: 12px; color: var(--ink-2); }
+table.t tbody tr.row-subtotal td {
+  background: var(--muted-2, #f4f6f8);
+  border-top: 1px solid var(--border-strong, #d1d5db);
+  font-weight: 500;
+}
+table.t tbody tr.row-total    td { background: var(--muted); border-top: 1.5px solid var(--foreground); font-weight: 600; padding-top: 12px; padding-bottom: 12px; }
+
+.empty { padding: 32px; text-align: center; color: var(--ink-3); font-size: 13px; background: var(--surface); }
+.empty strong { display: block; color: var(--foreground); font-weight: 500; margin-bottom: 4px; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1100px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 800px) {
+  .page-head { flex-direction: column; }
+  .snap-stamp .cell { min-width: 100px; }
+  .summary { grid-template-columns: 1fr; }
+}
+
+/* Density variants */
+body.density-compact table.t th, body.density-compact table.t td { padding-top: 6px; padding-bottom: 6px; }
+body.density-compact .stat { padding: 12px 14px; }
+body.density-compact .stat .value { font-size: 22px; }
+body.density-roomy table.t th, body.density-roomy table.t td { padding-top: 14px; padding-bottom: 14px; }
+body.density-roomy .stat { padding: 22px 24px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <div class="main">
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <span class="logo"><img src="favicon.ico" alt="Tricentis"/></span>
+          <div>
+            <span class="wordmark">Tricentis GTM</span>
+            <span class="product">Weekly Reporting</span>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="topbar-meta">
+          <span class="pill"><span class="dot"></span><strong>FY26 Q2</strong></span>
+          <button class="icon-btn" aria-label="Search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></button>
+          <button class="icon-btn" aria-label="Notifications"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></button>
+        </div>
+      </div>
+    </header>
+
+    <header class="page-head">
+      <div>
+        <h1>Pipeline overview</h1>
+        <p>Open pipe from Synapse daily snapshot · <code style="font-family:var(--mono);font-size:11.5px;color:var(--ink-3);">trf_opp_daily_snapshot_new</code></p>
+      </div>
+      <div class="snap-stamp" aria-label="Snapshot dates">
+        <div class="cell">
+          <div class="k">Run on</div>
+          <div class="v" id="snap-runon">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">Live</div>
+          <div class="v" id="snap-live">—</div>
+        </div>
+        <div class="arrow">←</div>
+        <div class="cell">
+          <div class="k">Last Week</div>
+          <div class="v" id="snap-baseline">—</div>
+        </div>
+        <div class="cell">
+          <div class="k">Run at</div>
+          <div class="v" id="snap-runat">—</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="page">
+
+      <nav class="tabs" role="tablist" aria-label="Quarter tabs">
+        <button class="tab" role="tab" data-q="1">Q1</button>
+        <button class="tab is-active" role="tab" data-q="2">Q2</button>
+        <button class="tab" role="tab" data-q="3">Q3</button>
+        <button class="tab" role="tab" data-q="4">Q4</button>
+      </nav>
+
+      <div id="filter-root"></div>
+      <div id="summary-root"></div>
+      <div id="sections-root"></div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<div id="tweaks-root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="application/json" id="dashboard-data">
+{
+  "snapshot": {
+    "runOn": "2026-05-12",
+    "live": "2026-05-10",
+    "baseline": "2026-05-04",
+    "runAt": "06:00 UTC",
+    "lag": "−6 days"
+  },
+  "quarter": 2,
+  "geos": [
+    "AMS",
+    "EMEA",
+    "APAC",
+    "LATAM",
+    "Public Sector",
+    "AMS Sealights"
+  ],
+  "teamsByGeo": {
+    "AMS": [
+      "AMS Corporate",
+      "AMS East",
+      "AMS South",
+      "AMS West"
+    ],
+    "EMEA": [
+      "EMEA Corporate",
+      "EMEA DACH",
+      "EMEA North",
+      "EMEA South"
+    ],
+    "APAC": [
+      "APAC"
+    ],
+    "LATAM": [
+      "LATAM"
+    ],
+    "Public Sector": [
+      "Public Sector"
+    ],
+    "AMS Sealights": [
+      "AMS Sealights"
+    ]
+  },
+  "staticByTeam": {
+    "AMS Corporate": [
+      "AMS Corporate",
+      "AMS DevOps"
+    ],
+    "AMS East": [
+      "AMS Core East Canada",
+      "AMS Core East Northeast"
+    ],
+    "AMS South": [
+      "AMS Core South Southeast",
+      "AMS Core South TOLA"
+    ],
+    "AMS West": [
+      "AMS Core West Central",
+      "AMS Core West Pacific"
+    ],
+    "EMEA Corporate": [
+      "EMEA Corporate",
+      "EMEA DevOps"
+    ],
+    "EMEA DACH": [
+      "EMEA Core Alps CEE",
+      "EMEA Core Germany",
+      "EMEA Core Nordics",
+      "EMEA Core Benelux"
+    ],
+    "EMEA North": [
+      "EMEA Core BeNeLux Nordics",
+      "EMEA Core UKI",
+      "EMEA Core MEA North"
+    ],
+    "EMEA South": [
+      "EMEA Core France Emerging",
+      "EMEA Core France",
+      "EMEA Core Emerging",
+      "EMEA Core Middle East Africa",
+      "EMEA Core MEA South"
+    ],
+    "APAC": [
+      "APAC ANZ",
+      "APAC Asia",
+      "APAC Asia AGE",
+      "APAC Asia SEA",
+      "APAC Japan"
+    ],
+    "LATAM": [
+      "AMS Core LATAM"
+    ],
+    "Public Sector": [
+      "AMS Public Sector - FED",
+      "AMS Public Sector - SLED"
+    ],
+    "AMS Sealights": [
+      "AMS Sealights"
+    ]
+  },
+  "dealTypes": [
+    "New",
+    "Existing"
+  ],
+  "products": [
+    "Platform",
+    "Data Integrity",
+    "Security",
+    "Performance",
+    "Vera",
+    "Sealights"
+  ],
+  "quarters": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "fiscalYear": 2026,
+  "byQuarter": {
+    "1": {
+      "rows": [
+        {
+          "geo": "AMS",
+          "team": "AMS Corporate",
+          "pipe": 0.46,
+          "ls": 0.18,
+          "qtd": 0,
+          "target": 0.64,
+          "ltb": 0.55,
+          "totalCov": 0.64,
+          "lsCov": 0.31,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS East",
+          "pipe": 5.43,
+          "ls": 4.88,
+          "qtd": 0.46,
+          "target": 3.31,
+          "ltb": 2.85,
+          "totalCov": 1.74,
+          "lsCov": 1.55,
+          "totalDelta": -0.21,
+          "lsDelta": -0.25
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS South",
+          "pipe": 6.62,
+          "ls": 5.52,
+          "qtd": 0.37,
+          "target": 3.5,
+          "ltb": 3.13,
+          "totalCov": 1.94,
+          "lsCov": 1.62,
+          "totalDelta": -0.41,
+          "lsDelta": -0.4
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS West",
+          "pipe": 9.75,
+          "ls": 8.1,
+          "qtd": 1.2,
+          "target": 3.86,
+          "ltb": 2.67,
+          "totalCov": 3.37,
+          "lsCov": 2.79,
+          "totalDelta": -0.12,
+          "lsDelta": -0.15
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA Corporate",
+          "pipe": 1.1,
+          "ls": 0.92,
+          "qtd": 0,
+          "target": 0.92,
+          "ltb": 0.83,
+          "totalCov": 1.23,
+          "lsCov": 1.03,
+          "totalDelta": 0.06,
+          "lsDelta": 0.06
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA DACH",
+          "pipe": 10.3,
+          "ls": 8.65,
+          "qtd": 1.66,
+          "target": 2.76,
+          "ltb": 1.1,
+          "totalCov": 8.67,
+          "lsCov": 7.28,
+          "totalDelta": 0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA North",
+          "pipe": 6.07,
+          "ls": 4.69,
+          "qtd": 0.09,
+          "target": 3.31,
+          "ltb": 3.22,
+          "totalCov": 1.72,
+          "lsCov": 1.34,
+          "totalDelta": 0.14,
+          "lsDelta": 0.12
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA South",
+          "pipe": 5.06,
+          "ls": 3.86,
+          "qtd": 0.37,
+          "target": 2.48,
+          "ltb": 2.12,
+          "totalCov": 2.24,
+          "lsCov": 1.72,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "geo": "APAC",
+          "team": "APAC",
+          "pipe": 8.46,
+          "ls": 6.44,
+          "qtd": 0.64,
+          "target": 3.96,
+          "ltb": 3.31,
+          "totalCov": 2.36,
+          "lsCov": 1.78,
+          "totalDelta": -0.12,
+          "lsDelta": -0.13
+        },
+        {
+          "geo": "LATAM",
+          "team": "LATAM",
+          "pipe": 2.3,
+          "ls": 1.84,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.46,
+          "totalCov": 4.23,
+          "lsCov": 3.41,
+          "totalDelta": 0.18,
+          "lsDelta": 0.16
+        },
+        {
+          "geo": "Public Sector",
+          "team": "Public Sector",
+          "pipe": 5.34,
+          "ls": 4.97,
+          "qtd": 0.37,
+          "target": 2.02,
+          "ltb": 1.66,
+          "totalCov": 2.98,
+          "lsCov": 2.77,
+          "totalDelta": -0.05,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "AMS Sealights",
+          "team": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "staticRows": [
+        {
+          "team": "AMS Corporate",
+          "static": "AMS Corporate",
+          "pipe": 0.28,
+          "ls": 0.09,
+          "qtd": 0,
+          "target": 0.37,
+          "ltb": 0.37,
+          "totalCov": 0.69,
+          "lsCov": 0.23,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS Corporate",
+          "static": "AMS DevOps",
+          "pipe": 0.18,
+          "ls": 0.09,
+          "qtd": 0,
+          "target": 0.28,
+          "ltb": 0.18,
+          "totalCov": 0.92,
+          "lsCov": 0.46,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Canada",
+          "pipe": 1.66,
+          "ls": 1.47,
+          "qtd": 0.09,
+          "target": 1.01,
+          "ltb": 0.92,
+          "totalCov": 1.66,
+          "lsCov": 1.47,
+          "totalDelta": -0.14,
+          "lsDelta": -0.17
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Northeast",
+          "pipe": 3.77,
+          "ls": 3.4,
+          "qtd": 0.37,
+          "target": 2.3,
+          "ltb": 1.93,
+          "totalCov": 1.79,
+          "lsCov": 1.62,
+          "totalDelta": -0.24,
+          "lsDelta": -0.28
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South Southeast",
+          "pipe": 2.76,
+          "ls": 2.3,
+          "qtd": 0.18,
+          "target": 1.47,
+          "ltb": 1.29,
+          "totalCov": 1.97,
+          "lsCov": 1.65,
+          "totalDelta": -0.37,
+          "lsDelta": -0.35
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South TOLA",
+          "pipe": 3.86,
+          "ls": 3.22,
+          "qtd": 0.18,
+          "target": 2.02,
+          "ltb": 1.84,
+          "totalCov": 1.93,
+          "lsCov": 1.61,
+          "totalDelta": -0.45,
+          "lsDelta": -0.44
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Central",
+          "pipe": 4.23,
+          "ls": 3.5,
+          "qtd": 0.46,
+          "target": 1.66,
+          "ltb": 1.2,
+          "totalCov": 3.26,
+          "lsCov": 2.69,
+          "totalDelta": -0.09,
+          "lsDelta": -0.11
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Pacific",
+          "pipe": 5.52,
+          "ls": 4.6,
+          "qtd": 0.74,
+          "target": 2.21,
+          "ltb": 1.47,
+          "totalCov": 3.45,
+          "lsCov": 2.88,
+          "totalDelta": -0.15,
+          "lsDelta": -0.17
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA Corporate",
+          "pipe": 0.64,
+          "ls": 0.55,
+          "qtd": 0,
+          "target": 0.55,
+          "ltb": 0.46,
+          "totalCov": 1.29,
+          "lsCov": 1.1,
+          "totalDelta": 0.05,
+          "lsDelta": 0.05
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA DevOps",
+          "pipe": 0.46,
+          "ls": 0.37,
+          "qtd": 0,
+          "target": 0.37,
+          "ltb": 0.37,
+          "totalCov": 1.15,
+          "lsCov": 0.92,
+          "totalDelta": 0.06,
+          "lsDelta": 0.06
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Alps CEE",
+          "pipe": 2.58,
+          "ls": 2.21,
+          "qtd": 0.37,
+          "target": 0.64,
+          "ltb": 0.28,
+          "totalCov": 8.58,
+          "lsCov": 7.36,
+          "totalDelta": 0.04,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Germany",
+          "pipe": 4.78,
+          "ls": 4.05,
+          "qtd": 0.83,
+          "target": 1.38,
+          "ltb": 0.55,
+          "totalCov": 7.98,
+          "lsCov": 6.74,
+          "totalDelta": 0.06,
+          "lsDelta": 0
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Nordics",
+          "pipe": 1.66,
+          "ls": 1.29,
+          "qtd": 0.28,
+          "target": 0.37,
+          "ltb": 0.09,
+          "totalCov": 16.56,
+          "lsCov": 12.88,
+          "totalDelta": 0.07,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Benelux",
+          "pipe": 1.29,
+          "ls": 1.1,
+          "qtd": 0.18,
+          "target": 0.37,
+          "ltb": 0.18,
+          "totalCov": 6.44,
+          "lsCov": 5.52,
+          "totalDelta": 0.06,
+          "lsDelta": -0.01
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core BeNeLux Nordics",
+          "pipe": 2.21,
+          "ls": 1.66,
+          "qtd": 0,
+          "target": 1.2,
+          "ltb": 1.2,
+          "totalCov": 1.7,
+          "lsCov": 1.27,
+          "totalDelta": 0.11,
+          "lsDelta": 0.09
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core UKI",
+          "pipe": 2.94,
+          "ls": 2.39,
+          "qtd": 0.09,
+          "target": 1.56,
+          "ltb": 1.47,
+          "totalCov": 1.84,
+          "lsCov": 1.5,
+          "totalDelta": 0.17,
+          "lsDelta": 0.14
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core MEA North",
+          "pipe": 0.92,
+          "ls": 0.64,
+          "qtd": 0,
+          "target": 0.55,
+          "ltb": 0.55,
+          "totalCov": 1.54,
+          "lsCov": 1.08,
+          "totalDelta": 0.15,
+          "lsDelta": 0.13
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France Emerging",
+          "pipe": 1.29,
+          "ls": 1.01,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.55,
+          "totalCov": 2.14,
+          "lsCov": 1.68,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France",
+          "pipe": 1.47,
+          "ls": 1.1,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.55,
+          "totalCov": 2.46,
+          "lsCov": 1.84,
+          "totalDelta": -0.04,
+          "lsDelta": -0.06
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Emerging",
+          "pipe": 1.01,
+          "ls": 0.83,
+          "qtd": 0.09,
+          "target": 0.55,
+          "ltb": 0.46,
+          "totalCov": 2.02,
+          "lsCov": 1.66,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Middle East Africa",
+          "pipe": 0.74,
+          "ls": 0.55,
+          "qtd": 0,
+          "target": 0.37,
+          "ltb": 0.37,
+          "totalCov": 1.84,
+          "lsCov": 1.38,
+          "totalDelta": -0.04,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core MEA South",
+          "pipe": 0.55,
+          "ls": 0.37,
+          "qtd": 0.09,
+          "target": 0.28,
+          "ltb": 0.18,
+          "totalCov": 2.76,
+          "lsCov": 1.84,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "APAC",
+          "static": "APAC ANZ",
+          "pipe": 2.39,
+          "ls": 1.84,
+          "qtd": 0.18,
+          "target": 1.1,
+          "ltb": 0.92,
+          "totalCov": 2.39,
+          "lsCov": 1.84,
+          "totalDelta": -0.09,
+          "lsDelta": -0.11
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia",
+          "pipe": 1.84,
+          "ls": 1.38,
+          "qtd": 0.09,
+          "target": 0.92,
+          "ltb": 0.83,
+          "totalCov": 2.04,
+          "lsCov": 1.54,
+          "totalDelta": -0.14,
+          "lsDelta": -0.15
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia AGE",
+          "pipe": 1.29,
+          "ls": 1.01,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.55,
+          "totalCov": 2.14,
+          "lsCov": 1.68,
+          "totalDelta": -0.11,
+          "lsDelta": -0.12
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia SEA",
+          "pipe": 1.47,
+          "ls": 1.1,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.55,
+          "totalCov": 2.46,
+          "lsCov": 1.84,
+          "totalDelta": -0.13,
+          "lsDelta": -0.14
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Japan",
+          "pipe": 1.47,
+          "ls": 1.1,
+          "qtd": 0.18,
+          "target": 0.64,
+          "ltb": 0.46,
+          "totalCov": 2.94,
+          "lsCov": 2.21,
+          "totalDelta": -0.11,
+          "lsDelta": -0.13
+        },
+        {
+          "team": "LATAM",
+          "static": "AMS Core LATAM",
+          "pipe": 2.3,
+          "ls": 1.84,
+          "qtd": 0.09,
+          "target": 0.64,
+          "ltb": 0.46,
+          "totalCov": 4.6,
+          "lsCov": 3.68,
+          "totalDelta": 0.18,
+          "lsDelta": 0.16
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - FED",
+          "pipe": 3.31,
+          "ls": 3.04,
+          "qtd": 0.28,
+          "target": 1.2,
+          "ltb": 0.92,
+          "totalCov": 3.31,
+          "lsCov": 3.04,
+          "totalDelta": -0.04,
+          "lsDelta": 0
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - SLED",
+          "pipe": 2.02,
+          "ls": 1.93,
+          "qtd": 0.09,
+          "target": 0.83,
+          "ltb": 0.74,
+          "totalCov": 2.53,
+          "lsCov": 2.42,
+          "totalDelta": -0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "AMS Sealights",
+          "static": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "productRows": [
+        {
+          "product": "Platform",
+          "geo": "AMS",
+          "pipe": 16.93,
+          "ls": 14.54,
+          "acv": 1.29,
+          "target": 7.36,
+          "totalCov": 2.12,
+          "lsCov": 1.82,
+          "totalDelta": 0.05,
+          "lsDelta": -0.03
+        },
+        {
+          "product": "Platform",
+          "geo": "EMEA",
+          "pipe": 10.86,
+          "ls": 8.74,
+          "acv": 0.55,
+          "target": 4.14,
+          "totalCov": 2.41,
+          "lsCov": 1.94,
+          "totalDelta": 0.02,
+          "lsDelta": -0.01
+        },
+        {
+          "product": "Platform",
+          "geo": "APAC",
+          "pipe": 2.21,
+          "ls": 1.84,
+          "acv": 0.28,
+          "target": 1.84,
+          "totalCov": 1.1,
+          "lsCov": 0.92,
+          "totalDelta": 0.07,
+          "lsDelta": 0.05
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "AMS",
+          "pipe": 1.84,
+          "ls": 1.56,
+          "acv": 0.09,
+          "target": 0.55,
+          "totalCov": 3.06,
+          "lsCov": 2.6,
+          "totalDelta": -0.17,
+          "lsDelta": -0.11
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "EMEA",
+          "pipe": 1.75,
+          "ls": 1.38,
+          "acv": 0,
+          "target": 0.46,
+          "totalCov": 3.5,
+          "lsCov": 2.76,
+          "totalDelta": -0.28,
+          "lsDelta": -0.17
+        },
+        {
+          "product": "Security",
+          "geo": "AMS",
+          "pipe": 10.3,
+          "ls": 8.65,
+          "acv": 0.74,
+          "target": 4.14,
+          "totalCov": 2.29,
+          "lsCov": 1.92,
+          "totalDelta": 0.19,
+          "lsDelta": 0.15
+        },
+        {
+          "product": "Security",
+          "geo": "EMEA",
+          "pipe": 7.91,
+          "ls": 6.53,
+          "acv": 0.46,
+          "target": 3.31,
+          "totalCov": 2.2,
+          "lsCov": 1.81,
+          "totalDelta": 0.04,
+          "lsDelta": -0.02
+        },
+        {
+          "product": "Performance",
+          "geo": "AMS",
+          "pipe": 3.22,
+          "ls": 2.58,
+          "acv": 0.18,
+          "target": 1.38,
+          "totalCov": 2.14,
+          "lsCov": 1.72,
+          "totalDelta": -0.09,
+          "lsDelta": -0.07
+        },
+        {
+          "product": "Vera",
+          "geo": "EMEA",
+          "pipe": 1.93,
+          "ls": 1.29,
+          "acv": 0,
+          "target": 0.92,
+          "totalCov": 1.93,
+          "lsCov": 1.29,
+          "totalDelta": 0.29,
+          "lsDelta": 0.19
+        },
+        {
+          "product": "Sealights",
+          "geo": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "acv": 0,
+          "target": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "dealTypeRows": [
+        {
+          "geo": "AMS",
+          "dealType": "New",
+          "pipe": 13.34,
+          "ls": 11.41,
+          "acv": 0.92,
+          "target": 6.44,
+          "totalCov": 1.9,
+          "lsCov": 1.63,
+          "totalDelta": -0.17,
+          "lsDelta": -0.14
+        },
+        {
+          "geo": "AMS",
+          "dealType": "Existing",
+          "pipe": 8.92,
+          "ls": 7.27,
+          "acv": 1.1,
+          "target": 4.88,
+          "totalCov": 1.68,
+          "lsCov": 1.37,
+          "totalDelta": -0.08,
+          "lsDelta": -0.13
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "New",
+          "pipe": 14.17,
+          "ls": 11.78,
+          "acv": 1.2,
+          "target": 5.52,
+          "totalCov": 2.36,
+          "lsCov": 1.96,
+          "totalDelta": 0.04,
+          "lsDelta": -0.03
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "Existing",
+          "pipe": 8.37,
+          "ls": 6.44,
+          "acv": 0.92,
+          "target": 3.86,
+          "totalCov": 2,
+          "lsCov": 1.54,
+          "totalDelta": -0.04,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "APAC",
+          "dealType": "New",
+          "pipe": 5.89,
+          "ls": 4.42,
+          "acv": 0.28,
+          "target": 2.39,
+          "totalCov": 2.26,
+          "lsCov": 1.7,
+          "totalDelta": -0.18,
+          "lsDelta": -0.17
+        },
+        {
+          "geo": "APAC",
+          "dealType": "Existing",
+          "pipe": 2.58,
+          "ls": 2.02,
+          "acv": 0.37,
+          "target": 1.56,
+          "totalCov": 1.52,
+          "lsCov": 1.19,
+          "totalDelta": 0.05,
+          "lsDelta": 0.02
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "New",
+          "pipe": 1.66,
+          "ls": 1.29,
+          "acv": 0,
+          "target": 0.37,
+          "totalCov": 4.14,
+          "lsCov": 3.22,
+          "totalDelta": 0.17,
+          "lsDelta": 0.14
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "Existing",
+          "pipe": 0.64,
+          "ls": 0.55,
+          "acv": 0.09,
+          "target": 0.28,
+          "totalCov": 2.14,
+          "lsCov": 1.84,
+          "totalDelta": 0.04,
+          "lsDelta": 0.03
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "New",
+          "pipe": 3.13,
+          "ls": 2.94,
+          "acv": 0,
+          "target": 1.47,
+          "totalCov": 1.95,
+          "lsCov": 1.85,
+          "totalDelta": -0.63,
+          "lsDelta": -0.42
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "Existing",
+          "pipe": 2.21,
+          "ls": 2.02,
+          "acv": 0.37,
+          "target": 2.02,
+          "totalCov": 1.21,
+          "lsCov": 1.09,
+          "totalDelta": -1.42,
+          "lsDelta": -1.11
+        }
+      ]
+    },
+    "2": {
+      "rows": [
+        {
+          "geo": "AMS",
+          "team": "AMS Corporate",
+          "pipe": 0.5,
+          "ls": 0.2,
+          "qtd": 0,
+          "target": 0.7,
+          "ltb": 0.6,
+          "totalCov": 0.7,
+          "lsCov": 0.34,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS East",
+          "pipe": 5.9,
+          "ls": 5.3,
+          "qtd": 0.5,
+          "target": 3.6,
+          "ltb": 3.1,
+          "totalCov": 1.89,
+          "lsCov": 1.68,
+          "totalDelta": -0.23,
+          "lsDelta": -0.27
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS South",
+          "pipe": 7.2,
+          "ls": 6,
+          "qtd": 0.4,
+          "target": 3.8,
+          "ltb": 3.4,
+          "totalCov": 2.11,
+          "lsCov": 1.76,
+          "totalDelta": -0.45,
+          "lsDelta": -0.44
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS West",
+          "pipe": 10.6,
+          "ls": 8.8,
+          "qtd": 1.3,
+          "target": 4.2,
+          "ltb": 2.9,
+          "totalCov": 3.66,
+          "lsCov": 3.03,
+          "totalDelta": -0.13,
+          "lsDelta": -0.16
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA Corporate",
+          "pipe": 1.2,
+          "ls": 1,
+          "qtd": 0,
+          "target": 1,
+          "ltb": 0.9,
+          "totalCov": 1.34,
+          "lsCov": 1.12,
+          "totalDelta": 0.06,
+          "lsDelta": 0.06
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA DACH",
+          "pipe": 11.2,
+          "ls": 9.4,
+          "qtd": 1.8,
+          "target": 3,
+          "ltb": 1.2,
+          "totalCov": 9.42,
+          "lsCov": 7.91,
+          "totalDelta": 0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA North",
+          "pipe": 6.6,
+          "ls": 5.1,
+          "qtd": 0.1,
+          "target": 3.6,
+          "ltb": 3.5,
+          "totalCov": 1.87,
+          "lsCov": 1.46,
+          "totalDelta": 0.15,
+          "lsDelta": 0.13
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA South",
+          "pipe": 5.5,
+          "ls": 4.2,
+          "qtd": 0.4,
+          "target": 2.7,
+          "ltb": 2.3,
+          "totalCov": 2.43,
+          "lsCov": 1.87,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "geo": "APAC",
+          "team": "APAC",
+          "pipe": 9.2,
+          "ls": 7,
+          "qtd": 0.7,
+          "target": 4.3,
+          "ltb": 3.6,
+          "totalCov": 2.56,
+          "lsCov": 1.93,
+          "totalDelta": -0.13,
+          "lsDelta": -0.14
+        },
+        {
+          "geo": "LATAM",
+          "team": "LATAM",
+          "pipe": 2.5,
+          "ls": 2,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.5,
+          "totalCov": 4.6,
+          "lsCov": 3.71,
+          "totalDelta": 0.2,
+          "lsDelta": 0.17
+        },
+        {
+          "geo": "Public Sector",
+          "team": "Public Sector",
+          "pipe": 5.8,
+          "ls": 5.4,
+          "qtd": 0.4,
+          "target": 2.2,
+          "ltb": 1.8,
+          "totalCov": 3.24,
+          "lsCov": 3.01,
+          "totalDelta": -0.05,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "AMS Sealights",
+          "team": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "staticRows": [
+        {
+          "team": "AMS Corporate",
+          "static": "AMS Corporate",
+          "pipe": 0.3,
+          "ls": 0.1,
+          "qtd": 0,
+          "target": 0.4,
+          "ltb": 0.4,
+          "totalCov": 0.75,
+          "lsCov": 0.25,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS Corporate",
+          "static": "AMS DevOps",
+          "pipe": 0.2,
+          "ls": 0.1,
+          "qtd": 0,
+          "target": 0.3,
+          "ltb": 0.2,
+          "totalCov": 1,
+          "lsCov": 0.5,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Canada",
+          "pipe": 1.8,
+          "ls": 1.6,
+          "qtd": 0.1,
+          "target": 1.1,
+          "ltb": 1,
+          "totalCov": 1.8,
+          "lsCov": 1.6,
+          "totalDelta": -0.15,
+          "lsDelta": -0.18
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Northeast",
+          "pipe": 4.1,
+          "ls": 3.7,
+          "qtd": 0.4,
+          "target": 2.5,
+          "ltb": 2.1,
+          "totalCov": 1.95,
+          "lsCov": 1.76,
+          "totalDelta": -0.26,
+          "lsDelta": -0.3
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South Southeast",
+          "pipe": 3,
+          "ls": 2.5,
+          "qtd": 0.2,
+          "target": 1.6,
+          "ltb": 1.4,
+          "totalCov": 2.14,
+          "lsCov": 1.79,
+          "totalDelta": -0.4,
+          "lsDelta": -0.38
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South TOLA",
+          "pipe": 4.2,
+          "ls": 3.5,
+          "qtd": 0.2,
+          "target": 2.2,
+          "ltb": 2,
+          "totalCov": 2.1,
+          "lsCov": 1.75,
+          "totalDelta": -0.49,
+          "lsDelta": -0.48
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Central",
+          "pipe": 4.6,
+          "ls": 3.8,
+          "qtd": 0.5,
+          "target": 1.8,
+          "ltb": 1.3,
+          "totalCov": 3.54,
+          "lsCov": 2.92,
+          "totalDelta": -0.1,
+          "lsDelta": -0.12
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Pacific",
+          "pipe": 6,
+          "ls": 5,
+          "qtd": 0.8,
+          "target": 2.4,
+          "ltb": 1.6,
+          "totalCov": 3.75,
+          "lsCov": 3.13,
+          "totalDelta": -0.16,
+          "lsDelta": -0.19
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA Corporate",
+          "pipe": 0.7,
+          "ls": 0.6,
+          "qtd": 0,
+          "target": 0.6,
+          "ltb": 0.5,
+          "totalCov": 1.4,
+          "lsCov": 1.2,
+          "totalDelta": 0.05,
+          "lsDelta": 0.05
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA DevOps",
+          "pipe": 0.5,
+          "ls": 0.4,
+          "qtd": 0,
+          "target": 0.4,
+          "ltb": 0.4,
+          "totalCov": 1.25,
+          "lsCov": 1,
+          "totalDelta": 0.07,
+          "lsDelta": 0.07
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Alps CEE",
+          "pipe": 2.8,
+          "ls": 2.4,
+          "qtd": 0.4,
+          "target": 0.7,
+          "ltb": 0.3,
+          "totalCov": 9.33,
+          "lsCov": 8,
+          "totalDelta": 0.04,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Germany",
+          "pipe": 5.2,
+          "ls": 4.4,
+          "qtd": 0.9,
+          "target": 1.5,
+          "ltb": 0.6,
+          "totalCov": 8.67,
+          "lsCov": 7.33,
+          "totalDelta": 0.07,
+          "lsDelta": 0
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Nordics",
+          "pipe": 1.8,
+          "ls": 1.4,
+          "qtd": 0.3,
+          "target": 0.4,
+          "ltb": 0.1,
+          "totalCov": 18,
+          "lsCov": 14,
+          "totalDelta": 0.08,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Benelux",
+          "pipe": 1.4,
+          "ls": 1.2,
+          "qtd": 0.2,
+          "target": 0.4,
+          "ltb": 0.2,
+          "totalCov": 7,
+          "lsCov": 6,
+          "totalDelta": 0.06,
+          "lsDelta": -0.01
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core BeNeLux Nordics",
+          "pipe": 2.4,
+          "ls": 1.8,
+          "qtd": 0,
+          "target": 1.3,
+          "ltb": 1.3,
+          "totalCov": 1.85,
+          "lsCov": 1.38,
+          "totalDelta": 0.12,
+          "lsDelta": 0.1
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core UKI",
+          "pipe": 3.2,
+          "ls": 2.6,
+          "qtd": 0.1,
+          "target": 1.7,
+          "ltb": 1.6,
+          "totalCov": 2,
+          "lsCov": 1.63,
+          "totalDelta": 0.18,
+          "lsDelta": 0.15
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core MEA North",
+          "pipe": 1,
+          "ls": 0.7,
+          "qtd": 0,
+          "target": 0.6,
+          "ltb": 0.6,
+          "totalCov": 1.67,
+          "lsCov": 1.17,
+          "totalDelta": 0.16,
+          "lsDelta": 0.14
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France Emerging",
+          "pipe": 1.4,
+          "ls": 1.1,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.6,
+          "totalCov": 2.33,
+          "lsCov": 1.83,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France",
+          "pipe": 1.6,
+          "ls": 1.2,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.6,
+          "totalCov": 2.67,
+          "lsCov": 2,
+          "totalDelta": -0.04,
+          "lsDelta": -0.06
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Emerging",
+          "pipe": 1.1,
+          "ls": 0.9,
+          "qtd": 0.1,
+          "target": 0.6,
+          "ltb": 0.5,
+          "totalCov": 2.2,
+          "lsCov": 1.8,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Middle East Africa",
+          "pipe": 0.8,
+          "ls": 0.6,
+          "qtd": 0,
+          "target": 0.4,
+          "ltb": 0.4,
+          "totalCov": 2,
+          "lsCov": 1.5,
+          "totalDelta": -0.04,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core MEA South",
+          "pipe": 0.6,
+          "ls": 0.4,
+          "qtd": 0.1,
+          "target": 0.3,
+          "ltb": 0.2,
+          "totalCov": 3,
+          "lsCov": 2,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "APAC",
+          "static": "APAC ANZ",
+          "pipe": 2.6,
+          "ls": 2,
+          "qtd": 0.2,
+          "target": 1.2,
+          "ltb": 1,
+          "totalCov": 2.6,
+          "lsCov": 2,
+          "totalDelta": -0.1,
+          "lsDelta": -0.12
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia",
+          "pipe": 2,
+          "ls": 1.5,
+          "qtd": 0.1,
+          "target": 1,
+          "ltb": 0.9,
+          "totalCov": 2.22,
+          "lsCov": 1.67,
+          "totalDelta": -0.15,
+          "lsDelta": -0.16
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia AGE",
+          "pipe": 1.4,
+          "ls": 1.1,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.6,
+          "totalCov": 2.33,
+          "lsCov": 1.83,
+          "totalDelta": -0.12,
+          "lsDelta": -0.13
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia SEA",
+          "pipe": 1.6,
+          "ls": 1.2,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.6,
+          "totalCov": 2.67,
+          "lsCov": 2,
+          "totalDelta": -0.14,
+          "lsDelta": -0.15
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Japan",
+          "pipe": 1.6,
+          "ls": 1.2,
+          "qtd": 0.2,
+          "target": 0.7,
+          "ltb": 0.5,
+          "totalCov": 3.2,
+          "lsCov": 2.4,
+          "totalDelta": -0.12,
+          "lsDelta": -0.14
+        },
+        {
+          "team": "LATAM",
+          "static": "AMS Core LATAM",
+          "pipe": 2.5,
+          "ls": 2,
+          "qtd": 0.1,
+          "target": 0.7,
+          "ltb": 0.5,
+          "totalCov": 5,
+          "lsCov": 4,
+          "totalDelta": 0.2,
+          "lsDelta": 0.17
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - FED",
+          "pipe": 3.6,
+          "ls": 3.3,
+          "qtd": 0.3,
+          "target": 1.3,
+          "ltb": 1,
+          "totalCov": 3.6,
+          "lsCov": 3.3,
+          "totalDelta": -0.04,
+          "lsDelta": 0
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - SLED",
+          "pipe": 2.2,
+          "ls": 2.1,
+          "qtd": 0.1,
+          "target": 0.9,
+          "ltb": 0.8,
+          "totalCov": 2.75,
+          "lsCov": 2.63,
+          "totalDelta": -0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "AMS Sealights",
+          "static": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "productRows": [
+        {
+          "product": "Platform",
+          "geo": "AMS",
+          "pipe": 18.4,
+          "ls": 15.8,
+          "acv": 1.4,
+          "target": 8,
+          "totalCov": 2.3,
+          "lsCov": 1.98,
+          "totalDelta": 0.05,
+          "lsDelta": -0.03
+        },
+        {
+          "product": "Platform",
+          "geo": "EMEA",
+          "pipe": 11.8,
+          "ls": 9.5,
+          "acv": 0.6,
+          "target": 4.5,
+          "totalCov": 2.62,
+          "lsCov": 2.11,
+          "totalDelta": 0.02,
+          "lsDelta": -0.01
+        },
+        {
+          "product": "Platform",
+          "geo": "APAC",
+          "pipe": 2.4,
+          "ls": 2,
+          "acv": 0.3,
+          "target": 2,
+          "totalCov": 1.2,
+          "lsCov": 1,
+          "totalDelta": 0.08,
+          "lsDelta": 0.05
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "AMS",
+          "pipe": 2,
+          "ls": 1.7,
+          "acv": 0.1,
+          "target": 0.6,
+          "totalCov": 3.33,
+          "lsCov": 2.83,
+          "totalDelta": -0.18,
+          "lsDelta": -0.12
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "EMEA",
+          "pipe": 1.9,
+          "ls": 1.5,
+          "acv": 0,
+          "target": 0.5,
+          "totalCov": 3.8,
+          "lsCov": 3,
+          "totalDelta": -0.3,
+          "lsDelta": -0.18
+        },
+        {
+          "product": "Security",
+          "geo": "AMS",
+          "pipe": 11.2,
+          "ls": 9.4,
+          "acv": 0.8,
+          "target": 4.5,
+          "totalCov": 2.49,
+          "lsCov": 2.09,
+          "totalDelta": 0.21,
+          "lsDelta": 0.16
+        },
+        {
+          "product": "Security",
+          "geo": "EMEA",
+          "pipe": 8.6,
+          "ls": 7.1,
+          "acv": 0.5,
+          "target": 3.6,
+          "totalCov": 2.39,
+          "lsCov": 1.97,
+          "totalDelta": 0.04,
+          "lsDelta": -0.02
+        },
+        {
+          "product": "Performance",
+          "geo": "AMS",
+          "pipe": 3.5,
+          "ls": 2.8,
+          "acv": 0.2,
+          "target": 1.5,
+          "totalCov": 2.33,
+          "lsCov": 1.87,
+          "totalDelta": -0.1,
+          "lsDelta": -0.08
+        },
+        {
+          "product": "Vera",
+          "geo": "EMEA",
+          "pipe": 2.1,
+          "ls": 1.4,
+          "acv": 0,
+          "target": 1,
+          "totalCov": 2.1,
+          "lsCov": 1.4,
+          "totalDelta": 0.32,
+          "lsDelta": 0.21
+        },
+        {
+          "product": "Sealights",
+          "geo": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "acv": 0,
+          "target": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "dealTypeRows": [
+        {
+          "geo": "AMS",
+          "dealType": "New",
+          "pipe": 14.5,
+          "ls": 12.4,
+          "acv": 1,
+          "target": 7,
+          "totalCov": 2.07,
+          "lsCov": 1.77,
+          "totalDelta": -0.18,
+          "lsDelta": -0.15
+        },
+        {
+          "geo": "AMS",
+          "dealType": "Existing",
+          "pipe": 9.7,
+          "ls": 7.9,
+          "acv": 1.2,
+          "target": 5.3,
+          "totalCov": 1.83,
+          "lsCov": 1.49,
+          "totalDelta": -0.09,
+          "lsDelta": -0.14
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "New",
+          "pipe": 15.4,
+          "ls": 12.8,
+          "acv": 1.3,
+          "target": 6,
+          "totalCov": 2.57,
+          "lsCov": 2.13,
+          "totalDelta": 0.04,
+          "lsDelta": -0.03
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "Existing",
+          "pipe": 9.1,
+          "ls": 7,
+          "acv": 1,
+          "target": 4.2,
+          "totalCov": 2.17,
+          "lsCov": 1.67,
+          "totalDelta": -0.04,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "APAC",
+          "dealType": "New",
+          "pipe": 6.4,
+          "ls": 4.8,
+          "acv": 0.3,
+          "target": 2.6,
+          "totalCov": 2.46,
+          "lsCov": 1.85,
+          "totalDelta": -0.2,
+          "lsDelta": -0.18
+        },
+        {
+          "geo": "APAC",
+          "dealType": "Existing",
+          "pipe": 2.8,
+          "ls": 2.2,
+          "acv": 0.4,
+          "target": 1.7,
+          "totalCov": 1.65,
+          "lsCov": 1.29,
+          "totalDelta": 0.05,
+          "lsDelta": 0.02
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "New",
+          "pipe": 1.8,
+          "ls": 1.4,
+          "acv": 0,
+          "target": 0.4,
+          "totalCov": 4.5,
+          "lsCov": 3.5,
+          "totalDelta": 0.18,
+          "lsDelta": 0.15
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "Existing",
+          "pipe": 0.7,
+          "ls": 0.6,
+          "acv": 0.1,
+          "target": 0.3,
+          "totalCov": 2.33,
+          "lsCov": 2,
+          "totalDelta": 0.04,
+          "lsDelta": 0.03
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "New",
+          "pipe": 3.4,
+          "ls": 3.2,
+          "acv": 0,
+          "target": 1.6,
+          "totalCov": 2.12,
+          "lsCov": 2.01,
+          "totalDelta": -0.69,
+          "lsDelta": -0.46
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "Existing",
+          "pipe": 2.4,
+          "ls": 2.2,
+          "acv": 0.4,
+          "target": 2.2,
+          "totalCov": 1.32,
+          "lsCov": 1.19,
+          "totalDelta": -1.54,
+          "lsDelta": -1.21
+        }
+      ]
+    },
+    "3": {
+      "rows": [
+        {
+          "geo": "AMS",
+          "team": "AMS Corporate",
+          "pipe": 0.53,
+          "ls": 0.21,
+          "qtd": 0,
+          "target": 0.74,
+          "ltb": 0.63,
+          "totalCov": 0.74,
+          "lsCov": 0.36,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS East",
+          "pipe": 6.2,
+          "ls": 5.57,
+          "qtd": 0.53,
+          "target": 3.78,
+          "ltb": 3.26,
+          "totalCov": 1.98,
+          "lsCov": 1.76,
+          "totalDelta": -0.24,
+          "lsDelta": -0.28
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS South",
+          "pipe": 7.56,
+          "ls": 6.3,
+          "qtd": 0.42,
+          "target": 3.99,
+          "ltb": 3.57,
+          "totalCov": 2.22,
+          "lsCov": 1.85,
+          "totalDelta": -0.47,
+          "lsDelta": -0.46
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS West",
+          "pipe": 11.13,
+          "ls": 9.24,
+          "qtd": 1.37,
+          "target": 4.41,
+          "ltb": 3.05,
+          "totalCov": 3.84,
+          "lsCov": 3.18,
+          "totalDelta": -0.14,
+          "lsDelta": -0.17
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA Corporate",
+          "pipe": 1.26,
+          "ls": 1.05,
+          "qtd": 0,
+          "target": 1.05,
+          "ltb": 0.95,
+          "totalCov": 1.41,
+          "lsCov": 1.18,
+          "totalDelta": 0.06,
+          "lsDelta": 0.06
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA DACH",
+          "pipe": 11.76,
+          "ls": 9.87,
+          "qtd": 1.89,
+          "target": 3.15,
+          "ltb": 1.26,
+          "totalCov": 9.89,
+          "lsCov": 8.31,
+          "totalDelta": 0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA North",
+          "pipe": 6.93,
+          "ls": 5.36,
+          "qtd": 0.11,
+          "target": 3.78,
+          "ltb": 3.68,
+          "totalCov": 1.96,
+          "lsCov": 1.53,
+          "totalDelta": 0.16,
+          "lsDelta": 0.14
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA South",
+          "pipe": 5.78,
+          "ls": 4.41,
+          "qtd": 0.42,
+          "target": 2.84,
+          "ltb": 2.42,
+          "totalCov": 2.55,
+          "lsCov": 1.96,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "geo": "APAC",
+          "team": "APAC",
+          "pipe": 9.66,
+          "ls": 7.35,
+          "qtd": 0.74,
+          "target": 4.51,
+          "ltb": 3.78,
+          "totalCov": 2.69,
+          "lsCov": 2.03,
+          "totalDelta": -0.14,
+          "lsDelta": -0.15
+        },
+        {
+          "geo": "LATAM",
+          "team": "LATAM",
+          "pipe": 2.63,
+          "ls": 2.1,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.53,
+          "totalCov": 4.83,
+          "lsCov": 3.9,
+          "totalDelta": 0.21,
+          "lsDelta": 0.18
+        },
+        {
+          "geo": "Public Sector",
+          "team": "Public Sector",
+          "pipe": 6.09,
+          "ls": 5.67,
+          "qtd": 0.42,
+          "target": 2.31,
+          "ltb": 1.89,
+          "totalCov": 3.4,
+          "lsCov": 3.16,
+          "totalDelta": -0.05,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "AMS Sealights",
+          "team": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "staticRows": [
+        {
+          "team": "AMS Corporate",
+          "static": "AMS Corporate",
+          "pipe": 0.32,
+          "ls": 0.11,
+          "qtd": 0,
+          "target": 0.42,
+          "ltb": 0.42,
+          "totalCov": 0.79,
+          "lsCov": 0.26,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS Corporate",
+          "static": "AMS DevOps",
+          "pipe": 0.21,
+          "ls": 0.11,
+          "qtd": 0,
+          "target": 0.32,
+          "ltb": 0.21,
+          "totalCov": 1.05,
+          "lsCov": 0.53,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Canada",
+          "pipe": 1.89,
+          "ls": 1.68,
+          "qtd": 0.11,
+          "target": 1.16,
+          "ltb": 1.05,
+          "totalCov": 1.89,
+          "lsCov": 1.68,
+          "totalDelta": -0.16,
+          "lsDelta": -0.19
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Northeast",
+          "pipe": 4.31,
+          "ls": 3.89,
+          "qtd": 0.42,
+          "target": 2.63,
+          "ltb": 2.21,
+          "totalCov": 2.05,
+          "lsCov": 1.85,
+          "totalDelta": -0.27,
+          "lsDelta": -0.31
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South Southeast",
+          "pipe": 3.15,
+          "ls": 2.63,
+          "qtd": 0.21,
+          "target": 1.68,
+          "ltb": 1.47,
+          "totalCov": 2.25,
+          "lsCov": 1.88,
+          "totalDelta": -0.42,
+          "lsDelta": -0.4
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South TOLA",
+          "pipe": 4.41,
+          "ls": 3.68,
+          "qtd": 0.21,
+          "target": 2.31,
+          "ltb": 2.1,
+          "totalCov": 2.21,
+          "lsCov": 1.84,
+          "totalDelta": -0.51,
+          "lsDelta": -0.5
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Central",
+          "pipe": 4.83,
+          "ls": 3.99,
+          "qtd": 0.53,
+          "target": 1.89,
+          "ltb": 1.37,
+          "totalCov": 3.72,
+          "lsCov": 3.07,
+          "totalDelta": -0.11,
+          "lsDelta": -0.13
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Pacific",
+          "pipe": 6.3,
+          "ls": 5.25,
+          "qtd": 0.84,
+          "target": 2.52,
+          "ltb": 1.68,
+          "totalCov": 3.94,
+          "lsCov": 3.29,
+          "totalDelta": -0.17,
+          "lsDelta": -0.2
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA Corporate",
+          "pipe": 0.74,
+          "ls": 0.63,
+          "qtd": 0,
+          "target": 0.63,
+          "ltb": 0.53,
+          "totalCov": 1.47,
+          "lsCov": 1.26,
+          "totalDelta": 0.05,
+          "lsDelta": 0.05
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA DevOps",
+          "pipe": 0.53,
+          "ls": 0.42,
+          "qtd": 0,
+          "target": 0.42,
+          "ltb": 0.42,
+          "totalCov": 1.31,
+          "lsCov": 1.05,
+          "totalDelta": 0.07,
+          "lsDelta": 0.07
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Alps CEE",
+          "pipe": 2.94,
+          "ls": 2.52,
+          "qtd": 0.42,
+          "target": 0.74,
+          "ltb": 0.32,
+          "totalCov": 9.8,
+          "lsCov": 8.4,
+          "totalDelta": 0.04,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Germany",
+          "pipe": 5.46,
+          "ls": 4.62,
+          "qtd": 0.95,
+          "target": 1.58,
+          "ltb": 0.63,
+          "totalCov": 9.1,
+          "lsCov": 7.7,
+          "totalDelta": 0.07,
+          "lsDelta": 0
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Nordics",
+          "pipe": 1.89,
+          "ls": 1.47,
+          "qtd": 0.32,
+          "target": 0.42,
+          "ltb": 0.11,
+          "totalCov": 18.9,
+          "lsCov": 14.7,
+          "totalDelta": 0.08,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Benelux",
+          "pipe": 1.47,
+          "ls": 1.26,
+          "qtd": 0.21,
+          "target": 0.42,
+          "ltb": 0.21,
+          "totalCov": 7.35,
+          "lsCov": 6.3,
+          "totalDelta": 0.06,
+          "lsDelta": -0.01
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core BeNeLux Nordics",
+          "pipe": 2.52,
+          "ls": 1.89,
+          "qtd": 0,
+          "target": 1.37,
+          "ltb": 1.37,
+          "totalCov": 1.94,
+          "lsCov": 1.45,
+          "totalDelta": 0.13,
+          "lsDelta": 0.11
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core UKI",
+          "pipe": 3.36,
+          "ls": 2.73,
+          "qtd": 0.11,
+          "target": 1.79,
+          "ltb": 1.68,
+          "totalCov": 2.1,
+          "lsCov": 1.71,
+          "totalDelta": 0.19,
+          "lsDelta": 0.16
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core MEA North",
+          "pipe": 1.05,
+          "ls": 0.74,
+          "qtd": 0,
+          "target": 0.63,
+          "ltb": 0.63,
+          "totalCov": 1.75,
+          "lsCov": 1.23,
+          "totalDelta": 0.17,
+          "lsDelta": 0.15
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France Emerging",
+          "pipe": 1.47,
+          "ls": 1.16,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.63,
+          "totalCov": 2.45,
+          "lsCov": 1.92,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France",
+          "pipe": 1.68,
+          "ls": 1.26,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.63,
+          "totalCov": 2.8,
+          "lsCov": 2.1,
+          "totalDelta": -0.04,
+          "lsDelta": -0.06
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Emerging",
+          "pipe": 1.16,
+          "ls": 0.95,
+          "qtd": 0.11,
+          "target": 0.63,
+          "ltb": 0.53,
+          "totalCov": 2.31,
+          "lsCov": 1.89,
+          "totalDelta": -0.03,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Middle East Africa",
+          "pipe": 0.84,
+          "ls": 0.63,
+          "qtd": 0,
+          "target": 0.42,
+          "ltb": 0.42,
+          "totalCov": 2.1,
+          "lsCov": 1.58,
+          "totalDelta": -0.04,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core MEA South",
+          "pipe": 0.63,
+          "ls": 0.42,
+          "qtd": 0.11,
+          "target": 0.32,
+          "ltb": 0.21,
+          "totalCov": 3.15,
+          "lsCov": 2.1,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "APAC",
+          "static": "APAC ANZ",
+          "pipe": 2.73,
+          "ls": 2.1,
+          "qtd": 0.21,
+          "target": 1.26,
+          "ltb": 1.05,
+          "totalCov": 2.73,
+          "lsCov": 2.1,
+          "totalDelta": -0.11,
+          "lsDelta": -0.13
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia",
+          "pipe": 2.1,
+          "ls": 1.58,
+          "qtd": 0.11,
+          "target": 1.05,
+          "ltb": 0.95,
+          "totalCov": 2.33,
+          "lsCov": 1.75,
+          "totalDelta": -0.16,
+          "lsDelta": -0.17
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia AGE",
+          "pipe": 1.47,
+          "ls": 1.16,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.63,
+          "totalCov": 2.45,
+          "lsCov": 1.92,
+          "totalDelta": -0.13,
+          "lsDelta": -0.14
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia SEA",
+          "pipe": 1.68,
+          "ls": 1.26,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.63,
+          "totalCov": 2.8,
+          "lsCov": 2.1,
+          "totalDelta": -0.15,
+          "lsDelta": -0.16
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Japan",
+          "pipe": 1.68,
+          "ls": 1.26,
+          "qtd": 0.21,
+          "target": 0.74,
+          "ltb": 0.53,
+          "totalCov": 3.36,
+          "lsCov": 2.52,
+          "totalDelta": -0.13,
+          "lsDelta": -0.15
+        },
+        {
+          "team": "LATAM",
+          "static": "AMS Core LATAM",
+          "pipe": 2.63,
+          "ls": 2.1,
+          "qtd": 0.11,
+          "target": 0.74,
+          "ltb": 0.53,
+          "totalCov": 5.25,
+          "lsCov": 4.2,
+          "totalDelta": 0.21,
+          "lsDelta": 0.18
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - FED",
+          "pipe": 3.78,
+          "ls": 3.47,
+          "qtd": 0.32,
+          "target": 1.37,
+          "ltb": 1.05,
+          "totalCov": 3.78,
+          "lsCov": 3.47,
+          "totalDelta": -0.04,
+          "lsDelta": 0
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - SLED",
+          "pipe": 2.31,
+          "ls": 2.21,
+          "qtd": 0.11,
+          "target": 0.95,
+          "ltb": 0.84,
+          "totalCov": 2.89,
+          "lsCov": 2.76,
+          "totalDelta": -0.06,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "AMS Sealights",
+          "static": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "productRows": [
+        {
+          "product": "Platform",
+          "geo": "AMS",
+          "pipe": 19.32,
+          "ls": 16.59,
+          "acv": 1.47,
+          "target": 8.4,
+          "totalCov": 2.42,
+          "lsCov": 2.08,
+          "totalDelta": 0.05,
+          "lsDelta": -0.03
+        },
+        {
+          "product": "Platform",
+          "geo": "EMEA",
+          "pipe": 12.39,
+          "ls": 9.98,
+          "acv": 0.63,
+          "target": 4.73,
+          "totalCov": 2.75,
+          "lsCov": 2.22,
+          "totalDelta": 0.02,
+          "lsDelta": -0.01
+        },
+        {
+          "product": "Platform",
+          "geo": "APAC",
+          "pipe": 2.52,
+          "ls": 2.1,
+          "acv": 0.32,
+          "target": 2.1,
+          "totalCov": 1.26,
+          "lsCov": 1.05,
+          "totalDelta": 0.08,
+          "lsDelta": 0.05
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "AMS",
+          "pipe": 2.1,
+          "ls": 1.79,
+          "acv": 0.11,
+          "target": 0.63,
+          "totalCov": 3.5,
+          "lsCov": 2.97,
+          "totalDelta": -0.19,
+          "lsDelta": -0.13
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "EMEA",
+          "pipe": 2,
+          "ls": 1.58,
+          "acv": 0,
+          "target": 0.53,
+          "totalCov": 3.99,
+          "lsCov": 3.15,
+          "totalDelta": -0.31,
+          "lsDelta": -0.19
+        },
+        {
+          "product": "Security",
+          "geo": "AMS",
+          "pipe": 11.76,
+          "ls": 9.87,
+          "acv": 0.84,
+          "target": 4.73,
+          "totalCov": 2.61,
+          "lsCov": 2.19,
+          "totalDelta": 0.22,
+          "lsDelta": 0.17
+        },
+        {
+          "product": "Security",
+          "geo": "EMEA",
+          "pipe": 9.03,
+          "ls": 7.46,
+          "acv": 0.53,
+          "target": 3.78,
+          "totalCov": 2.51,
+          "lsCov": 2.07,
+          "totalDelta": 0.04,
+          "lsDelta": -0.02
+        },
+        {
+          "product": "Performance",
+          "geo": "AMS",
+          "pipe": 3.68,
+          "ls": 2.94,
+          "acv": 0.21,
+          "target": 1.58,
+          "totalCov": 2.45,
+          "lsCov": 1.96,
+          "totalDelta": -0.11,
+          "lsDelta": -0.08
+        },
+        {
+          "product": "Vera",
+          "geo": "EMEA",
+          "pipe": 2.21,
+          "ls": 1.47,
+          "acv": 0,
+          "target": 1.05,
+          "totalCov": 2.21,
+          "lsCov": 1.47,
+          "totalDelta": 0.34,
+          "lsDelta": 0.22
+        },
+        {
+          "product": "Sealights",
+          "geo": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "acv": 0,
+          "target": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "dealTypeRows": [
+        {
+          "geo": "AMS",
+          "dealType": "New",
+          "pipe": 15.23,
+          "ls": 13.02,
+          "acv": 1.05,
+          "target": 7.35,
+          "totalCov": 2.17,
+          "lsCov": 1.86,
+          "totalDelta": -0.19,
+          "lsDelta": -0.16
+        },
+        {
+          "geo": "AMS",
+          "dealType": "Existing",
+          "pipe": 10.19,
+          "ls": 8.3,
+          "acv": 1.26,
+          "target": 5.57,
+          "totalCov": 1.92,
+          "lsCov": 1.56,
+          "totalDelta": -0.09,
+          "lsDelta": -0.15
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "New",
+          "pipe": 16.17,
+          "ls": 13.44,
+          "acv": 1.37,
+          "target": 6.3,
+          "totalCov": 2.7,
+          "lsCov": 2.24,
+          "totalDelta": 0.04,
+          "lsDelta": -0.03
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "Existing",
+          "pipe": 9.56,
+          "ls": 7.35,
+          "acv": 1.05,
+          "target": 4.41,
+          "totalCov": 2.28,
+          "lsCov": 1.75,
+          "totalDelta": -0.04,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "APAC",
+          "dealType": "New",
+          "pipe": 6.72,
+          "ls": 5.04,
+          "acv": 0.32,
+          "target": 2.73,
+          "totalCov": 2.58,
+          "lsCov": 1.94,
+          "totalDelta": -0.21,
+          "lsDelta": -0.19
+        },
+        {
+          "geo": "APAC",
+          "dealType": "Existing",
+          "pipe": 2.94,
+          "ls": 2.31,
+          "acv": 0.42,
+          "target": 1.79,
+          "totalCov": 1.73,
+          "lsCov": 1.35,
+          "totalDelta": 0.05,
+          "lsDelta": 0.02
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "New",
+          "pipe": 1.89,
+          "ls": 1.47,
+          "acv": 0,
+          "target": 0.42,
+          "totalCov": 4.73,
+          "lsCov": 3.68,
+          "totalDelta": 0.19,
+          "lsDelta": 0.16
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "Existing",
+          "pipe": 0.74,
+          "ls": 0.63,
+          "acv": 0.11,
+          "target": 0.32,
+          "totalCov": 2.45,
+          "lsCov": 2.1,
+          "totalDelta": 0.04,
+          "lsDelta": 0.03
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "New",
+          "pipe": 3.57,
+          "ls": 3.36,
+          "acv": 0,
+          "target": 1.68,
+          "totalCov": 2.23,
+          "lsCov": 2.11,
+          "totalDelta": -0.72,
+          "lsDelta": -0.48
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "Existing",
+          "pipe": 2.52,
+          "ls": 2.31,
+          "acv": 0.42,
+          "target": 2.31,
+          "totalCov": 1.39,
+          "lsCov": 1.25,
+          "totalDelta": -1.62,
+          "lsDelta": -1.27
+        }
+      ]
+    },
+    "4": {
+      "rows": [
+        {
+          "geo": "AMS",
+          "team": "AMS Corporate",
+          "pipe": 0.45,
+          "ls": 0.18,
+          "qtd": 0,
+          "target": 0.62,
+          "ltb": 0.53,
+          "totalCov": 0.62,
+          "lsCov": 0.3,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS East",
+          "pipe": 5.25,
+          "ls": 4.72,
+          "qtd": 0.45,
+          "target": 3.2,
+          "ltb": 2.76,
+          "totalCov": 1.68,
+          "lsCov": 1.5,
+          "totalDelta": -0.2,
+          "lsDelta": -0.24
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS South",
+          "pipe": 6.41,
+          "ls": 5.34,
+          "qtd": 0.36,
+          "target": 3.38,
+          "ltb": 3.03,
+          "totalCov": 1.88,
+          "lsCov": 1.57,
+          "totalDelta": -0.4,
+          "lsDelta": -0.39
+        },
+        {
+          "geo": "AMS",
+          "team": "AMS West",
+          "pipe": 9.43,
+          "ls": 7.83,
+          "qtd": 1.16,
+          "target": 3.74,
+          "ltb": 2.58,
+          "totalCov": 3.26,
+          "lsCov": 2.7,
+          "totalDelta": -0.12,
+          "lsDelta": -0.14
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA Corporate",
+          "pipe": 1.07,
+          "ls": 0.89,
+          "qtd": 0,
+          "target": 0.89,
+          "ltb": 0.8,
+          "totalCov": 1.19,
+          "lsCov": 1,
+          "totalDelta": 0.05,
+          "lsDelta": 0.05
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA DACH",
+          "pipe": 9.97,
+          "ls": 8.37,
+          "qtd": 1.6,
+          "target": 2.67,
+          "ltb": 1.07,
+          "totalCov": 8.38,
+          "lsCov": 7.04,
+          "totalDelta": 0.05,
+          "lsDelta": -0.02
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA North",
+          "pipe": 5.87,
+          "ls": 4.54,
+          "qtd": 0.09,
+          "target": 3.2,
+          "ltb": 3.12,
+          "totalCov": 1.66,
+          "lsCov": 1.3,
+          "totalDelta": 0.13,
+          "lsDelta": 0.12
+        },
+        {
+          "geo": "EMEA",
+          "team": "EMEA South",
+          "pipe": 4.9,
+          "ls": 3.74,
+          "qtd": 0.36,
+          "target": 2.4,
+          "ltb": 2.05,
+          "totalCov": 2.16,
+          "lsCov": 1.66,
+          "totalDelta": -0.03,
+          "lsDelta": -0.04
+        },
+        {
+          "geo": "APAC",
+          "team": "APAC",
+          "pipe": 8.19,
+          "ls": 6.23,
+          "qtd": 0.62,
+          "target": 3.83,
+          "ltb": 3.2,
+          "totalCov": 2.28,
+          "lsCov": 1.72,
+          "totalDelta": -0.12,
+          "lsDelta": -0.12
+        },
+        {
+          "geo": "LATAM",
+          "team": "LATAM",
+          "pipe": 2.23,
+          "ls": 1.78,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.45,
+          "totalCov": 4.09,
+          "lsCov": 3.3,
+          "totalDelta": 0.18,
+          "lsDelta": 0.15
+        },
+        {
+          "geo": "Public Sector",
+          "team": "Public Sector",
+          "pipe": 5.16,
+          "ls": 4.81,
+          "qtd": 0.36,
+          "target": 1.96,
+          "ltb": 1.6,
+          "totalCov": 2.88,
+          "lsCov": 2.68,
+          "totalDelta": -0.04,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "AMS Sealights",
+          "team": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "staticRows": [
+        {
+          "team": "AMS Corporate",
+          "static": "AMS Corporate",
+          "pipe": 0.27,
+          "ls": 0.09,
+          "qtd": 0,
+          "target": 0.36,
+          "ltb": 0.36,
+          "totalCov": 0.67,
+          "lsCov": 0.22,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS Corporate",
+          "static": "AMS DevOps",
+          "pipe": 0.18,
+          "ls": 0.09,
+          "qtd": 0,
+          "target": 0.27,
+          "ltb": 0.18,
+          "totalCov": 0.89,
+          "lsCov": 0.45,
+          "totalDelta": 0,
+          "lsDelta": 0
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Canada",
+          "pipe": 1.6,
+          "ls": 1.42,
+          "qtd": 0.09,
+          "target": 0.98,
+          "ltb": 0.89,
+          "totalCov": 1.6,
+          "lsCov": 1.42,
+          "totalDelta": -0.13,
+          "lsDelta": -0.16
+        },
+        {
+          "team": "AMS East",
+          "static": "AMS Core East Northeast",
+          "pipe": 3.65,
+          "ls": 3.29,
+          "qtd": 0.36,
+          "target": 2.23,
+          "ltb": 1.87,
+          "totalCov": 1.74,
+          "lsCov": 1.57,
+          "totalDelta": -0.23,
+          "lsDelta": -0.27
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South Southeast",
+          "pipe": 2.67,
+          "ls": 2.23,
+          "qtd": 0.18,
+          "target": 1.42,
+          "ltb": 1.25,
+          "totalCov": 1.9,
+          "lsCov": 1.59,
+          "totalDelta": -0.36,
+          "lsDelta": -0.34
+        },
+        {
+          "team": "AMS South",
+          "static": "AMS Core South TOLA",
+          "pipe": 3.74,
+          "ls": 3.12,
+          "qtd": 0.18,
+          "target": 1.96,
+          "ltb": 1.78,
+          "totalCov": 1.87,
+          "lsCov": 1.56,
+          "totalDelta": -0.44,
+          "lsDelta": -0.43
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Central",
+          "pipe": 4.09,
+          "ls": 3.38,
+          "qtd": 0.45,
+          "target": 1.6,
+          "ltb": 1.16,
+          "totalCov": 3.15,
+          "lsCov": 2.6,
+          "totalDelta": -0.09,
+          "lsDelta": -0.11
+        },
+        {
+          "team": "AMS West",
+          "static": "AMS Core West Pacific",
+          "pipe": 5.34,
+          "ls": 4.45,
+          "qtd": 0.71,
+          "target": 2.14,
+          "ltb": 1.42,
+          "totalCov": 3.34,
+          "lsCov": 2.79,
+          "totalDelta": -0.14,
+          "lsDelta": -0.17
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA Corporate",
+          "pipe": 0.62,
+          "ls": 0.53,
+          "qtd": 0,
+          "target": 0.53,
+          "ltb": 0.45,
+          "totalCov": 1.25,
+          "lsCov": 1.07,
+          "totalDelta": 0.04,
+          "lsDelta": 0.04
+        },
+        {
+          "team": "EMEA Corporate",
+          "static": "EMEA DevOps",
+          "pipe": 0.45,
+          "ls": 0.36,
+          "qtd": 0,
+          "target": 0.36,
+          "ltb": 0.36,
+          "totalCov": 1.11,
+          "lsCov": 0.89,
+          "totalDelta": 0.06,
+          "lsDelta": 0.06
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Alps CEE",
+          "pipe": 2.49,
+          "ls": 2.14,
+          "qtd": 0.36,
+          "target": 0.62,
+          "ltb": 0.27,
+          "totalCov": 8.3,
+          "lsCov": 7.12,
+          "totalDelta": 0.04,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Germany",
+          "pipe": 4.63,
+          "ls": 3.92,
+          "qtd": 0.8,
+          "target": 1.34,
+          "ltb": 0.53,
+          "totalCov": 7.72,
+          "lsCov": 6.52,
+          "totalDelta": 0.06,
+          "lsDelta": 0
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Nordics",
+          "pipe": 1.6,
+          "ls": 1.25,
+          "qtd": 0.27,
+          "target": 0.36,
+          "ltb": 0.09,
+          "totalCov": 16.02,
+          "lsCov": 12.46,
+          "totalDelta": 0.07,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "EMEA DACH",
+          "static": "EMEA Core Benelux",
+          "pipe": 1.25,
+          "ls": 1.07,
+          "qtd": 0.18,
+          "target": 0.36,
+          "ltb": 0.18,
+          "totalCov": 6.23,
+          "lsCov": 5.34,
+          "totalDelta": 0.05,
+          "lsDelta": -0.01
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core BeNeLux Nordics",
+          "pipe": 2.14,
+          "ls": 1.6,
+          "qtd": 0,
+          "target": 1.16,
+          "ltb": 1.16,
+          "totalCov": 1.65,
+          "lsCov": 1.23,
+          "totalDelta": 0.11,
+          "lsDelta": 0.09
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core UKI",
+          "pipe": 2.85,
+          "ls": 2.31,
+          "qtd": 0.09,
+          "target": 1.51,
+          "ltb": 1.42,
+          "totalCov": 1.78,
+          "lsCov": 1.45,
+          "totalDelta": 0.16,
+          "lsDelta": 0.13
+        },
+        {
+          "team": "EMEA North",
+          "static": "EMEA Core MEA North",
+          "pipe": 0.89,
+          "ls": 0.62,
+          "qtd": 0,
+          "target": 0.53,
+          "ltb": 0.53,
+          "totalCov": 1.49,
+          "lsCov": 1.04,
+          "totalDelta": 0.14,
+          "lsDelta": 0.12
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France Emerging",
+          "pipe": 1.25,
+          "ls": 0.98,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.53,
+          "totalCov": 2.07,
+          "lsCov": 1.63,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core France",
+          "pipe": 1.42,
+          "ls": 1.07,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.53,
+          "totalCov": 2.38,
+          "lsCov": 1.78,
+          "totalDelta": -0.04,
+          "lsDelta": -0.05
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Emerging",
+          "pipe": 0.98,
+          "ls": 0.8,
+          "qtd": 0.09,
+          "target": 0.53,
+          "ltb": 0.45,
+          "totalCov": 1.96,
+          "lsCov": 1.6,
+          "totalDelta": -0.03,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core Middle East Africa",
+          "pipe": 0.71,
+          "ls": 0.53,
+          "qtd": 0,
+          "target": 0.36,
+          "ltb": 0.36,
+          "totalCov": 1.78,
+          "lsCov": 1.34,
+          "totalDelta": -0.04,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "EMEA South",
+          "static": "EMEA Core MEA South",
+          "pipe": 0.53,
+          "ls": 0.36,
+          "qtd": 0.09,
+          "target": 0.27,
+          "ltb": 0.18,
+          "totalCov": 2.67,
+          "lsCov": 1.78,
+          "totalDelta": -0.02,
+          "lsDelta": -0.04
+        },
+        {
+          "team": "APAC",
+          "static": "APAC ANZ",
+          "pipe": 2.31,
+          "ls": 1.78,
+          "qtd": 0.18,
+          "target": 1.07,
+          "ltb": 0.89,
+          "totalCov": 2.31,
+          "lsCov": 1.78,
+          "totalDelta": -0.09,
+          "lsDelta": -0.11
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia",
+          "pipe": 1.78,
+          "ls": 1.34,
+          "qtd": 0.09,
+          "target": 0.89,
+          "ltb": 0.8,
+          "totalCov": 1.98,
+          "lsCov": 1.49,
+          "totalDelta": -0.13,
+          "lsDelta": -0.14
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia AGE",
+          "pipe": 1.25,
+          "ls": 0.98,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.53,
+          "totalCov": 2.07,
+          "lsCov": 1.63,
+          "totalDelta": -0.11,
+          "lsDelta": -0.12
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Asia SEA",
+          "pipe": 1.42,
+          "ls": 1.07,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.53,
+          "totalCov": 2.38,
+          "lsCov": 1.78,
+          "totalDelta": -0.12,
+          "lsDelta": -0.13
+        },
+        {
+          "team": "APAC",
+          "static": "APAC Japan",
+          "pipe": 1.42,
+          "ls": 1.07,
+          "qtd": 0.18,
+          "target": 0.62,
+          "ltb": 0.45,
+          "totalCov": 2.85,
+          "lsCov": 2.14,
+          "totalDelta": -0.11,
+          "lsDelta": -0.12
+        },
+        {
+          "team": "LATAM",
+          "static": "AMS Core LATAM",
+          "pipe": 2.23,
+          "ls": 1.78,
+          "qtd": 0.09,
+          "target": 0.62,
+          "ltb": 0.45,
+          "totalCov": 4.45,
+          "lsCov": 3.56,
+          "totalDelta": 0.18,
+          "lsDelta": 0.15
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - FED",
+          "pipe": 3.2,
+          "ls": 2.94,
+          "qtd": 0.27,
+          "target": 1.16,
+          "ltb": 0.89,
+          "totalCov": 3.2,
+          "lsCov": 2.94,
+          "totalDelta": -0.04,
+          "lsDelta": 0
+        },
+        {
+          "team": "Public Sector",
+          "static": "AMS Public Sector - SLED",
+          "pipe": 1.96,
+          "ls": 1.87,
+          "qtd": 0.09,
+          "target": 0.8,
+          "ltb": 0.71,
+          "totalCov": 2.45,
+          "lsCov": 2.34,
+          "totalDelta": -0.05,
+          "lsDelta": -0.02
+        },
+        {
+          "team": "AMS Sealights",
+          "static": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "qtd": 0,
+          "target": null,
+          "ltb": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "productRows": [
+        {
+          "product": "Platform",
+          "geo": "AMS",
+          "pipe": 16.38,
+          "ls": 14.06,
+          "acv": 1.25,
+          "target": 7.12,
+          "totalCov": 2.05,
+          "lsCov": 1.76,
+          "totalDelta": 0.04,
+          "lsDelta": -0.03
+        },
+        {
+          "product": "Platform",
+          "geo": "EMEA",
+          "pipe": 10.5,
+          "ls": 8.46,
+          "acv": 0.53,
+          "target": 4.01,
+          "totalCov": 2.33,
+          "lsCov": 1.88,
+          "totalDelta": 0.02,
+          "lsDelta": -0.01
+        },
+        {
+          "product": "Platform",
+          "geo": "APAC",
+          "pipe": 2.14,
+          "ls": 1.78,
+          "acv": 0.27,
+          "target": 1.78,
+          "totalCov": 1.07,
+          "lsCov": 0.89,
+          "totalDelta": 0.07,
+          "lsDelta": 0.04
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "AMS",
+          "pipe": 1.78,
+          "ls": 1.51,
+          "acv": 0.09,
+          "target": 0.53,
+          "totalCov": 2.96,
+          "lsCov": 2.52,
+          "totalDelta": -0.16,
+          "lsDelta": -0.11
+        },
+        {
+          "product": "Data Integrity",
+          "geo": "EMEA",
+          "pipe": 1.69,
+          "ls": 1.34,
+          "acv": 0,
+          "target": 0.45,
+          "totalCov": 3.38,
+          "lsCov": 2.67,
+          "totalDelta": -0.27,
+          "lsDelta": -0.16
+        },
+        {
+          "product": "Security",
+          "geo": "AMS",
+          "pipe": 9.97,
+          "ls": 8.37,
+          "acv": 0.71,
+          "target": 4.01,
+          "totalCov": 2.22,
+          "lsCov": 1.86,
+          "totalDelta": 0.19,
+          "lsDelta": 0.14
+        },
+        {
+          "product": "Security",
+          "geo": "EMEA",
+          "pipe": 7.65,
+          "ls": 6.32,
+          "acv": 0.45,
+          "target": 3.2,
+          "totalCov": 2.13,
+          "lsCov": 1.75,
+          "totalDelta": 0.04,
+          "lsDelta": -0.02
+        },
+        {
+          "product": "Performance",
+          "geo": "AMS",
+          "pipe": 3.12,
+          "ls": 2.49,
+          "acv": 0.18,
+          "target": 1.34,
+          "totalCov": 2.07,
+          "lsCov": 1.66,
+          "totalDelta": -0.09,
+          "lsDelta": -0.07
+        },
+        {
+          "product": "Vera",
+          "geo": "EMEA",
+          "pipe": 1.87,
+          "ls": 1.25,
+          "acv": 0,
+          "target": 0.89,
+          "totalCov": 1.87,
+          "lsCov": 1.25,
+          "totalDelta": 0.28,
+          "lsDelta": 0.19
+        },
+        {
+          "product": "Sealights",
+          "geo": "AMS Sealights",
+          "pipe": 0,
+          "ls": 0,
+          "acv": 0,
+          "target": null,
+          "totalCov": null,
+          "lsCov": null,
+          "totalDelta": null,
+          "lsDelta": null
+        }
+      ],
+      "dealTypeRows": [
+        {
+          "geo": "AMS",
+          "dealType": "New",
+          "pipe": 12.91,
+          "ls": 11.04,
+          "acv": 0.89,
+          "target": 6.23,
+          "totalCov": 1.84,
+          "lsCov": 1.58,
+          "totalDelta": -0.16,
+          "lsDelta": -0.13
+        },
+        {
+          "geo": "AMS",
+          "dealType": "Existing",
+          "pipe": 8.63,
+          "ls": 7.03,
+          "acv": 1.07,
+          "target": 4.72,
+          "totalCov": 1.63,
+          "lsCov": 1.33,
+          "totalDelta": -0.08,
+          "lsDelta": -0.12
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "New",
+          "pipe": 13.71,
+          "ls": 11.39,
+          "acv": 1.16,
+          "target": 5.34,
+          "totalCov": 2.29,
+          "lsCov": 1.9,
+          "totalDelta": 0.04,
+          "lsDelta": -0.03
+        },
+        {
+          "geo": "EMEA",
+          "dealType": "Existing",
+          "pipe": 8.1,
+          "ls": 6.23,
+          "acv": 0.89,
+          "target": 3.74,
+          "totalCov": 1.93,
+          "lsCov": 1.49,
+          "totalDelta": -0.04,
+          "lsDelta": -0.01
+        },
+        {
+          "geo": "APAC",
+          "dealType": "New",
+          "pipe": 5.7,
+          "ls": 4.27,
+          "acv": 0.27,
+          "target": 2.31,
+          "totalCov": 2.19,
+          "lsCov": 1.65,
+          "totalDelta": -0.18,
+          "lsDelta": -0.16
+        },
+        {
+          "geo": "APAC",
+          "dealType": "Existing",
+          "pipe": 2.49,
+          "ls": 1.96,
+          "acv": 0.36,
+          "target": 1.51,
+          "totalCov": 1.47,
+          "lsCov": 1.15,
+          "totalDelta": 0.04,
+          "lsDelta": 0.02
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "New",
+          "pipe": 1.6,
+          "ls": 1.25,
+          "acv": 0,
+          "target": 0.36,
+          "totalCov": 4.01,
+          "lsCov": 3.12,
+          "totalDelta": 0.16,
+          "lsDelta": 0.13
+        },
+        {
+          "geo": "LATAM",
+          "dealType": "Existing",
+          "pipe": 0.62,
+          "ls": 0.53,
+          "acv": 0.09,
+          "target": 0.27,
+          "totalCov": 2.07,
+          "lsCov": 1.78,
+          "totalDelta": 0.04,
+          "lsDelta": 0.03
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "New",
+          "pipe": 3.03,
+          "ls": 2.85,
+          "acv": 0,
+          "target": 1.42,
+          "totalCov": 1.89,
+          "lsCov": 1.79,
+          "totalDelta": -0.61,
+          "lsDelta": -0.41
+        },
+        {
+          "geo": "Public Sector",
+          "dealType": "Existing",
+          "pipe": 2.14,
+          "ls": 1.96,
+          "acv": 0.36,
+          "target": 1.96,
+          "totalCov": 1.17,
+          "lsCov": 1.06,
+          "totalDelta": -1.37,
+          "lsDelta": -1.08
+        }
+      ]
+    }
+  },
+  "kpisByQuarter": {
+    "1": {
+      "totalPipe": 60.89,
+      "lsPipe": 50.05,
+      "totalCov": 2.780365296803653,
+      "lsCov": 2.2853881278538815,
+      "totalCovDelta": 0.02,
+      "lsCovDelta": -0.015,
+      "lsShare": 0.821974051568402
+    },
+    "2": {
+      "totalPipe": 66.2,
+      "lsPipe": 54.400000000000006,
+      "totalCov": 2.7815126050420167,
+      "lsCov": 2.285714285714286,
+      "totalCovDelta": 0.02,
+      "lsCovDelta": -0.015,
+      "lsShare": 0.8217522658610272
+    },
+    "3": {
+      "totalPipe": 69.53,
+      "lsPipe": 57.13000000000001,
+      "totalCov": 2.7789768185451638,
+      "lsCov": 2.283373301358913,
+      "totalCovDelta": 0.02,
+      "lsCovDelta": -0.015,
+      "lsShare": 0.8216597152308357
+    },
+    "4": {
+      "totalPipe": 58.92999999999999,
+      "lsPipe": 48.43000000000001,
+      "totalCov": 2.781028787163756,
+      "lsCov": 2.285512033978292,
+      "totalCovDelta": 0.02,
+      "lsCovDelta": -0.015,
+      "lsShare": 0.8218225012726966
+    }
+  },
+  "kpis": {
+    "totalPipe": 66.2,
+    "lsPipe": 54.400000000000006,
+    "totalCov": 2.7815126050420167,
+    "lsCov": 2.285714285714286,
+    "totalCovDelta": 0.02,
+    "lsCovDelta": -0.015,
+    "lsShare": 0.8217522658610272
+  }
+}
+</script>
+
+<script type="text/babel" data-presets="env,react">
+const DATA = JSON.parse(document.getElementById('dashboard-data').textContent);
+if (!DATA.byQuarter || !DATA.byQuarter[String(DATA.quarter)]) {
+  console.error('Dashboard payload missing byQuarter[' + DATA.quarter + ']. Got keys:', Object.keys(DATA));
+}
+
+/* ---------- helpers ---------- */
+const fmtM = (v) => v == null ? '—' : `$${v.toFixed(1)}`;
+const fmtCov = (v) => v == null ? '—' : `${v.toFixed(2)}×`;
+const fmtDelta = (v) => {
+  if (v == null) return '—';
+  if (Math.abs(v) < 0.005) return '±0.00';
+  const s = v > 0 ? '+' : '−';
+  return `${s}${Math.abs(v).toFixed(2)}`;
+};
+const covClass = (v) => v == null ? 'cov-dash' : v < 1.5 ? 'cov-bad' : v < 2.5 ? 'cov-warn' : 'cov-good';
+const deltaClass = (v) => v == null ? 'delta-dash' : Math.abs(v) < 0.005 ? 'delta-zero' : v > 0 ? 'delta-pos' : 'delta-neg';
+
+/* ---------- Filter dropdown ---------- */
+function useClickOutside(ref, onClose) {
+  React.useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) onClose(); }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [ref, onClose]);
+}
+
+function MultiDropdown({ label, options, value, onChange, groupedOptions, tree }) {
+  // value: array of selected; empty = "All"
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  useClickOutside(ref, () => setOpen(false));
+  const all = options || (groupedOptions ? Object.values(groupedOptions).flat() : []);
+  const isAll = value.length === 0 || value.length === all.length;
+  const toggle = (opt) => {
+    const set = new Set(value.length === 0 ? all : value);
+    if (set.has(opt)) set.delete(opt); else set.add(opt);
+    const next = [...set];
+    onChange(next.length === all.length ? [] : next);
+  };
+  const selectGroup = (groupItems, e) => {
+    e.stopPropagation();
+    const set = new Set(value.length === 0 ? all : value);
+    const allInGroup = groupItems.every(x => set.has(x));
+    if (allInGroup) groupItems.forEach(x => set.delete(x));
+    else groupItems.forEach(x => set.add(x));
+    const next = [...set];
+    onChange(next.length === all.length ? [] : next);
+  };
+  const selected = value.length === 0 ? all : value;
+  return (
+    <div className="filter" ref={ref}>
+      <button className={`f-trigger ${open || !isAll ? 'is-active' : ''}`} onClick={() => setOpen(!open)}>
+        <span className="ftxt">{label}</span>
+        <span className={`fcount ${isAll ? 'all' : ''}`}>{isAll ? 'All' : value.length}</span>
+        <span className="chev">▾</span>
+      </button>
+      {open && (
+        <div className="f-pop">
+          <div className="f-actions">
+            <span>{isAll ? `All ${all.length} selected` : `${value.length} of ${all.length}`}</span>
+            <div>
+              <button onClick={() => onChange([])}>Select all</button>
+              <button onClick={() => onChange(all.slice(0,1).map(()=>'__none__'))}>Clear</button>
+            </div>
+          </div>
+          {tree && groupedOptions ? (
+            <TreeBody groupedOptions={groupedOptions} selected={selected} toggle={toggle} selectGroup={selectGroup} />
+          ) : groupedOptions ? (
+            Object.entries(groupedOptions).map(([grp, items]) => (
+              <div className="f-group" key={grp}>
+                <div className="f-grouphead">
+                  <span>{grp}</span>
+                  <span className="pickgroup" onClick={(e) => selectGroup(items, e)}>
+                    {items.every(x => selected.includes(x)) ? 'clear group' : 'all in group'}
+                  </span>
+                </div>
+                {items.map(opt => (
+                  <label className="f-opt is-nested" key={opt}>
+                    <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className="f-group">
+              {options.map(opt => (
+                <label className="f-opt" key={opt}>
+                  <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreeBody({ groupedOptions, selected, toggle, selectGroup }) {
+  const [openGroups, setOpenGroups] = React.useState(() => {
+    const o = {}; Object.keys(groupedOptions).forEach(g => { o[g] = true; }); return o;
+  });
+  const toggleGroup = (g) => setOpenGroups(s => ({ ...s, [g]: !s[g] }));
+  return (
+    <div>
+      {Object.entries(groupedOptions).map(([grp, items]) => {
+        const sel = items.filter(x => selected.includes(x)).length;
+        const allSel = sel === items.length;
+        const noneSel = sel === 0;
+        const isOpen = openGroups[grp];
+        return (
+          <div key={grp}>
+            <div className={`f-tree-node ${isOpen ? '' : 'is-collapsed'}`} onClick={() => toggleGroup(grp)}>
+              <span className="tchev">▾</span>
+              <input
+                type="checkbox"
+                checked={allSel}
+                ref={el => { if (el) el.indeterminate = !allSel && !noneSel; }}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => { e.stopPropagation(); selectGroup(items, { stopPropagation: () => {} }); }}
+              />
+              <span className="glabel">{grp}</span>
+              <span className="gcount">{sel}/{items.length}</span>
+            </div>
+            {isOpen && (
+              <div className="f-tree-children">
+                {items.map(opt => (
+                  <label className="f-opt" key={opt} onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} />
+                    <span>{opt}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Collapsible section ---------- */
+function Section({ title, desc, miniKpis, defaultOpen = true, children }) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <section className={`section ${open ? '' : 'is-collapsed'}`}>
+      <div className="section-head" onClick={() => setOpen(!open)} role="button" aria-expanded={open}>
+        <div className="left">
+          <span className="chev">▾</span>
+          <h2>{title}</h2>
+          {desc && <span className="desc">{desc}</span>}
+        </div>
+        <div className="right">
+          {miniKpis && miniKpis.map((k, i) => (
+            <span className="mini-kpi" key={i}>{k.label}: <b>{k.value}</b></span>
+          ))}
+        </div>
+      </div>
+      <div className="section-body">{children}</div>
+    </section>
+  );
+}
+
+/* ---------- Quarterly Summary table ---------- */
+function QuarterlyTable({ rows, staticRows }) {
+  const priorShipped = rows.length > 0 && rows.some(r => r.pipePrior !== undefined);
+  // group by geo; team rows nested
+  const byGeo = {};
+  rows.forEach(r => { (byGeo[r.geo] = byGeo[r.geo] || []).push(r); });
+  const [collapsed, setCollapsed] = React.useState({});
+  const toggle = (key) => setCollapsed(s => ({ ...s, [key]: s[key] === undefined ? true : !s[key] }));
+
+  // totals
+  const tot = rows.reduce((a, r) => ({
+    pipe: a.pipe + r.pipe,
+    ls: a.ls + r.ls,
+    qtd: a.qtd + r.qtd,
+    target: a.target + (r.target || 0),
+    ltb: a.ltb + (r.ltb || 0),
+    pipePrior: a.pipePrior + (r.pipePrior ?? 0),
+    lsPrior: a.lsPrior + (r.lsPrior ?? 0),
+    qtdPrior: a.qtdPrior + (r.qtdPrior ?? 0),
+  }), { pipe: 0, ls: 0, qtd: 0, target: 0, ltb: 0, pipePrior: 0, lsPrior: 0, qtdPrior: 0 });
+  const totCov = tot.ltb > 0 ? tot.pipe / tot.ltb : null;
+  const totLs = tot.ltb > 0 ? tot.ls / tot.ltb : null;
+  const priorLtb = tot.target - tot.qtdPrior;
+  const priorTotCov = priorShipped && priorLtb > 0 ? tot.pipePrior / priorLtb : null;
+  const priorLsCov = priorShipped && priorLtb > 0 ? tot.lsPrior / priorLtb : null;
+  const totCovDelta = (totCov != null && priorTotCov != null) ? totCov - priorTotCov : null;
+  const lsCovDelta = (totLs != null && priorLsCov != null) ? totLs - priorLsCov : null;
+
+  if (rows.length === 0) {
+    return <div className="empty"><strong>No rows match the current filters.</strong>Try widening Geo or Quarter.</div>;
+  }
+
+  return (
+    <table className="t">
+      <thead>
+        <tr className="group-head">
+          <th></th><th></th><th></th><th></th><th></th><th></th><th></th>
+          <th className="span group-start" colSpan={2}>Total Coverage</th>
+          <th className="span group-start" colSpan={2}>LS Coverage</th>
+        </tr>
+        <tr className="cols">
+          <th className="l">Region</th><th className="l">Team</th>
+          <th>Total Pipe</th><th>LS Pipe</th><th>QTD Booked</th><th>Target</th><th>LTB</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(byGeo).map(([geo, items]) => {
+          const teams = items.filter(r => r.team && r.team !== geo);
+          const direct = items.find(r => !r.team || r.team === geo);
+          const showHeader = teams.length > 0;
+          // geo subtotal
+          const sub = items.reduce((a, r) => ({
+            pipe: a.pipe + r.pipe, ls: a.ls + r.ls, qtd: a.qtd + r.qtd,
+            target: a.target + (r.target || 0), ltb: a.ltb + (r.ltb || 0),
+            pipePrior: a.pipePrior + (r.pipePrior ?? 0),
+            lsPrior: a.lsPrior + (r.lsPrior ?? 0),
+            qtdPrior: a.qtdPrior + (r.qtdPrior ?? 0),
+          }), { pipe: 0, ls: 0, qtd: 0, target: 0, ltb: 0, pipePrior: 0, lsPrior: 0, qtdPrior: 0 });
+          const subCov = sub.ltb > 0 ? sub.pipe / sub.ltb : null;
+          const subLs = sub.ltb > 0 ? sub.ls / sub.ltb : null;
+          const subPriorLtb = sub.target - sub.qtdPrior;
+          const subPriorTotCov = priorShipped && subPriorLtb > 0 ? sub.pipePrior / subPriorLtb : null;
+          const subPriorLsCov = priorShipped && subPriorLtb > 0 ? sub.lsPrior / subPriorLtb : null;
+          const subTotDelta = (subCov != null && subPriorTotCov != null) ? subCov - subPriorTotCov : null;
+          const subLsDelta = (subLs != null && subPriorLsCov != null) ? subLs - subPriorLsCov : null;
+          const isCollapsed = collapsed[geo];
+
+          return (
+            <React.Fragment key={geo}>
+              {showHeader ? (
+                <tr className={`row-team ${isCollapsed ? 'is-collapsed' : ''}`}>
+                  <td className="l" onClick={() => toggle(geo)} colSpan={2}>
+                    <span className="row-chev">▾</span>{geo}
+                    <span style={{color:'var(--ink-4)', fontWeight: 400, marginLeft: 8, fontSize: 11.5}}>
+                      {teams.length} team{teams.length === 1 ? '' : 's'}
+                    </span>
+                  </td>
+                  <td className="num">{fmtM(sub.pipe)}</td>
+                  <td className="num">{fmtM(sub.ls)}</td>
+                  <td className="num">{fmtM(sub.qtd)}</td>
+                  <td className="num">{fmtM(sub.target)}</td>
+                  <td className="num">{fmtM(sub.ltb)}</td>
+                  <td className={`num cov ${covClass(subCov)} group-start`}>{fmtCov(subCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(subTotDelta)}`}>{fmtDelta(subTotDelta)}</td>
+                  <td className={`num cov ${covClass(subLs)} group-start`}>{fmtCov(subLs)}</td>
+                  <td className={`num delta delta-col ${deltaClass(subLsDelta)}`}>{fmtDelta(subLsDelta)}</td>
+                </tr>
+              ) : null}
+              {!isCollapsed && teams.map((r, i) => {
+                const statics = (staticRows || []).filter(s => s.team === r.team);
+                const hasKids = statics.length > 1;
+                const tKey = geo + '/' + r.team;
+                const tCollapsed = collapsed[tKey] !== false; /* default collapsed */
+                return (
+                  <React.Fragment key={geo + i}>
+                    <tr className={`row-child ${hasKids ? 'has-children' : ''} ${tCollapsed ? 'is-collapsed' : ''}`}>
+                      <td className="l"></td>
+                      <td className="l" onClick={hasKids ? () => toggle(tKey) : undefined}>
+                        {hasKids && <span className="row-chev">▾</span>}
+                        {r.team}
+                        {hasKids && <span style={{color:'var(--ink-4)', fontWeight: 400, marginLeft: 8, fontSize: 11}}>{statics.length} static</span>}
+                      </td>
+                      <td className="num">{fmtM(r.pipe)}</td>
+                      <td className="num">{fmtM(r.ls)}</td>
+                      <td className="num">{fmtM(r.qtd)}</td>
+                      <td className="num">{fmtM(r.target)}</td>
+                      <td className="num">{fmtM(r.ltb)}</td>
+                      <td className={`num cov ${covClass(r.totalCov)} group-start`}>{fmtCov(r.totalCov)}</td>
+                      <td className={`num delta delta-col ${deltaClass(r.totalDelta)}`}>{fmtDelta(r.totalDelta)}</td>
+                      <td className={`num cov ${covClass(r.lsCov)} group-start`}>{fmtCov(r.lsCov)}</td>
+                      <td className={`num delta delta-col ${deltaClass(r.lsDelta)}`}>{fmtDelta(r.lsDelta)}</td>
+                    </tr>
+                    {hasKids && !tCollapsed && statics.map((s, j) => (
+                      <tr className="row-grandchild" key={tKey + j}>
+                        <td className="l"></td>
+                        <td className="l">{s.static}</td>
+                        <td className="num">{fmtM(s.pipe)}</td>
+                        <td className="num">{fmtM(s.ls)}</td>
+                        <td className="num">{fmtM(s.qtd)}</td>
+                        <td className="num">{fmtM(s.target)}</td>
+                        <td className="num">{fmtM(s.ltb)}</td>
+                        <td className={`num cov ${covClass(s.totalCov)} group-start`}>{fmtCov(s.totalCov)}</td>
+                        <td className={`num delta delta-col ${deltaClass(s.totalDelta)}`}>{fmtDelta(s.totalDelta)}</td>
+                        <td className={`num cov ${covClass(s.lsCov)} group-start`}>{fmtCov(s.lsCov)}</td>
+                        <td className={`num delta delta-col ${deltaClass(s.lsDelta)}`}>{fmtDelta(s.lsDelta)}</td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+              {!showHeader && direct && (
+                <tr>
+                  <td className="l">{geo}</td>
+                  <td className="l"></td>
+                  <td className="num">{fmtM(direct.pipe)}</td>
+                  <td className="num">{fmtM(direct.ls)}</td>
+                  <td className="num">{fmtM(direct.qtd)}</td>
+                  <td className="num">{fmtM(direct.target)}</td>
+                  <td className="num">{fmtM(direct.ltb)}</td>
+                  <td className={`num cov ${covClass(direct.totalCov)} group-start`}>{fmtCov(direct.totalCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(direct.totalDelta)}`}>{fmtDelta(direct.totalDelta)}</td>
+                  <td className={`num cov ${covClass(direct.lsCov)} group-start`}>{fmtCov(direct.lsCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(direct.lsDelta)}`}>{fmtDelta(direct.lsDelta)}</td>
+                </tr>
+              )}
+            </React.Fragment>
+          );
+        })}
+        <tr className="row-total">
+          <td className="l">Core Total</td>
+          <td className="l"></td>
+          <td className="num">{fmtM(tot.pipe)}</td>
+          <td className="num">{fmtM(tot.ls)}</td>
+          <td className="num">{fmtM(tot.qtd)}</td>
+          <td className="num">{fmtM(tot.target)}</td>
+          <td className="num">{fmtM(tot.ltb)}</td>
+          <td className={`num cov ${covClass(totCov)} group-start`}>{fmtCov(totCov)}</td>
+          <td className={`num delta delta-col ${deltaClass(totCovDelta)}`}>{fmtDelta(totCovDelta)}</td>
+          <td className={`num cov ${covClass(totLs)} group-start`}>{fmtCov(totLs)}</td>
+          <td className={`num delta delta-col ${deltaClass(lsCovDelta)}`}>{fmtDelta(lsCovDelta)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+/* ---------- Product table ---------- */
+function ProductTable({ rows }) {
+  const priorShipped = rows.length > 0 && rows.some(r => r.pipePrior !== undefined);
+  const byProduct = {};
+  rows.forEach(r => { (byProduct[r.product] = byProduct[r.product] || []).push(r); });
+  const [collapsed, setCollapsed] = React.useState({});
+  const toggle = (k) => setCollapsed(s => ({ ...s, [k]: !s[k] }));
+  if (rows.length === 0) {
+    return <div className="empty"><strong>No rows match the current filters.</strong>Try widening Product or Geo.</div>;
+  }
+  return (
+    <table className="t">
+      <thead>
+        <tr className="group-head">
+          <th></th><th></th><th></th><th></th><th></th><th></th>
+          <th className="span group-start" colSpan={2}>Total Coverage</th>
+          <th className="span group-start" colSpan={2}>LS Coverage</th>
+        </tr>
+        <tr className="cols">
+          <th className="l">Product</th><th className="l">Geo</th>
+          <th>Total Pipe</th><th>LS Pipe</th><th>ACV</th><th>Target</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(byProduct).map(([prod, items]) => {
+          const sub = items.reduce((a, r) => ({
+            pipe: a.pipe + r.pipe, ls: a.ls + r.ls, acv: a.acv + r.acv,
+            target: a.target + (r.target || 0)
+          }), { pipe: 0, ls: 0, acv: 0, target: 0 });
+          const subCov = sub.target ? sub.pipe / sub.target : null;
+          const subLs = sub.target ? sub.ls / sub.target : null;
+          const isCollapsed = collapsed[prod];
+          return (
+            <React.Fragment key={prod}>
+              <tr className={`row-team ${isCollapsed ? 'is-collapsed' : ''}`}>
+                <td className="l" colSpan={2} onClick={() => toggle(prod)}>
+                  <span className="row-chev">▾</span>{prod}<span style={{color:'var(--ink-4)', fontWeight: 400, marginLeft: 8, fontSize: 11.5}}>{items.length} geo{items.length === 1 ? '' : 's'}</span>
+                </td>
+                <td className="num">{fmtM(sub.pipe)}</td>
+                <td className="num">{fmtM(sub.ls)}</td>
+                <td className="num">{fmtM(sub.acv)}</td>
+                <td className="num">{fmtM(sub.target)}</td>
+                <td className={`num cov ${covClass(subCov)} group-start`}>{fmtCov(subCov)}</td>
+                <td className="num delta delta-col delta-zero">—</td>
+                <td className={`num cov ${covClass(subLs)} group-start`}>{fmtCov(subLs)}</td>
+                <td className="num delta delta-col delta-zero">—</td>
+              </tr>
+              {!isCollapsed && items.map((r, i) => (
+                <tr className="row-child" key={prod + i}>
+                  <td className="l"></td>
+                  <td className="l">{r.geo}</td>
+                  <td className="num">{fmtM(r.pipe)}</td>
+                  <td className="num">{fmtM(r.ls)}</td>
+                  <td className="num">{fmtM(r.acv)}</td>
+                  <td className="num">{fmtM(r.target)}</td>
+                  <td className={`num cov ${covClass(r.totalCov)} group-start`}>{fmtCov(r.totalCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(r.totalDelta)}`}>{fmtDelta(r.totalDelta)}</td>
+                  <td className={`num cov ${covClass(r.lsCov)} group-start`}>{fmtCov(r.lsCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(r.lsDelta)}`}>{fmtDelta(r.lsDelta)}</td>
+                </tr>
+              ))}
+            </React.Fragment>
+          );
+        })}
+        {(() => {
+          const grand = rows.reduce((a, r) => ({
+            pipe: a.pipe + r.pipe,
+            ls: a.ls + r.ls,
+            acv: a.acv + (r.acv || 0),
+            target: a.target + (r.target || 0),
+            pipePrior: a.pipePrior + (r.pipePrior ?? 0),
+            lsPrior: a.lsPrior + (r.lsPrior ?? 0),
+            acvPrior: a.acvPrior + (r.acvPrior ?? 0),
+          }), { pipe: 0, ls: 0, acv: 0, target: 0, pipePrior: 0, lsPrior: 0, acvPrior: 0 });
+          const ltb = grand.target - grand.acv;
+          const totCov = ltb > 0 ? grand.pipe / ltb : null;
+          const lsCov = ltb > 0 ? grand.ls / ltb : null;
+          const priorLtb = grand.target - grand.acvPrior;
+          const priorTot = priorShipped && priorLtb > 0 ? grand.pipePrior / priorLtb : null;
+          const priorLs = priorShipped && priorLtb > 0 ? grand.lsPrior / priorLtb : null;
+          const totDelta = (totCov != null && priorTot != null) ? totCov - priorTot : null;
+          const lsDelta = (lsCov != null && priorLs != null) ? lsCov - priorLs : null;
+          return (
+            <tr className="row-total">
+              <td className="l" colSpan={2}>Grand Total</td>
+              <td className="num">{fmtM(grand.pipe)}</td>
+              <td className="num">{fmtM(grand.ls)}</td>
+              <td className="num">{fmtM(grand.acv)}</td>
+              <td className="num">{fmtM(grand.target)}</td>
+              <td className={`num cov ${covClass(totCov)} group-start`}>{fmtCov(totCov)}</td>
+              <td className={`num delta delta-col ${deltaClass(totDelta)}`}>{fmtDelta(totDelta)}</td>
+              <td className={`num cov ${covClass(lsCov)} group-start`}>{fmtCov(lsCov)}</td>
+              <td className={`num delta delta-col ${deltaClass(lsDelta)}`}>{fmtDelta(lsDelta)}</td>
+            </tr>
+          );
+        })()}
+      </tbody>
+    </table>
+  );
+}
+
+/* ---------- Deal type table ---------- */
+function DealTypeTable({ rows }) {
+  if (rows.length === 0) {
+    return <div className="empty"><strong>No rows match the current filters.</strong>Try widening Deal Type or Geo.</div>;
+  }
+  const priorShipped = rows.some(r => r.pipePrior !== undefined);
+  const byGeo = {};
+  rows.forEach(r => { (byGeo[r.geo] = byGeo[r.geo] || []).push(r); });
+  return (
+    <table className="t">
+      <thead>
+        <tr className="group-head">
+          <th></th><th></th><th></th><th></th><th></th><th></th>
+          <th className="span group-start" colSpan={2}>Total Coverage</th>
+          <th className="span group-start" colSpan={2}>LS Coverage</th>
+        </tr>
+        <tr className="cols">
+          <th className="l">Geo</th><th className="l">Deal Type</th>
+          <th>Total Pipe</th><th>LS Pipe</th><th>ACV</th><th>Target</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+          <th className="group-start">Ratio</th><th className="delta-col">Δ Cov WoW</th>
+        </tr>
+      </thead>
+      <tbody>
+        {Object.entries(byGeo).map(([geo, items]) => {
+          const sub = items.reduce((a, r) => ({
+            pipe: a.pipe + r.pipe,
+            ls: a.ls + r.ls,
+            acv: a.acv + (r.acv || 0),
+            target: a.target + (r.target || 0),
+            pipePrior: a.pipePrior + (r.pipePrior ?? 0),
+            lsPrior: a.lsPrior + (r.lsPrior ?? 0),
+            acvPrior: a.acvPrior + (r.acvPrior ?? 0),
+          }), { pipe: 0, ls: 0, acv: 0, target: 0, pipePrior: 0, lsPrior: 0, acvPrior: 0 });
+          const subLtb = sub.target - sub.acv;
+          const subTot = subLtb > 0 ? sub.pipe / subLtb : null;
+          const subLs = subLtb > 0 ? sub.ls / subLtb : null;
+          const subPriorLtb = sub.target - sub.acvPrior;
+          const subPriorTot = priorShipped && subPriorLtb > 0 ? sub.pipePrior / subPriorLtb : null;
+          const subPriorLs = priorShipped && subPriorLtb > 0 ? sub.lsPrior / subPriorLtb : null;
+          const subTotDelta = (subTot != null && subPriorTot != null) ? subTot - subPriorTot : null;
+          const subLsDelta = (subLs != null && subPriorLs != null) ? subLs - subPriorLs : null;
+          return (
+            <React.Fragment key={geo}>
+              {items.map((r, i) => (
+                <tr key={geo + i}>
+                  <td className="l">{i === 0 ? geo : ''}</td>
+                  <td className="l">{r.dealType}</td>
+                  <td className="num">{fmtM(r.pipe)}</td>
+                  <td className="num">{fmtM(r.ls)}</td>
+                  <td className="num">{fmtM(r.acv)}</td>
+                  <td className="num">{fmtM(r.target)}</td>
+                  <td className={`num cov ${covClass(r.totalCov)} group-start`}>{fmtCov(r.totalCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(r.totalDelta)}`}>{fmtDelta(r.totalDelta)}</td>
+                  <td className={`num cov ${covClass(r.lsCov)} group-start`}>{fmtCov(r.lsCov)}</td>
+                  <td className={`num delta delta-col ${deltaClass(r.lsDelta)}`}>{fmtDelta(r.lsDelta)}</td>
+                </tr>
+              ))}
+              <tr className="row-subtotal" key={geo + ':total'}>
+                <td className="l">{geo} Total</td>
+                <td className="l"></td>
+                <td className="num">{fmtM(sub.pipe)}</td>
+                <td className="num">{fmtM(sub.ls)}</td>
+                <td className="num">{fmtM(sub.acv)}</td>
+                <td className="num">{fmtM(sub.target)}</td>
+                <td className={`num cov ${covClass(subTot)} group-start`}>{fmtCov(subTot)}</td>
+                <td className={`num delta delta-col ${deltaClass(subTotDelta)}`}>{fmtDelta(subTotDelta)}</td>
+                <td className={`num cov ${covClass(subLs)} group-start`}>{fmtCov(subLs)}</td>
+                <td className={`num delta delta-col ${deltaClass(subLsDelta)}`}>{fmtDelta(subLsDelta)}</td>
+              </tr>
+            </React.Fragment>
+          );
+        })}
+        {(() => {
+          const grand = rows.reduce((a, r) => ({
+            pipe: a.pipe + r.pipe,
+            ls: a.ls + r.ls,
+            acv: a.acv + (r.acv || 0),
+            target: a.target + (r.target || 0),
+            pipePrior: a.pipePrior + (r.pipePrior ?? 0),
+            lsPrior: a.lsPrior + (r.lsPrior ?? 0),
+            acvPrior: a.acvPrior + (r.acvPrior ?? 0),
+          }), { pipe: 0, ls: 0, acv: 0, target: 0, pipePrior: 0, lsPrior: 0, acvPrior: 0 });
+          const ltb = grand.target - grand.acv;
+          const totCov = ltb > 0 ? grand.pipe / ltb : null;
+          const lsCov = ltb > 0 ? grand.ls / ltb : null;
+          const priorLtb = grand.target - grand.acvPrior;
+          const priorTot = priorShipped && priorLtb > 0 ? grand.pipePrior / priorLtb : null;
+          const priorLs = priorShipped && priorLtb > 0 ? grand.lsPrior / priorLtb : null;
+          const totDelta = (totCov != null && priorTot != null) ? totCov - priorTot : null;
+          const lsDelta = (lsCov != null && priorLs != null) ? lsCov - priorLs : null;
+          return (
+            <tr className="row-total">
+              <td className="l" colSpan={2}>Grand Total</td>
+              <td className="num">{fmtM(grand.pipe)}</td>
+              <td className="num">{fmtM(grand.ls)}</td>
+              <td className="num">{fmtM(grand.acv)}</td>
+              <td className="num">{fmtM(grand.target)}</td>
+              <td className={`num cov ${covClass(totCov)} group-start`}>{fmtCov(totCov)}</td>
+              <td className={`num delta delta-col ${deltaClass(totDelta)}`}>{fmtDelta(totDelta)}</td>
+              <td className={`num cov ${covClass(lsCov)} group-start`}>{fmtCov(lsCov)}</td>
+              <td className={`num delta delta-col ${deltaClass(lsDelta)}`}>{fmtDelta(lsDelta)}</td>
+            </tr>
+          );
+        })()}
+      </tbody>
+    </table>
+  );
+}
+
+/* ---------- Summary cards ---------- */
+function Summary({ rows, prefetchedKpis }) {
+  const useKpi = prefetchedKpis != null && prefetchedKpis.totalPipe != null;
+  let totPipe, totLs, totCov, totLsCov, lsPct, totCovDelta, lsCovDelta;
+  if (useKpi) {
+    totPipe = prefetchedKpis.totalPipe;
+    totLs = prefetchedKpis.lsPipe;
+    totCov = prefetchedKpis.totalCov;
+    totLsCov = prefetchedKpis.lsCov;
+    lsPct = prefetchedKpis.lsShare != null
+      ? prefetchedKpis.lsShare * 100
+      : (totPipe ? (totLs / totPipe * 100) : 0);
+    totCovDelta = prefetchedKpis.totalCovDelta;
+    lsCovDelta = prefetchedKpis.lsCovDelta;
+  } else {
+    const tot = rows.reduce((a, r) => ({
+      pipe: a.pipe + r.pipe, ls: a.ls + r.ls, ltb: a.ltb + (r.ltb || 0)
+    }), { pipe: 0, ls: 0, ltb: 0 });
+    totPipe = tot.pipe;
+    totLs = tot.ls;
+    totCov = tot.ltb ? tot.pipe / tot.ltb : null;
+    totLsCov = tot.ltb ? tot.ls / tot.ltb : null;
+    lsPct = tot.pipe ? (tot.ls / tot.pipe * 100) : 0;
+    totCovDelta = null;
+    lsCovDelta = null;
+  }
+  return (
+    <section className="summary">
+      <div className="stat">
+        <div className="label">Total Pipe</div>
+        <div className="value">${totPipe.toFixed(1)}M</div>
+        <div className="sub"><span>Open opportunities</span></div>
+      </div>
+      <div className="stat">
+        <div className="label">Late-Stage Pipe</div>
+        <div className="value">${totLs.toFixed(1)}M</div>
+        <div className="sub"><span>{lsPct.toFixed(1)}% of total</span></div>
+      </div>
+      <div className={`stat ${totCov == null ? '' : totCov >= 2.5 ? 'good' : totCov >= 1.5 ? 'warn' : 'bad'}`}>
+        <div className="label">Total Coverage</div>
+        <div className="value">{fmtCov(totCov)}</div>
+        <div className="sub">
+          <span>Pipe ÷ LTB</span>
+          {totCovDelta != null && (
+            <span className={`delta ${deltaClass(totCovDelta)}`} style={{ marginLeft: 6 }}>{fmtDelta(totCovDelta)} WoW</span>
+          )}
+        </div>
+      </div>
+      <div className={`stat ${totLsCov == null ? '' : totLsCov >= 2.5 ? 'good' : totLsCov >= 1.5 ? 'warn' : 'bad'}`}>
+        <div className="label">LS Coverage</div>
+        <div className="value">{fmtCov(totLsCov)}</div>
+        <div className="sub">
+          <span>LS Pipe ÷ LTB</span>
+          {lsCovDelta != null && (
+            <span className={`delta ${deltaClass(lsCovDelta)}`} style={{ marginLeft: 6 }}>{fmtDelta(lsCovDelta)} WoW</span>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- App root ---------- */
+function App() {
+  const [geos, setGeos] = React.useState([]);
+  const [dealTypes, setDealTypes] = React.useState([]);
+  const [products, setProducts] = React.useState([]);
+  const [quarter, setQuarter] = React.useState(DATA.quarter);
+
+  const qData = (DATA.byQuarter && DATA.byQuarter[String(quarter)]) || {};
+  const allRows = qData.rows || [];
+  const allStaticRows = qData.staticRows || [];
+  const allProductRows = qData.productRows || [];
+  const allDealTypeRows = qData.dealTypeRows || [];
+
+  React.useEffect(() => {
+    document.querySelectorAll('.tabs .tab').forEach(btn => {
+      const q = parseInt(btn.dataset.q, 10);
+      btn.classList.toggle('is-active', q === quarter);
+      btn.textContent = 'Q' + q;
+      if (q === quarter) {
+        const pill = document.createElement('span');
+        pill.className = 'pill';
+        pill.textContent = 'Current';
+        btn.appendChild(document.createTextNode(' '));
+        btn.appendChild(pill);
+      }
+      btn.onclick = () => setQuarter(q);
+    });
+  }, [quarter]);
+
+  React.useEffect(() => {
+    const s = DATA.snapshot || {};
+    const setCell = (id, text, note) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = '';
+      el.appendChild(document.createTextNode(text != null && text !== '' ? String(text) : '—'));
+      if (note) {
+        const sp = document.createElement('span');
+        sp.className = 'note';
+        sp.textContent = note;
+        el.appendChild(sp);
+      }
+    };
+    setCell('snap-runon', s.runOn || '');
+    setCell('snap-live', s.live || '', 'resolved');
+    setCell('snap-baseline', s.baseline || '', 'WoW');
+    const ra = document.getElementById('snap-runat');
+    if (ra) ra.textContent = s.runAt || '—';
+  }, []);
+
+  const geosActive = geos.length === 0 ? DATA.geos : geos;
+  const dealTypesActive = dealTypes.length === 0 ? DATA.dealTypes : dealTypes;
+  const productsActive = products.length === 0 ? DATA.products : products;
+
+  const qRows = allRows.filter(r => geosActive.includes(r.geo));
+  const pRows = allProductRows.filter(r =>
+    geosActive.includes(r.geo) && productsActive.includes(r.product)
+  );
+  const dRows = allDealTypeRows.filter(r =>
+    geosActive.includes(r.geo) && dealTypesActive.includes(r.dealType)
+  );
+
+  const filtersActive = geos.length > 0 || dealTypes.length > 0 || products.length > 0;
+  const prefetchedKpis = !filtersActive && DATA.kpisByQuarter
+    ? DATA.kpisByQuarter[String(quarter)]
+    : null;
+
+  // active chips
+  const chips = [];
+  if (geos.length) geos.forEach(g => chips.push({ k: 'geo', v: g, label: g, remove: () => setGeos(geos.filter(x => x !== g)) }));
+  if (dealTypes.length) dealTypes.forEach(d => chips.push({ k: 'dt', v: d, label: d, remove: () => setDealTypes(dealTypes.filter(x => x !== d)) }));
+  if (products.length) products.forEach(p => chips.push({ k: 'p', v: p, label: p, remove: () => setProducts(products.filter(x => x !== p)) }));
+
+  const resetAll = () => { setGeos([]); setDealTypes([]); setProducts([]); };
+
+  return (
+    <>
+      <div className="filter-bar">
+        <span className="label">Filters</span>
+        <MultiDropdown label="Geo" options={DATA.geos} value={geos} onChange={setGeos} />
+        <MultiDropdown label="Deal Type" options={DATA.dealTypes} value={dealTypes} onChange={setDealTypes} />
+        <MultiDropdown label="Product" options={DATA.products} value={products} onChange={setProducts} />
+        <span style={{fontSize: 11.5, color: 'var(--ink-4)', marginLeft: 4}}>Bookings Teams: expand a region in the table ↓</span>
+        {chips.length > 0 && <div className="chips" style={{marginLeft: 4}}>
+          {chips.map((c, i) => <span className="chip" key={i}>{c.label}<button onClick={c.remove} aria-label={`Remove ${c.label}`}>×</button></span>)}
+        </div>}
+        <div className="spacer"></div>
+        <span className="applied-count">Q{quarter} · <strong>{qRows.length}</strong> teams · <strong>{pRows.length}</strong> product rows · <strong>{dRows.length}</strong> deal-type rows</span>
+        <button className="reset" onClick={resetAll} disabled={chips.length === 0}>Reset</button>
+      </div>
+
+      <Summary rows={qRows} prefetchedKpis={prefetchedKpis} />
+
+      <Section
+        title="Quarterly Summary"
+        desc="Pipe balance by region & team — $M"
+        miniKpis={[
+          { label: 'Rows', value: qRows.length },
+          { label: 'Δ vs', value: DATA.snapshot.baseline + ' (WoW)' }
+        ]}
+      >
+        <QuarterlyTable rows={qRows} staticRows={allStaticRows} />
+      </Section>
+
+      <Section
+        title="Product Breakdown"
+        desc="Pipe by product × geo — $M"
+        miniKpis={[{ label: 'Rows', value: pRows.length }]}
+      >
+        <ProductTable rows={pRows} />
+      </Section>
+
+      <Section
+        title="Geo × Deal Type"
+        desc="New vs. existing customer pipe by geography — $M"
+        miniKpis={[{ label: 'Rows', value: dRows.length }]}
+        defaultOpen={false}
+      >
+        <DealTypeTable rows={dRows} />
+      </Section>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('filter-root')).render(<></>); // placeholder
+
+/* mount filter+summary+sections all under one root for shared state */
+const mainRoot = document.createElement('div');
+document.getElementById('filter-root').parentNode.insertBefore(mainRoot, document.getElementById('filter-root'));
+document.getElementById('filter-root').remove();
+document.getElementById('summary-root').remove();
+document.getElementById('sections-root').remove();
+ReactDOM.createRoot(mainRoot).render(<App />);
+
+/* ---------- Tweaks panel (separate) ---------- */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "#0b5fad",
+  "density": "default"
+}/*EDITMODE-END*/;
+
+function Tweaks() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--primary', tweaks.accent);
+    document.documentElement.style.setProperty('--primary-soft', tweaks.accent + '14');
+  }, [tweaks.accent]);
+  React.useEffect(() => {
+    document.body.classList.remove('density-compact', 'density-roomy');
+    if (tweaks.density === 'compact') document.body.classList.add('density-compact');
+    if (tweaks.density === 'roomy') document.body.classList.add('density-roomy');
+  }, [tweaks.density]);
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection title="Brand">
+        <TweakColor label="Accent" value={tweaks.accent} onChange={(v) => setTweak('accent', v)} options={['#1f6feb','#0b5fad','#0f172a','#047857']} />
+      </TweakSection>
+      <TweakSection title="Layout">
+        <TweakRadio label="Density" value={tweaks.density} onChange={(v) => setTweak('density', v)} options={[
+          { value: 'compact', label: 'Compact' },
+          { value: 'default', label: 'Default' },
+          { value: 'roomy', label: 'Roomy' }
+        ]} />
+      </TweakSection>
+    </TweaksPanel>
+  );
+}
+
+function mountTweaks() {
+  if (typeof window.useTweaks === 'function' && typeof window.TweaksPanel === 'function') {
+    ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<Tweaks />);
+    const trig = document.createElement('button');
+    trig.textContent = 'Tweaks';
+    Object.assign(trig.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '60', padding: '8px 14px', font: '500 13px/1 "Geist", system-ui, sans-serif', background: '#0f172a', color: '#fff', border: '1px solid #0f172a', cursor: 'pointer' });
+    trig.onclick = () => window.postMessage({ type: '__activate_edit_mode' }, '*');
+    document.body.appendChild(trig);
+  } else { setTimeout(mountTweaks, 50); }
+}
+mountTweaks();
+</script>
+</body>
+</html>

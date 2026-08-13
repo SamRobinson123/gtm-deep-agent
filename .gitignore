@@ -33,5 +33,6 @@ __pycache__/
 # Local tooling
 .remember/
 
-# Standalone project with its own git history — never embed it here
-Coverage Curve Analysis/
+# Coverage dashboard: regenerable outputs and its venv stay untracked
+coverage_dashboard/output/
+coverage_dashboard/.venv/

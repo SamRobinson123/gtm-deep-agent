@@ -6,18 +6,19 @@ self-contained HTML UI. For coverage *mechanics* on the snapshot table inside
 this repo, load [`../analysis/coverage-curve.md`](../analysis/coverage-curve.md)
 instead.
 
-**Where it lives**: `Coverage Curve Analysis/` at this repo's root (path has
-spaces — quote it). It is its OWN git repository nested inside this one, with
-its own `.venv`, `.env` (never read — credential rule applies), and CLAUDE.md.
-Work on it happens in that folder with its own git history; nothing there is
-imported by `pipeline/` or `agent/`.
+**Where it lives**: `coverage_dashboard/` in this repo — ingested 2026-08-13
+from the standalone "Coverage Curve Analysis" project (whose full git history
+is archived outside the repo as `C:\Dev V2\coverage-curve-analysis-history.bundle`).
+It is tracked here like any other code; `coverage_dashboard/output/` and its
+`.venv/` are gitignored. Nothing in it is imported by `pipeline/` or `agent/`.
+A full Synapse rebuild needs `SYNAPSE_CONN_STR` in a local `coverage_dashboard/.env`
+(credential — never read or commit it).
 
-**The authoritative reference is the project's own
-`COVERAGE_CURVE_CONTEXT.md`** (659 lines) — verified 2026-08-13 to match the
-working-tree code (which is AHEAD of its last commit, 2026-05-29; the doc
-post-dates the code changes). Read it before any change. `planning/PLAN.md`
-holds the full methodology. This file carries only what routing and judgment
-need; it does not replace that reference.
+**The authoritative reference is `coverage_dashboard/COVERAGE_CURVE_CONTEXT.md`**
+(659 lines) — verified 2026-08-13 to match the ingested code. Read it before
+any change. `coverage_dashboard/planning/PLAN.md` holds the full methodology.
+This file carries only what routing and judgment need; it does not replace
+that reference.
 
 ---
 
@@ -34,7 +35,7 @@ time-series curve that tool doesn't have.
 ## Running it
 
 ```bash
-cd "Coverage Curve Analysis"
+cd coverage_dashboard
 uv run python -m backend.build_coverage        # full: Synapse pull -> parquet -> HTML (VPN + its own .env)
 uv run python -m backend.coverage_render       # re-render only, from cached parquets
 uv run python scripts/build_new_segment_dashboard.py --as-of 2026-06-02   # tier-logic comparison build

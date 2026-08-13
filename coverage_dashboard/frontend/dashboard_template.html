@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coverage Adequacy · Tricentis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="light"] {
+    --background:    #ffffff;
+    --surface:       #ffffff;
+    --surface-2:     #f8fafc;
+    --foreground:    #0f172a;
+    --ink-2:         #334155;
+    --ink-3:         #64748b;
+    --ink-4:         #94a3b8;
+    --primary:       #1e5fbf;
+    --primary-foreground: #ffffff;
+    --primary-soft:  #eaf2fd;
+    --muted:         #f1f5f9;
+    --border:        #e2e8f0;
+    --border-strong: #cbd5e1;
+    --good:          #047857;
+    --good-soft:     #ecfdf5;
+    --good-band:     rgba(4, 120, 87, 0.16);
+    --warn:          #b45309;
+    --warn-soft:     #fffbeb;
+    --bad:           #b91c1c;
+    --bad-soft:      #fee2e2;
+    --bad-band:      rgba(185, 28, 28, 0.14);
+    --radius:        0.625rem;
+    --radius-sm:     0.375rem;
+    --radius-lg:     0.875rem;
+    --shadow-card:   0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
+    --shadow-pop:    0 8px 24px -4px rgb(15 23 42 / 0.10), 0 2px 6px -1px rgb(15 23 42 / 0.06);
+    --sans:          'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono:          'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+    --cur-line:      #1e5fbf;
+    --cur-area:      rgba(30, 95, 191, 0.10);
+    --need-line:     #b45309;
+    --booked-area:   rgba(15, 23, 42, 0.05);
+    /* Deal-type palette — used on the Overview page */
+    --dt-nb:         #1e5fbf;   /* New Business — Tricentis blue */
+    --dt-ex:         #0d9488;   /* Expansion — teal */
+    --dt-up:         #7c3aed;   /* Upsell — violet */
+    --dt-ps:         #64748b;   /* Prof Services — cool grey */
+  }
+  [data-theme="dark"] {
+    --background:    #0a0f1c;
+    --surface:       #111827;
+    --surface-2:     #1e293b;
+    --foreground:    #f1f5f9;
+    --ink-2:         #cbd5e1;
+    --ink-3:         #94a3b8;
+    --ink-4:         #64748b;
+    --primary:       #60a5fa;
+    --primary-soft:  rgba(96, 165, 250, 0.14);
+    --muted:         #1e293b;
+    --border:        #1f2937;
+    --border-strong: #334155;
+    --good:          #34d399;
+    --good-soft:     rgba(52, 211, 153, 0.10);
+    --good-band:     rgba(52, 211, 153, 0.20);
+    --warn:          #fbbf24;
+    --warn-soft:     rgba(251, 191, 36, 0.10);
+    --bad:           #f87171;
+    --bad-soft:      rgba(248, 113, 113, 0.10);
+    --bad-band:      rgba(248, 113, 113, 0.18);
+    --shadow-card:   0 1px 2px 0 rgb(0 0 0 / 0.30), 0 1px 3px 0 rgb(0 0 0 / 0.40);
+    --shadow-pop:    0 8px 24px -4px rgb(0 0 0 / 0.50);
+    --cur-line:      #60a5fa;
+    --cur-area:      rgba(96, 165, 250, 0.12);
+    --need-line:     #fbbf24;
+    --booked-area:   rgba(148, 163, 184, 0.10);
+    --dt-nb:         #60a5fa;
+    --dt-ex:         #2dd4bf;
+    --dt-up:         #a78bfa;
+    --dt-ps:         #94a3b8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--background); color: var(--foreground); transition: background-color 0.25s ease, color 0.25s ease; }
+  body { font-family: var(--sans); font-feature-settings: "ss03","cv11"; font-weight: 400; line-height: 1.5; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+  .shell { max-width: 1200px; margin: 0 auto; padding: 28px 32px 72px; }
+
+  /* ─── TOPBAR ────────────────────────────────────────────────────────── */
+  .topbar { position: sticky; top: 0; z-index: 40; background: var(--background); border-bottom: 1px solid var(--border); padding: 14px 32px; margin: 0 -32px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar .brand { display: flex; align-items: center; gap: 12px; }
+  .topbar .brand .logo { width: 32px; height: 32px; }
+  .topbar .brand .logo img { width: 32px; height: 32px; display: block; }
+  .topbar .brand .name { font-size: 15px; font-weight: 600; color: var(--foreground); letter-spacing: -0.005em; }
+  .topbar .brand .product { display: block; font-size: 11px; color: var(--ink-3); font-weight: 400; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ink-3); }
+  .topbar-right .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); font-weight: 500; }
+  .topbar-right .pill .dot { width: 6px; height: 6px; background: var(--good); border-radius: 999px; }
+  .topbar-right .icon-btn { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--ink-2); width: 34px; height: 34px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease; }
+  .topbar-right .icon-btn:hover { color: var(--primary); border-color: var(--primary); }
+  .topbar-right .icon-btn svg { width: 16px; height: 16px; }
+  .topbar-right .icon-btn .moon, [data-theme="dark"] .topbar-right .icon-btn .sun { display: none; }
+  .topbar-right .icon-btn .sun, [data-theme="dark"] .topbar-right .icon-btn .moon { display: block; }
+
+  /* ─── PAGE INTRO ────────────────────────────────────────────────────── */
+  .intro { margin-bottom: 24px; }
+  .intro h1 { margin: 0 0 8px; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; color: var(--foreground); }
+  .intro p  { margin: 0; font-size: 14px; color: var(--ink-3); max-width: 760px; }
+
+  /* ─── KPI STRIP (always-latest snapshot) ───────────────────────────── */
+  .kpi-strip {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-card);
+    margin-bottom: 16px; overflow: hidden;
+  }
+  .kpi-strip .kpi-meta {
+    padding: 10px 18px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink-4);
+  }
+  .kpi-strip .kpi-meta .now { color: var(--primary); }
+  .kpi-strip .kpi-meta .dot { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--good); margin-right: 6px; vertical-align: 1px; }
+  .kpi-strip .kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border);
+  }
+  .kpi-strip .kpi-row-3-extra {
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--border);
+  }
+  .kpi-card.is-needed .v { color: var(--need-line); }
+
+  /* Deep-Dive §03 · Historical needed-coverage summary table */
+  .needhist-summary {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .needhist-table {
+    width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .needhist-table thead th {
+    font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-4); text-align: right;
+    padding: 10px 14px; border-bottom: 1px solid var(--border-strong);
+  }
+  .needhist-table thead th:first-child { text-align: left; }
+  .needhist-table thead th.is-rec { color: var(--need-line); border-left: 1px solid var(--border); }
+  .needhist-table tbody td {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    text-align: right; color: var(--foreground); font-feature-settings: "tnum" 1;
+  }
+  .needhist-table tbody tr:last-child td { border-bottom: none; }
+  .needhist-table tbody td:first-child {
+    text-align: left; font-family: var(--sans); font-weight: 600; font-size: 12.5px;
+  }
+  .needhist-table tbody td.is-rec {
+    color: var(--need-line); font-weight: 700; border-left: 1px solid var(--border);
+  }
+  .needhist-table .grey { color: var(--ink-4); }
+  .needhist-recline {
+    background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--need-line);
+    border-radius: var(--radius-sm); padding: 14px 18px;
+    font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink-2);
+  }
+  .needhist-recline strong { color: var(--foreground); }
+  .needhist-recline .rec-num { color: var(--need-line); font-weight: 700; }
+  .kpi-card {
+    background: var(--surface); padding: 22px 26px;
+    display: flex; flex-direction: column; gap: 8px; position: relative;
+  }
+  .kpi-card .k {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-4);
+  }
+  .kpi-card .v-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .kpi-card .v {
+    font-family: var(--mono); font-size: 34px; font-weight: 500; line-height: 1;
+    color: var(--foreground); letter-spacing: -0.025em; font-feature-settings: "tnum" 1;
+  }
+  .kpi-card .v .unit { font-size: 16px; color: var(--ink-3); font-weight: 400; margin-left: 2px; }
+  .kpi-card.is-coverage .v { color: var(--primary); }
+  .kpi-card .delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px; line-height: 1.4;
+  }
+  .kpi-card .delta.pos  { color: var(--good); background: var(--good-soft); }
+  .kpi-card .delta.neg  { color: var(--bad);  background: var(--bad-soft); }
+  .kpi-card .delta.zero { color: var(--ink-3); background: var(--muted); }
+  .kpi-card .sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); letter-spacing: 0.02em; }
+
+  /* ─── FILTER BAR (compact, single row) ─────────────────────────────── */
+  .sparse-banner {
+    background: var(--warn-soft);
+    border: 1px solid color-mix(in oklab, var(--warn) 30%, transparent);
+    border-radius: var(--radius-md, 10px);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-family: var(--sans);
+    font-size: 12.5px;
+    color: var(--warn);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .sparse-banner .icon {
+    flex: 0 0 auto;
+    font-family: var(--mono);
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .sparse-banner .body { color: var(--ink-2); line-height: 1.5; }
+  .sparse-banner .body strong { color: var(--warn); }
+  .filter-bar {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-card);
+    padding: 6px 10px; margin-bottom: 28px;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .filter-group { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 12px; }
+  .filter-group + .filter-group { border-left: 1px solid var(--border); }
+  .filter-group .label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-4); margin-right: 2px; }
+  .filter-group .pills { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+  .pill-btn {
+    appearance: none; border: 1px solid transparent; background: transparent;
+    color: var(--ink-3); font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+    padding: 5px 10px; cursor: pointer; border-radius: var(--radius-sm);
+    transition: all 0.12s ease; min-height: 28px;
+  }
+  .pill-btn:hover:not([data-disabled="true"]) { color: var(--primary); background: var(--primary-soft); }
+  .pill-btn[data-active="true"] { background: var(--primary); color: var(--primary-foreground); }
+  .pill-btn[data-disabled="true"] { color: var(--ink-4); opacity: 0.45; cursor: not-allowed; }
+
+  /* ─── HERO ANSWER CARD ──────────────────────────────────────────────── */
+  .hero {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+    padding: 36px 40px; margin-bottom: 22px;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0 0 0 0; width: 4px;
+    background: var(--primary);
+  }
+  .hero.is-bad::before { background: var(--bad); }
+  .hero.is-good::before { background: var(--good); }
+  .hero .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .hero .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
+    background: var(--muted); color: var(--ink-2);
+  }
+  .hero .badge.status-closed { background: var(--good-soft); color: var(--good); }
+  .hero .badge.status-flight { background: var(--primary-soft); color: var(--primary); }
+  .hero h2 {
+    margin: 0 0 18px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1.15; color: var(--foreground);
+  }
+  .hero .answer {
+    font-size: 19px; font-weight: 500; line-height: 1.45;
+    color: var(--ink-2); max-width: 880px; letter-spacing: -0.005em;
+  }
+  .hero .answer strong { font-weight: 700; }
+  .hero .answer .cur-em  { color: var(--cur-line); }
+  .hero .answer .need-em { color: var(--need-line); }
+  .hero .answer .good-em { color: var(--good); }
+  .hero .answer .bad-em  { color: var(--bad); }
+  .hero .stats {
+    margin-top: 22px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--border); border-radius: var(--radius-sm); overflow: hidden;
+  }
+  .hero .stats .stat {
+    background: var(--surface); padding: 14px 18px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .hero .stats .stat .k { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); }
+  .hero .stats .stat .v {
+    font-family: var(--mono); font-size: 24px; font-weight: 500; line-height: 1;
+    color: var(--foreground); letter-spacing: -0.02em; font-feature-settings: "tnum" 1;
+  }
+  .hero .stats .stat .v .unit { font-size: 13px; color: var(--ink-3); font-weight: 400; margin-left: 1px; }
+  .hero .stats .stat .v.attn-good { color: var(--good); }
+  .hero .stats .stat .v.attn-md   { color: var(--warn); }
+  .hero .stats .stat .v.attn-bad  { color: var(--bad); }
+
+  /* ─── CHARTS ────────────────────────────────────────────────────────── */
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-card);
+    padding: 24px 28px; margin-bottom: 16px;
+  }
+  .chart-card .head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 6px; }
+  .chart-card .head .num { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--primary); padding: 2px 8px; background: var(--primary-soft); border-radius: var(--radius-sm); }
+  .chart-card h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--foreground); letter-spacing: -0.005em; }
+  .chart-card .head .takeaway { margin-left: auto; font-size: 12.5px; color: var(--ink-3); text-align: right; max-width: 460px; }
+  .chart-card .head .takeaway strong { color: var(--foreground); font-weight: 600; }
+  .chart-card .head .takeaway .bad-em  { color: var(--bad); font-weight: 600; }
+  .chart-card .head .takeaway .good-em { color: var(--good); font-weight: 600; }
+  .chart-card .legend { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin: 6px 0 8px; }
+  .chart-card .legend .key { display: inline-flex; align-items: center; gap: 8px; }
+  .chart-card .legend .swatch { width: 18px; height: 2px; }
+  .chart-card .legend .swatch.dashed { background: repeating-linear-gradient(90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px); }
+  .chart-card .legend .swatch.area { height: 10px; border-radius: 2px; }
+  .chart-card .chart-wrap { position: relative; }
+  .chart-card svg.chart { width: 100%; height: 280px; display: block; }
+
+  /* ─── CHART INTERNALS ───────────────────────────────────────────────── */
+  .grid-line { stroke: var(--border); stroke-width: 1; opacity: 0.6; }
+  .axis-line { stroke: var(--border-strong); stroke-width: 1; }
+  .axis-label { font-family: var(--mono); font-size: 10px; fill: var(--ink-3); }
+  .ref-line { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.5; }
+  .ref-label { font-family: var(--mono); font-size: 10px; fill: var(--ink-3); }
+
+  .gap-good { fill: var(--good-band); }
+  .gap-bad  { fill: var(--bad-band); }
+  .booked-area { fill: var(--booked-area); }
+  .actual-line { fill: none; stroke: var(--cur-line); stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+  .needed-line { fill: none; stroke: var(--need-line); stroke-width: 2.25; stroke-dasharray: 6 4; stroke-linejoin: round; stroke-linecap: round; }
+  .target-line { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+  .actual-dot  { fill: var(--cur-line); stroke: var(--surface); stroke-width: 1.5; }
+  .actual-dot.now { r: 5; }
+  .needed-dot  { fill: var(--need-line); stroke: var(--surface); stroke-width: 1.5; }
+
+  .crosshair { stroke: var(--ink-4); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0; pointer-events: none; }
+  .crosshair.visible { opacity: 0.7; }
+  .hover-rect { fill: transparent; cursor: crosshair; }
+  .tooltip { position: absolute; pointer-events: none; background: var(--surface); color: var(--foreground); padding: 10px 12px; font-family: var(--mono); font-size: 11px; line-height: 1.55; box-shadow: var(--shadow-pop); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); min-width: 210px; opacity: 0; transform: translate(-50%, -100%) translateY(-12px); transition: opacity 0.12s ease; z-index: 100; }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-head { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--foreground); margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); letter-spacing: -0.005em; }
+  .tooltip .tt-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; padding: 2px 0; align-items: center; }
+  .tooltip .tt-row .swatch { width: 12px; height: 2px; }
+  .tooltip .tt-row .k { color: var(--ink-3); }
+  .tooltip .tt-row .v { font-feature-settings: "tnum" 1; text-align: right; color: var(--foreground); }
+  .tooltip .tt-row.bar { padding: 6px 0 2px; border-top: 1px solid var(--border); margin-top: 4px; grid-template-columns: 1fr auto; }
+
+  .empty { background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 36px; text-align: center; color: var(--ink-3); font-size: 14px; }
+  .empty strong { color: var(--foreground); }
+
+  /* ─── WEEKLY DETAIL TABLE ───────────────────────────────────────────── */
+  .tbl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 24px 28px; margin-top: 16px; margin-bottom: 16px; }
+  .tbl-card .head { display: flex; align-items: baseline; gap: 18px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tbl-card .head .num { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--primary); padding: 2px 8px; background: var(--primary-soft); border-radius: var(--radius-sm); }
+  .tbl-card h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--foreground); letter-spacing: -0.005em; }
+  .tbl-card .head .ctx { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+  .tbl-card .week-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 6px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-wrap: wrap; }
+  .tbl-card .week-filter .label { font-family: var(--mono); font-size: 9.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-4); margin-right: 4px; }
+  .tbl-card .week-filter .week-pill { appearance: none; border: 1px solid transparent; background: transparent; color: var(--ink-3); font-family: var(--mono); font-size: 11.5px; font-weight: 500; padding: 4px 9px; cursor: pointer; border-radius: 4px; min-width: 28px; min-height: 26px; transition: all 0.12s ease; }
+  .tbl-card .week-filter .week-pill:hover:not([data-disabled="true"]) { color: var(--primary); background: var(--primary-soft); }
+  .tbl-card .week-filter .week-pill[data-active="true"] { background: var(--primary); color: var(--primary-foreground); }
+  .tbl-card .week-filter .week-pill[data-disabled="true"] { color: var(--ink-4); opacity: 0.4; cursor: not-allowed; }
+
+  table.detail { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  table.detail thead th {
+    font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--ink-4); text-align: right;
+    padding: 10px 12px; border-bottom: 1px solid var(--border-strong);
+    background: var(--surface-2);
+  }
+  table.detail thead th:first-child, table.detail thead th:nth-child(2) { text-align: left; }
+  table.detail tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); text-align: right; color: var(--foreground); font-feature-settings: "tnum" 1; vertical-align: middle; }
+  table.detail tbody td:first-child {
+    text-align: left; font-family: var(--sans); font-weight: 600; color: var(--foreground); font-size: 13px;
+  }
+  table.detail tbody td:nth-child(2) {
+    text-align: left; font-family: var(--sans); font-size: 13px; color: var(--ink-2);
+  }
+  table.detail tbody tr.geo-row-first td:first-child { padding-top: 14px; }
+  table.detail tbody tr.geo-row-last  td { border-bottom: 1px solid var(--border-strong); }
+  table.detail tbody tr.geo-row-last  td:first-child { padding-bottom: 14px; }
+  table.detail tbody tr:hover td { background: var(--primary-soft); }
+  table.detail .geo-tag { color: var(--ink-2); }
+  table.detail .ms { color: var(--ink-2); }
+  table.detail .cov-cell { font-weight: 600; }
+  table.detail .cov-cell.ok  { color: var(--good); }
+  table.detail .cov-cell.bad { color: var(--bad); }
+  table.detail .cov-cell.neutral { color: var(--ink-3); }
+  /* Needed column — centered plain amber (the "needed" semantic color),
+     distinct from the right-aligned actual $ columns. No pill/chip. The wide
+     symmetric padding gives the column real width — without it the auto-sized
+     column hugs the right-aligned LS-Coverage values on its left, and the
+     centered value reads as left-stuck against the wide WoW column. */
+  table.detail thead th.need-th { text-align: center; padding-left: 30px; padding-right: 30px; }
+  table.detail .need-cell {
+    text-align: center; color: var(--need-line); font-weight: 600;
+    font-feature-settings: "tnum" 1; padding-left: 30px; padding-right: 30px;
+  }
+  /* §02 glide tables (13 weekly needed-coverage columns): center every week
+     column. .glide-1 = one label column, .glide-2 = two. The override also
+     undoes the generic td:nth-child(2) left/sans rule, which was making the
+     Wk-1 column left-aligned sans while Wks 2–13 sat right-aligned mono. */
+  table.detail.glide-1 thead th:not(:first-child),
+  table.detail.glide-2 thead th:not(:first-child):not(:nth-child(2)) { text-align: center; }
+  table.detail.glide-1 tbody td:not(:first-child),
+  table.detail.glide-2 tbody td:not(:first-child):not(:nth-child(2)) {
+    text-align: center; font-family: var(--mono); font-size: 12px;
+    color: var(--foreground); font-feature-settings: "tnum" 1;
+  }
+  table.detail .grey { color: var(--ink-4); }
+  table.detail .wow-pos { color: var(--good); font-weight: 500; }
+  table.detail .wow-neg { color: var(--bad);  font-weight: 500; }
+  table.detail .wow-zero { color: var(--ink-4); }
+  table.detail tr.totals td { background: var(--surface-2); font-weight: 600; border-bottom: 1px solid var(--border-strong); border-top: 2px solid var(--border-strong); }
+
+  /* ─── COLOPHON ──────────────────────────────────────────────────────── */
+  .colophon { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 28px; align-items: start; font-size: 12.5px; line-height: 1.55; color: var(--ink-3); }
+  .colophon h4 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-4); margin: 0 0 8px; font-weight: 600; }
+  .colophon code { font-family: var(--mono); color: var(--ink-2); font-size: 11px; background: var(--muted); padding: 1px 5px; border-radius: 3px; }
+  .colophon em { color: var(--foreground); font-style: italic; }
+
+  .reveal { opacity: 0; transform: translateY(6px); animation: reveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .reveal:nth-of-type(2) { animation-delay: 0.06s; }
+  .reveal:nth-of-type(3) { animation-delay: 0.12s; }
+  .reveal:nth-of-type(4) { animation-delay: 0.18s; }
+  .reveal:nth-of-type(5) { animation-delay: 0.24s; }
+  @keyframes reveal { to { opacity: 1; transform: none; } }
+
+  /* ─── CONVERSION BY TIER (segment page §03) ─────────────────────────── */
+  .conv-card svg.conv-svg { width: 100%; height: 320px; display: block; }
+  .conv-line { fill: none; stroke-width: 2.25; stroke-linejoin: round; stroke-linecap: round; }
+  .conv-dot { stroke: var(--surface); stroke-width: 1.2; }
+  .conv-endlabel { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+
+  /* ─── PAGE NAV (segmented control) ──────────────────────────────────── */
+  .page-nav {
+    display: inline-flex; gap: 2px; padding: 4px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 28px;
+  }
+  .page-nav button {
+    appearance: none; border: none; background: transparent;
+    color: var(--ink-3); font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 8px 16px; cursor: pointer; border-radius: var(--radius-sm);
+    transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    letter-spacing: -0.005em;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .page-nav button:hover { color: var(--primary); }
+  .page-nav button[data-active="true"] {
+    background: var(--surface); color: var(--foreground);
+    box-shadow: var(--shadow-card);
+  }
+  .page-nav button .num {
+    font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    letter-spacing: 0.1em; color: var(--ink-4); padding: 2px 6px;
+    background: var(--muted); border-radius: 3px;
+  }
+  .page-nav button[data-active="true"] .num {
+    color: var(--primary); background: var(--primary-soft);
+  }
+
+  /* ─── PAGES (client-side routing) ───────────────────────────────────── */
+  .page { display: none; }
+  .page.is-active { display: block; }
+
+  /* ─── SHARED · QUARTER AXIS LABELS ──────────────────────────────────── */
+  .qtr-label {
+    font-family: var(--mono); font-size: 9.5px; fill: var(--ink-4);
+    letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+  }
+
+  .chart-legend-row { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin: 4px 0 14px; }
+  .chart-legend-row .key { display: inline-flex; align-items: center; gap: 8px; }
+  .chart-legend-row .swatch-line { width: 22px; height: 2.5px; border-radius: 1px; }
+  .chart-legend-row .swatch-line.dashed { background: repeating-linear-gradient(90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px) !important; }
+  .chart-legend-row .swatch-box { width: 11px; height: 11px; border-radius: 2px; }
+
+  /* ─── SHARED · REC-TABLE EXPLAINER / SUBHEADS ───────────────────────── */
+  .reccalc-explainer {
+    margin: 4px 0 14px; font-size: 13px; color: var(--ink-3); line-height: 1.55;
+    max-width: 880px;
+  }
+  .reccalc-explainer code {
+    font-family: var(--mono); color: var(--ink-2); font-size: 12px;
+    background: var(--muted); padding: 1px 5px; border-radius: 3px;
+  }
+  .rec-subhead {
+    margin: 20px 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-2);
+    letter-spacing: .01em;
+  }
+  .rec-subhead:first-of-type { margin-top: 4px; }
+  .rec-sub-note { font-weight: 400; color: var(--ink-3); font-size: 12px; }
+  table.detail tbody tr.dt-total td { font-weight: 600; background: var(--surface-2); }
+
+  /* ─── Methodology page ─────────────────────────────────────────────── */
+  .method { max-width: 940px; margin: 0 auto; }
+  .method-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 28px; margin-bottom: 18px; }
+  .method-card h2 { font-size: 17px; margin: 0 0 8px; color: var(--foreground); display: flex; align-items: baseline; gap: 10px; }
+  .method-card h2 .num { font-family: var(--mono); font-size: 12px; color: var(--primary); font-weight: 700; }
+  .method-card h3 { font-size: 13px; margin: 18px 0 6px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; }
+  .method-card p, .method-card li { font-size: 13.5px; line-height: 1.62; color: var(--ink-2); }
+  .method-card .lead { font-size: 14.5px; color: var(--ink-2); margin-top: 0; }
+  .method-card code { font-family: var(--mono); font-size: 12px; background: var(--primary-soft); padding: 1px 5px; border-radius: 4px; color: var(--foreground); }
+  pre.method-sql { font-family: var(--mono); font-size: 11px; line-height: 1.5; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; color: var(--ink-2); white-space: pre; }
+  .method-formula { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border-left: 3px solid var(--primary); border-radius: 4px; padding: 11px 14px; margin: 10px 0; color: var(--foreground); white-space: pre-wrap; }
+  table.method-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0 4px; }
+  table.method-table th { text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--border-strong); color: var(--ink-3); font-weight: 600; }
+  table.method-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--ink-2); vertical-align: top; }
+  table.method-table tr:last-child td { border-bottom: none; }
+  .tag-in { color: var(--good); font-weight: 700; }
+  .tag-out { color: var(--bad); font-weight: 700; }
+  ul.method-changelog { padding-left: 0; list-style: none; }
+  ul.method-changelog li { margin-bottom: 12px; padding-left: 16px; border-left: 2px solid var(--primary); }
+  ul.method-changelog li strong { color: var(--foreground); }
+</style>
+</head>
+<body data-theme="light">
+
+<script id="coverage-data" type="application/json">__DATA__</script>
+
+<div class="shell">
+
+  <header class="topbar reveal">
+    <div class="brand">
+      <span class="logo"><img src="../frontend/assets/tricentis-logo.png" alt="Tricentis" /></span>
+      <div>
+        <div class="name">Coverage Adequacy</div>
+        <div class="product">Tricentis · GTM Pipeline Trajectory</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="pill"><span class="dot"></span>Synapse · live</span>
+      <span class="pill">As of <span id="as-of"></span></span>
+      <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="page-nav reveal" id="pageNav">
+    <button data-page="deep" data-active="true"><span class="num">01</span>Dashboard</button>
+    <button data-page="segment" data-active="false"><span class="num">02</span>Segment</button>
+    <button data-page="product" data-active="false"><span class="num">03</span>Product</button>
+    <button data-page="methodology" data-active="false"><span class="num">04</span>Methodology</button>
+  </nav>
+
+  <!-- DEEP DIVE PAGE -->
+  <div class="page" id="page-deep">
+    <div class="intro reveal">
+      <h1>What pipe did we need — and what did we have?</h1>
+      <p>Pick a quarter, deal type, and geo. Compare actual coverage against what historical conversion rates from FY24/FY25 say was needed to hit target.</p>
+    </div>
+
+    <div class="kpi-strip reveal" id="kpiStrip"></div>
+
+    <div class="filter-bar reveal">
+      <div class="filter-group">
+        <span class="label">FY</span>
+        <div class="pills" id="fyPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Quarter</span>
+        <div class="pills" id="qtrPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Week</span>
+        <div class="pills" id="weekPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Deal type</span>
+        <div class="pills" id="dtPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Geo</span>
+        <div class="pills" id="geoPills"></div>
+      </div>
+    </div>
+
+    <div id="sparseBanner"></div>
+
+    <div id="content"></div>
+  </div>
+
+  <!-- SEGMENT PAGE -->
+  <div class="page" id="page-segment">
+    <div class="intro reveal">
+      <h1>Pipeline by Geo × Segment.</h1>
+      <p>The same weekly pipe / booked / coverage view as the Dashboard, cut by the account's <strong>tier</strong> (its initial segment — accounts that later graduate tiers stay in their starting tier here, unlike Historic.xlsx which shows the current tier). Booked follows the Dashboard convention: snapshot Closed-Won for weeks 1–12, live total at week 13 (ties page 1 / Historic.xlsx to the dollar). Targets are the FY25/FY26 tier-level plan.</p>
+    </div>
+
+    <div class="kpi-strip reveal" id="segKpiStrip"></div>
+
+    <div class="filter-bar reveal">
+      <div class="filter-group">
+        <span class="label">FY</span>
+        <div class="pills" id="segFyPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Quarter</span>
+        <div class="pills" id="segQtrPills"></div>
+      </div>
+    </div>
+
+    <div id="segContent"></div>
+  </div>
+
+  <!-- PRODUCT PAGE -->
+  <div class="page" id="page-product">
+    <div class="intro reveal">
+      <h1>Pipeline by Product.</h1>
+      <p>The same weekly pipe / booked / coverage view, cut by <strong>product</strong> only (no geo). Targets are the FY25/FY26 product plan, mapped onto the snapshot product taxonomy; booked is snapshot Closed-Won throughout.</p>
+    </div>
+
+    <div class="kpi-strip reveal" id="prodKpiStrip"></div>
+
+    <div class="filter-bar reveal">
+      <div class="filter-group">
+        <span class="label">FY</span>
+        <div class="pills" id="prodFyPills"></div>
+      </div>
+      <div class="filter-group">
+        <span class="label">Quarter</span>
+        <div class="pills" id="prodQtrPills"></div>
+      </div>
+    </div>
+
+    <div id="prodContent"></div>
+  </div>
+
+  <!-- METHODOLOGY PAGE -->
+  <div class="page" id="page-methodology">
+    <div class="intro reveal">
+      <h1>How this dashboard is built.</h1>
+      <p>The logic behind every number — what goes into pipe and bookings, and the math that turns them into coverage and needed coverage. Full detail (including the raw queries) lives in <code>planning/PLAN.md</code>.</p>
+    </div>
+
+    <div class="method">
+
+      <div class="method-card reveal">
+        <h2><span class="num">A</span>&nbsp;At a glance</h2>
+        <p class="lead">Two sources, two dollar metrics — <strong>never mixed</strong>. Pipe is always <code>Cal_IACV</code> (gross); booked is always <code>Product_NACV</code> = <code>NACV_USD − Uplift_USD</code> (net). They reconcile to different reports: pipe → PBI open-pipe; booked → Historic.xlsx / PBI bookings.</p>
+        <table class="method-table">
+          <tr><th>Measure</th><th>Source</th><th>Metric</th><th>Rule</th></tr>
+          <tr><td>Open pipe</td><td>daily snapshot</td><td><code>Cal_IACV</code></td><td>Stage = Open</td></tr>
+          <tr><td>LS pipe</td><td>daily snapshot</td><td><code>Cal_IACV</code></td><td>Stage = Open &amp; late stage</td></tr>
+          <tr><td>Booked</td><td>snapshot (wks 1–12) · live (wk 13)</td><td><code>Cal_IACV</code> / <code>Product_NACV</code></td><td>Closed-Won state, incl. 6-Closed/Pending, cumulative by week</td></tr>
+          <tr><td>Target</td><td>FY Targets.xlsx</td><td>USD</td><td>quarter × geo × deal type</td></tr>
+          <tr><td>Coverage</td><td>derived</td><td>ratio</td><td>open_pipe ÷ (target − booked)</td></tr>
+        </table>
+      </div>
+
+      <div class="method-card reveal">
+        <h2><span class="num">B</span>&nbsp;Pipe — the logic</h2>
+        <p>Open pipe = sum of <code>Cal_IACV</code> for opps in an <strong>Open</strong> stage, observed weekly. LS pipe is the same, restricted to late stages (Exec Presentation, Technical Evaluation, Negotiation).</p>
+        <h3>Stage buckets</h3>
+        <table class="method-table">
+          <tr><th>Bucket</th><th>From</th></tr>
+          <tr><td><strong>Open</strong> → open pipe</td><td>active funnel (Discovery → Negotiation)</td></tr>
+          <tr><td>Closed Won → booked side</td><td>Closed Won, Stage 5, <strong>&amp; 6-Closed/Pending</strong></td></tr>
+          <tr><td>Closed / Other → ignored</td><td>Lost, Deferred, admin / dup / churn / rejected</td></tr>
+        </table>
+        <h3>In / out &amp; geo</h3>
+        <ul>
+          <li><span class="tag-out">Excluded:</span> non-quota teams (Account Management, Global, QAS AM, null), zero-value rows, and admin / dup / churn / rejected / renewal-outreach / first-interaction stages.</li>
+          <li><strong>Geo</strong> from the booking team's region family → AMS / APAC / EMEA / Public Sector.</li>
+        </ul>
+        <h3>Week pinning</h3>
+        <ul>
+          <li><strong>Every week → beginning-of-week balance</strong> — the earliest in-quarter snapshot in the week (the standing pipe at the <em>start</em> of the week). Week 1 is the start-of-quarter snapshot (Apr-1 for Q2, Jan-1 for Q1) = PBI's "starting pipe" ($106.1M ≈ PBI $106.18M; Q1 $104.8M).</li>
+          <li><strong>Exception — the in-flight current week → latest snapshot</strong> (today's standing pipe), tying to gtm-weekly-reporting's weekly number to the dollar (FY26 Q2 wk9 = $46.78M). Past weeks stay on their week-start balance.</li>
+        </ul>
+      </div>
+
+      <div class="method-card reveal">
+        <h2><span class="num">C</span>&nbsp;Bookings — the logic</h2>
+        <p>Booked uses <strong>snapshot Closed-Won <code>Cal_IACV</code> for weeks 1–12</strong> (the same gross metric as open pipe, matching gtm-weekly-reporting), and the <strong>live <code>Product_NACV</code> total at week 13</strong> (<code>NACV_USD − Uplift_USD</code>, the true final bookings that tie to Historic.xlsx/PBI). The in-flight quarter (no week 13 yet) shows snapshot booked throughout.</p>
+        <ul>
+          <li><span class="tag-in">Included:</span> <strong>6-Closed/Pending counts as booked</strong> (both paths; ≈ $0.43M of FY26 Q2). On the live path, <strong>NPA</strong> negative adjustments are kept (they net de-bookings / credits).</li>
+          <li><span class="tag-out">Excluded:</span> non-quota teams, zero rows, any non-won/pending stage, and deal types outside New Business / Expansion / Upsell / Professional Services.</li>
+          <li><strong>Trade-off:</strong> snapshot Closed-Won <code>Cal_IACV</code> understates historic bookings vs live (FY26 Q1 $15.72M snapshot vs $16.63M Historic.xlsx) — kept for metric consistency with open pipe + a frozen series.</li>
+        </ul>
+      </div>
+
+      <div class="method-card reveal">
+        <h2><span class="num">D</span>&nbsp;The math</h2>
+        <h3>Coverage</h3>
+        <div class="method-formula">LTB = target − booked
+coverage = open_pipe ÷ LTB        (— when LTB ≤ 0)</div>
+        <p><code>3×</code> = carry $3 of open pipe for every $1 still left to book.</p>
+        <h3>Needed coverage (from history)</h3>
+        <p>For each closed quarter, geo, deal type and week N — what fraction of the open pipe sitting there at week N had booked by quarter-close:</p>
+        <div class="method-formula">conversion(N)   = ( final_booked − booked_at_N ) ÷ open_pipe_at_N
+rec_coverage(N) = 1 ÷ median( conversion across closed quarters )</div>
+        <p>Median (not mean) across the ~9 closed quarters (FY24 Q1 – FY26 Q1). e.g. 33% → 3.0×, 22% → 4.5×. The needed multiple is a <strong>curve</strong> — high early (pipe still holds eventual-losers), lower near quarter-end — which a single <code>1 ÷ win-rate</code> can't capture.</p>
+        <h3>Needed pipe (drawn on the chart)</h3>
+        <div class="method-formula">needed_pipe(N) = LTB(N) × rec_coverage(N)</div>
+      </div>
+
+      <div class="method-card reveal">
+        <h2><span class="num">E</span>&nbsp;What we changed</h2>
+        <ul class="method-changelog">
+          <li><strong>Week pinning:</strong> each week shows its <strong>beginning-of-week</strong> standing pipe (week 1 = start-of-quarter = PBI "starting pipe", Q2 $106.1M). The in-flight current week uses the latest snapshot (GTM tie, $46.78M).</li>
+          <li><strong>Booked: snapshot for weeks 1–12, live total at week 13.</strong> The weekly progression uses snapshot Closed-Won <code>Cal_IACV</code> (consistent with open pipe + matches gtm-weekly-reporting); only the final week (13) shows the live <code>Product_NACV</code> total (true final bookings, ties Historic.xlsx).</li>
+          <li><strong>6-Closed/Pending counted as booked</strong> — confirmed &amp; documented (≈ $0.43M of FY26 Q2).</li>
+          <li><strong>One-decimal display</strong> on the weekly detail and recommended-coverage tables.</li>
+          <li><strong>Removed the old Overview page</strong>; added this Methodology page.</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+
+  <footer class="colophon reveal">
+    <div>
+      <h4>Recommendation</h4>
+      <em>Needed coverage</em> = <code>1 / median historic conversion at week N</code>. Conversion = open pipe at week N that closes by EOQ, across closed FY24/FY25/FY26-Q1 quarters.
+    </div>
+    <div>
+      <h4>Method</h4>
+      Each week's pipe = the beginning-of-week snapshot (latest snapshot for the in-flight current week). Booked = snapshot <code>Stage='Closed Won'</code> for weeks 1–12, live SKU NACV total at week 13. Needed pipe at week N = <code>(target − booked) / conversion(N)</code>.
+    </div>
+    <div>
+      <h4>Source</h4>
+      <code>[rep].[trf_opp_daily_snapshot_new]</code><br/>
+      <code>[sharepoint].[Map_Booking_Team_Static_live]</code><br/>
+      FY'24–'26 Targets · Strategic Analytics
+    </div>
+  </footer>
+
+</div>
+
+<script>
+const DATA = JSON.parse(document.getElementById('coverage-data').textContent);
+const WIQ = DATA.weeksInQuarter;
+const state = {
+  theme: localStorage.getItem('cc-theme') || 'light',
+  page: ['methodology','segment','product'].includes(localStorage.getItem('cc-page')) ? localStorage.getItem('cc-page') : 'deep',  // pages: deep | segment | product | methodology
+  fy: localStorage.getItem('cc-fy') || DATA.defaultFy,
+  quarter: localStorage.getItem('cc-quarter') || DATA.defaultQuarter,
+  dt: localStorage.getItem('cc-dt') || (DATA.dealTypes[0] && DATA.dealTypes[0].code),
+  geo: localStorage.getItem('cc-geo') || (DATA.geos[0] && DATA.geos[0].code),
+  // tableWeek: null means "auto-track to currentWeek of the selected quarter"
+  tableWeek: localStorage.getItem('cc-tableWeek')
+    ? parseInt(localStorage.getItem('cc-tableWeek'), 10) : null,
+};
+if (!DATA.quartersByFy[state.fy]) state.fy = DATA.defaultFy;
+if (!(DATA.quartersByFy[state.fy] || []).includes(state.quarter)) {
+  const qs = DATA.quartersByFy[state.fy] || [];
+  state.quarter = qs[qs.length - 1] || null;
+}
+
+const fmtM   = v => v == null || isNaN(v) ? "—" : (v / 1e6).toFixed(1) + "M";
+const fmtMx  = v => v == null || isNaN(v) ? "—" : "$" + (v / 1e6).toFixed(2) + "M";
+const fmtCov = v => v == null || isNaN(v) ? "—" : v.toFixed(2) + "×";
+const fmtPct = v => v == null || isNaN(v) ? "—" : v.toFixed(0) + "%";
+const lastDefined = (arr) => { for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null && !isNaN(arr[i])) return { i, v: arr[i] }; return null; };
+
+/* Needed coverage, quarter-state-aware — the shared rule for the Segment and
+   Product pages (KPI strips + §01 tables). For a CLOSED quarter, needed at
+   week idx is that quarter's OWN retrospective number:
+       1 ÷ ((final booked − booked-by-now) ÷ open-pipe-now)
+   so it reconciles against the row's own dollars (cov ≥ need ⟺ the quarter
+   hit target from that point). Returns null for in-flight/future quarters
+   (final booked unknown) — callers fall back to the historic-median recCov. */
+function perQuarterNeed(cell, idx, qdata) {
+  if (!cell || !qdata || qdata.currentWeek < WIQ) return null;
+  const open = cell.openPipe ? cell.openPipe[idx] : null;
+  const bkd = cell.booked ? cell.booked[idx] : null;
+  const finalBkd = cell.booked ? cell.booked[WIQ - 1] : null;
+  if (open == null || bkd == null || finalBkd == null || open <= 0) return null;
+  const conv = (finalBkd - bkd) / open;
+  return conv > 0 ? 1 / conv : null;
+}
+
+/* Coverage-multiple display for the §01 tables: cap absurd values at ">50×"
+   (same convention as the §02 glide tables). Multiples that large mean the
+   LTB denominator is nearly exhausted — target effectively attained — so the
+   exact ratio is noise; it stays available in the hover tooltip. */
+const fmtCovVal = (v, dec = 1) => {
+  if (v == null || isNaN(v)) return '<span class="grey">—</span>';
+  if (v > 50) return `<span class="grey" title="${v.toFixed(1)}×">&gt;50×</span>`;
+  return v.toFixed(dec) + '×';
+};
+
+function applyTheme() { document.body.dataset.theme = state.theme; localStorage.setItem('cc-theme', state.theme); }
+document.getElementById('themeToggle').addEventListener('click', () => {
+  state.theme = state.theme === 'light' ? 'dark' : 'light';
+  applyTheme(); renderAll();
+});
+applyTheme();
+
+/* ─── FILTERS ───────────────────────────────────────────────────────── */
+function renderFilters() {
+  document.getElementById('fyPills').innerHTML = DATA.fiscalYears.map(fy =>
+    `<button class="pill-btn" data-fy="${fy}" data-active="${fy === state.fy}">${fy}</button>`).join('');
+  document.querySelectorAll('[data-fy]').forEach(el => el.addEventListener('click', () => {
+    state.fy = el.dataset.fy; localStorage.setItem('cc-fy', state.fy);
+    const qs = DATA.quartersByFy[state.fy] || [];
+    state.quarter = qs[qs.length - 1] || null;
+    localStorage.setItem('cc-quarter', state.quarter);
+    renderAll();
+  }));
+  const allQs = ["Q1","Q2","Q3","Q4"];
+  const present = new Set((DATA.quartersByFy[state.fy] || []).map(q => q.split(" ")[1]));
+  document.getElementById('qtrPills').innerHTML = allQs.map(q => {
+    const k = `${state.fy} ${q}`; const has = present.has(q);
+    return `<button class="pill-btn" data-q="${k}" data-active="${k === state.quarter}" data-disabled="${!has}">${q}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-q]').forEach(el => {
+    if (el.dataset.disabled === "true") return;
+    el.addEventListener('click', () => { state.quarter = el.dataset.q; localStorage.setItem('cc-quarter', state.quarter); renderAll(); });
+  });
+  // Week filter: "Latest" + weeks 1..WIQ. Weeks past the quarter's currentWeek
+  // are disabled. "Latest" maps to state.tableWeek = null (auto-track currentWeek).
+  const qdataW = DATA.quarters[state.quarter];
+  const cw = qdataW ? qdataW.currentWeek : WIQ;
+  const isLatest = (state.tableWeek == null);
+  const weekBtns = [`<button class="pill-btn" data-w="latest" data-active="${isLatest}">Latest</button>`];
+  for (let w = 1; w <= WIQ; w++) {
+    const disabled = w > cw;
+    const active = !isLatest && state.tableWeek === w;
+    weekBtns.push(`<button class="pill-btn" data-w="${w}" data-active="${active}" data-disabled="${disabled}">${w}</button>`);
+  }
+  document.getElementById('weekPills').innerHTML = weekBtns.join('');
+  document.querySelectorAll('[data-w]').forEach(el => {
+    if (el.dataset.disabled === "true") return;
+    el.addEventListener('click', () => {
+      if (el.dataset.w === 'latest') {
+        state.tableWeek = null;
+        localStorage.removeItem('cc-tableWeek');
+      } else {
+        state.tableWeek = parseInt(el.dataset.w, 10);
+        localStorage.setItem('cc-tableWeek', String(state.tableWeek));
+      }
+      renderAll();
+    });
+  });
+  document.getElementById('dtPills').innerHTML = DATA.dealTypes.map(dt =>
+    `<button class="pill-btn" data-dt="${dt.code}" data-active="${dt.code === state.dt}">${dt.label}</button>`).join('');
+  document.querySelectorAll('[data-dt]').forEach(el => el.addEventListener('click', () => {
+    state.dt = el.dataset.dt; localStorage.setItem('cc-dt', state.dt); renderAll();
+  }));
+  document.getElementById('geoPills').innerHTML = DATA.geos.map(g =>
+    `<button class="pill-btn" data-geo="${g.code}" data-active="${g.code === state.geo}">${g.label}</button>`).join('');
+  document.querySelectorAll('[data-geo]').forEach(el => el.addEventListener('click', () => {
+    state.geo = el.dataset.geo; localStorage.setItem('cc-geo', state.geo); renderAll();
+  }));
+}
+
+function getCell() {
+  const qdata = DATA.quarters[state.quarter];
+  if (!qdata) return null;
+  const dt = DATA.dealTypes.find(d => d.code === state.dt);
+  const g  = DATA.geos.find(x => x.code === state.geo);
+  if (!dt || !g) return null;
+  return { cell: qdata.cells[`${g.code}·${dt.code}`], qdata, dt, g };
+}
+
+
+/* ─── RENDER CONTENT ────────────────────────────────────────────────── */
+function renderContent() {
+  document.getElementById('as-of').textContent = DATA.asOfDate;
+  const content = document.getElementById('content');
+  const ctx = getCell();
+  if (!ctx || !ctx.cell) {
+    content.innerHTML = `<div class="empty">No data for <strong>${state.quarter} · ${state.dt} · ${state.geo}</strong>. Try a different selection.</div>`;
+    return;
+  }
+  const { cell } = ctx;
+  content.innerHTML = `
+    ${renderTable()}
+    <div class="chart-card reveal" id="needHistCard">
+      <div class="head">
+        <span class="num">§ 02</span>
+        <h3>Recommended coverage glide</h3>
+        <div class="takeaway" id="needHistTakeaway"></div>
+      </div>
+      <p class="reccalc-explainer">
+        A coverage carry schedule by week. Each value is the median, across all
+        closed quarters, of the needed coverage at that week
+        (<code>1 ÷ median loose conversion</code>), where
+        <code>conversion = (booked by EOQ − booked by week N) ÷ open pipe at week N</code>.
+        Use it as a per-deal-type replacement for the blanket 4× rule.
+      </p>
+      <h4 class="rec-subhead">By deal type · all geos <span class="rec-sub-note">(open pipe &amp; bookings summed across geos, then converted — dollar-weighted, not a flat average)</span></h4>
+      <div id="needHistDtSummary"></div>
+      <h4 class="rec-subhead">By geo × deal type</h4>
+      <div id="needHistTables"></div>
+    </div>
+  `;
+  renderDealTypeRecSummary();
+  renderNeededCoverageTables();
+  bindTableWeekPills();
+}
+
+/* Deep-Dive § 02 · High-level recommended coverage BY DEAL TYPE (all geos).
+   One row per deal type (plus an All-Deal-Types row), using the geo='All'
+   cells whose recCov is computed on geo-summed pipe + bookings (dollar-
+   weighted), then 1 ÷ median loose conversion across closed quarters. */
+function renderDealTypeRecSummary() {
+  const el = document.getElementById('needHistDtSummary');
+  if (!el) return;
+  const qd = DATA.quarters[state.quarter];
+  if (!qd) { el.innerHTML = ''; return; }
+
+  const _fmt = v => {
+    if (v == null || isNaN(v)) return '<span class="grey">—</span>';
+    if (v > 50) return '<span class="grey">&gt;50×</span>';
+    return v.toFixed(1) + '×';
+  };
+
+  // Rows: All Deal Types first, then NB / EX / UP (geo = All). PS is omitted
+  // here (no target — see the geo×dt table footnote), matching the line charts.
+  const rows = [{ code: 'All', label: 'All Deal Types' }, ...deepDiveDealTypes()];
+
+  let head = `<tr><th>Deal Type</th>`;
+  for (let w = 1; w <= WIQ; w++) head += `<th>Wk ${w}</th>`;
+  head += `</tr>`;
+
+  let body = '';
+  rows.forEach(dt => {
+    const c = qd.cells[`All·${dt.code}`];
+    const isAll = dt.code === 'All';
+    let cells = '';
+    for (let w = 0; w < WIQ; w++) {
+      const v = c && c.recCov ? c.recCov[w] : null;
+      cells += `<td>${_fmt(v)}</td>`;
+    }
+    body += `<tr class="${isAll ? 'geo-row-first geo-row-last dt-total' : ''}"><td>${dt.label}</td>${cells}</tr>`;
+  });
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="detail glide-1">
+        <thead>${head}</thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+/* Deep-Dive § 02 · Recommended coverage glide — by Geo × Deal Type.
+   For every (geo, deal_type) cell, show the recommended coverage at each
+   week 1-13. Each row is a cell's "carry schedule" — use as the per-cell
+   replacement for the blanket 4× rule. */
+function renderNeededCoverageTables() {
+  const el = document.getElementById('needHistTables');
+  const takeawayEl = document.getElementById('needHistTakeaway');
+  if (!el) return;
+
+  const geos = realGeos();
+  const dts  = deepDiveDealTypes();   // drops Professional Services
+  const refQ = state.quarter;
+  const qd = DATA.quarters[refQ];
+  if (!qd) { el.innerHTML = ''; takeawayEl.innerHTML = ''; return; }
+
+  function _fmt(v) {
+    if (v == null || isNaN(v)) return '<span class="grey">—</span>';
+    if (v > 50) return '<span class="grey">&gt;50×</span>';
+    return v.toFixed(1) + '×';
+  }
+  function _colorCell(v) { return ''; }
+
+  /* Header — Week column + one column per week 1..13 */
+  let head = `<tr><th>Geo</th><th>Deal Type</th>`;
+  for (let w = 1; w <= WIQ; w++) head += `<th>Wk ${w}</th>`;
+  head += `</tr>`;
+
+  /* Rows: 4 geos × 3 deal types + a per-geo Total row.
+     Total = target-dollar-weighted average needed coverage across NB+EX+UP
+     for that geo at each week. The weighting captures that a deal type
+     with a larger target carries more weight in the rollup. */
+  let body = '';
+  let cellsRendered = 0, anyExtremes = null;
+  geos.forEach((g, gi) => {
+    dts.forEach((dt, dti) => {
+      const c = qd.cells[`${g.code}·${dt.code}`];
+      const firstCls = dti === 0 ? 'geo-row-first' : '';
+      const geoLabel = dti === 0 ? g.label : '';
+      let cells = '';
+      for (let w = 0; w < WIQ; w++) {
+        const v = c && c.recCov ? c.recCov[w] : null;
+        cells += `<td style="${_colorCell(v)}">${_fmt(v)}</td>`;
+        if (v != null && !isNaN(v)) {
+          cellsRendered++;
+          if (w === 0) {
+            if (!anyExtremes || v > anyExtremes.hi.v) anyExtremes = { hi: { geo: g, dt, v }, lo: anyExtremes ? anyExtremes.lo : { geo: g, dt, v } };
+            if (!anyExtremes || v < anyExtremes.lo.v) anyExtremes = { hi: anyExtremes ? anyExtremes.hi : { geo: g, dt, v }, lo: { geo: g, dt, v } };
+          }
+        }
+      }
+      const lastCls = dti === dts.length - 1 ? 'geo-row-last' : '';
+      body += `<tr class="${firstCls} ${lastCls}">
+        <td>${geoLabel}</td>
+        <td>${dt.label}</td>
+        ${cells}
+      </tr>`;
+    });
+  });
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table class="detail glide-2">
+        <thead>${head}</thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+
+  /* Takeaway: highest vs lowest week-1 needed coverage across all cells */
+  if (anyExtremes && anyExtremes.hi && anyExtremes.lo && anyExtremes.hi !== anyExtremes.lo) {
+    takeawayEl.innerHTML = `Wk 1 spread: <strong>${anyExtremes.hi.geo.label} · ${anyExtremes.hi.dt.label}</strong> needs <strong>${anyExtremes.hi.v.toFixed(1)}×</strong>; <strong>${anyExtremes.lo.geo.label} · ${anyExtremes.lo.dt.label}</strong> needs <strong>${anyExtremes.lo.v.toFixed(1)}×</strong>.`;
+  } else {
+    takeawayEl.innerHTML = '';
+  }
+}
+
+/* ─── WEEKLY DETAIL TABLE (§03) ─────────────────────────────────────── */
+function realGeos()      { return DATA.geos.filter(g => g.code !== 'All'); }
+function realDealTypes() { return DATA.dealTypes.filter(d => d.code !== 'All'); }
+/* For the Deep Dive line charts, drop Professional Services — no targets and
+   tiny deal counts make it noisy. The weekly-detail table still shows it. */
+function deepDiveDealTypes() { return DATA.dealTypes.filter(d => d.code !== 'All' && d.code !== 'PS'); }
+
+function renderTable() {
+  const qdata = DATA.quarters[state.quarter];
+  if (!qdata) return '';
+
+  // Determine selected week: explicit state or current week of quarter
+  const week = state.tableWeek != null && state.tableWeek <= qdata.currentWeek
+    ? state.tableWeek
+    : qdata.currentWeek;
+  const idx = week - 1;
+
+  // Build week pills (1..WIQ, disable beyond currentWeek)
+  const weekPills = Array.from({length: WIQ}, (_, i) => {
+    const w = i + 1;
+    const disabled = w > qdata.currentWeek;
+    const active = w === week;
+    return `<button class="week-pill" data-tw="${w}" data-active="${active}" data-disabled="${disabled}">${w}</button>`;
+  }).join('');
+
+  // Format a coverage delta cell (× with sign, colored)
+  const fmtCovDelta = v => {
+    if (v == null || isNaN(v)) return '<td class="wow-zero"><span class="grey">—</span></td>';
+    // A |Δ| this large means one side's LTB was nearly exhausted — the swing
+    // is denominator noise, not a real coverage move. Same >50 cap as values.
+    if (Math.abs(v) > 50) return `<td class="wow-zero"><span class="grey" title="${(v > 0 ? '+' : '−')}${Math.abs(v).toFixed(1)}×">·</span></td>`;
+    const cls = v > 0 ? 'wow-pos' : v < 0 ? 'wow-neg' : 'wow-zero';
+    const sign = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return `<td class="${cls}">${sign}${Math.abs(v).toFixed(1)}×</td>`;
+  };
+
+  // Build rows: 4 real geos × 4 deal types
+  const geos = realGeos();
+  let rowsHtml = '';
+  const dts = realDealTypes();
+  geos.forEach((g, gi) => {
+    dts.forEach((dt, dti) => {
+      const c = qdata.cells[`${g.code}·${dt.code}`];
+      const open = c ? c.openPipe[idx] : null;
+      const ls   = c ? c.lsPipe[idx]   : null;
+      const bkd  = c ? c.booked[idx]   : null;
+      const tgt  = c ? c.target : null;
+      const ltb  = (tgt != null && bkd != null) ? Math.max(0, tgt - bkd) : null;
+      const cov  = c ? c.totalCov[idx] : null;
+      const lsCov = (ls != null && ltb != null && ltb > 0) ? ls / ltb : null;
+      const need = c ? c.recCov[idx]   : null;
+
+      // Prior-week values for WoW deltas (compute LTB at prior week from same target)
+      const openPrev = (c && idx > 0) ? c.openPipe[idx - 1] : null;
+      const lsPrev   = (c && idx > 0) ? c.lsPipe[idx - 1]   : null;
+      const bkdPrev  = (c && idx > 0) ? c.booked[idx - 1]   : null;
+      const ltbPrev  = (tgt != null && bkdPrev != null) ? Math.max(0, tgt - bkdPrev) : null;
+      const covPrev   = (openPrev != null && ltbPrev != null && ltbPrev > 0) ? openPrev / ltbPrev : null;
+      const lsCovPrev = (lsPrev   != null && ltbPrev != null && ltbPrev > 0) ? lsPrev   / ltbPrev : null;
+      const dCov   = (cov   != null && covPrev   != null) ? cov   - covPrev   : null;
+      const dLsCov = (lsCov != null && lsCovPrev != null) ? lsCov - lsCovPrev : null;
+
+      let covCls = 'neutral';
+      if (cov != null && need != null && !isNaN(cov) && !isNaN(need)) {
+        covCls = (cov >= need) ? 'ok' : 'bad';
+      }
+      const firstCls  = dti === 0 ? 'geo-row-first' : '';
+      const lastCls   = dti === dts.length - 1 ? 'geo-row-last' : '';
+      const geoLabel = dti === 0 ? g.label : '';
+      rowsHtml += `<tr class="${firstCls} ${lastCls}">
+        <td>${geoLabel}</td>
+        <td>${dt.label}</td>
+        <td>${open == null ? '<span class="grey">—</span>' : (open/1e6).toFixed(1)}</td>
+        <td>${ls == null ? '<span class="grey">—</span>' : (ls/1e6).toFixed(1)}</td>
+        <td>${bkd == null ? '<span class="grey">—</span>' : (bkd/1e6).toFixed(2)}</td>
+        <td>${tgt == null ? '<span class="grey">—</span>' : (tgt/1e6).toFixed(2)}</td>
+        <td>${ltb == null ? '<span class="grey">—</span>' : (ltb/1e6).toFixed(2)}</td>
+        <td class="cov-cell ${covCls}">${fmtCovVal(cov)}</td>
+        <td class="cov-cell neutral">${fmtCovVal(lsCov)}</td>
+        ${fmtCovDelta(dCov)}
+        ${fmtCovDelta(dLsCov)}
+      </tr>`;
+    });
+  });
+
+  // Totals row: aggregate at the selected week, compute aggregate-level
+  // coverage now vs prior week for the WoW delta (NOT a sum of per-cell deltas —
+  // those don't aggregate meaningfully because cells with different LTBs would
+  // double-weight the move).
+  let tOpen=0, tLs=0, tBkd=0, tTgt=0, anyTgt=false, hasData=false;
+  let tOpenPrev=0, tLsPrev=0, tBkdPrev=0, anyPrev=false;
+  geos.forEach(g => dts.forEach(dt => {
+    const c = qdata.cells[`${g.code}·${dt.code}`]; if (!c) return;
+    const open = c.openPipe[idx], ls = c.lsPipe[idx], bkd = c.booked[idx], tgt = c.target;
+    if (open != null) { tOpen += open; hasData = true; }
+    if (ls != null) tLs += ls;
+    if (bkd != null) tBkd += bkd;
+    if (tgt != null) { tTgt += tgt; anyTgt = true; }
+    if (idx > 0) {
+      const openPrev = c.openPipe[idx - 1], lsPrev = c.lsPipe[idx - 1], bkdPrev = c.booked[idx - 1];
+      if (openPrev != null) { tOpenPrev += openPrev; anyPrev = true; }
+      if (lsPrev   != null) tLsPrev   += lsPrev;
+      if (bkdPrev  != null) tBkdPrev  += bkdPrev;
+    }
+  }));
+  const tLtb = anyTgt ? Math.max(0, tTgt - tBkd) : null;
+  const tLtbPrev = anyTgt && anyPrev ? Math.max(0, tTgt - tBkdPrev) : null;
+  const tCov   = (tLtb     != null && tLtb     > 0) ? tOpen     / tLtb     : null;
+  const tLsCov = (tLs      != null && tLtb     > 0) ? tLs       / tLtb     : null;
+  const tCovPrev   = (tLtbPrev != null && tLtbPrev > 0 && anyPrev) ? tOpenPrev / tLtbPrev : null;
+  const tLsCovPrev = (tLtbPrev != null && tLtbPrev > 0 && anyPrev) ? tLsPrev   / tLtbPrev : null;
+  const tDCov   = (tCov   != null && tCovPrev   != null) ? tCov   - tCovPrev   : null;
+  const tDLsCov = (tLsCov != null && tLsCovPrev != null) ? tLsCov - tLsCovPrev : null;
+  // Coverage cell color: compare aggregate coverage to aggregate needed coverage.
+  let totalNeedPipe = 0, anyNeedPipe = false;
+  geos.forEach(g => dts.forEach(dt => {
+    const c = qdata.cells[`${g.code}·${dt.code}`]; if (!c) return;
+    const ltb = c.target != null && c.booked[idx] != null ? Math.max(0, c.target - c.booked[idx]) : null;
+    const r = c.recCov[idx];
+    if (ltb != null && r != null && !isNaN(r)) { totalNeedPipe += ltb * r; anyNeedPipe = true; }
+  }));
+  const totalNeedCov = (tLtb != null && tLtb > 0 && anyNeedPipe) ? totalNeedPipe / tLtb : null;
+  let totalCovCls = 'neutral';
+  if (tCov != null && totalNeedCov != null) totalCovCls = (tCov >= totalNeedCov) ? 'ok' : 'bad';
+
+  const totalsRow = `<tr class="totals">
+    <td>Total</td>
+    <td><span class="grey">all geos · all DT</span></td>
+    <td>${hasData ? (tOpen/1e6).toFixed(1) : '—'}</td>
+    <td>${hasData ? (tLs/1e6).toFixed(1) : '—'}</td>
+    <td>${hasData ? (tBkd/1e6).toFixed(2) : '—'}</td>
+    <td>${anyTgt ? (tTgt/1e6).toFixed(2) : '—'}</td>
+    <td>${tLtb == null ? '—' : (tLtb/1e6).toFixed(2)}</td>
+    <td class="cov-cell ${totalCovCls}">${fmtCovVal(tCov)}</td>
+    <td class="cov-cell neutral">${fmtCovVal(tLsCov)}</td>
+    ${fmtCovDelta(tDCov)}
+    ${fmtCovDelta(tDLsCov)}
+  </tr>`;
+
+  return `
+    <div class="tbl-card reveal">
+      <div class="head">
+        <span class="num">§ 01</span>
+        <h3>Weekly detail by Geo × Deal Type</h3>
+        <span class="ctx">${state.quarter} · Wk ${week} of ${WIQ}</span>
+      </div>
+      <div class="week-filter">
+        <span class="label">Week</span>
+        ${weekPills}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="detail">
+          <thead>
+            <tr>
+              <th>Geo</th>
+              <th>Deal Type</th>
+              <th>Open Pipe ($M)</th>
+              <th>LS Pipe ($M)</th>
+              <th>Booked ($M)</th>
+              <th>Target ($M)</th>
+              <th>LTB ($M)</th>
+              <th title="Total coverage = open pipe ÷ LTB at this week">Coverage</th>
+              <th title="Late-stage coverage = late-stage pipe ÷ LTB at this week">LS Coverage</th>
+              <th title="Total coverage change vs the prior week (×)">Δ Coverage (WoW)</th>
+              <th title="Late-stage coverage change vs the prior week (×)">Δ LS Coverage (WoW)</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}${totalsRow}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function bindTableWeekPills() {
+  document.querySelectorAll('[data-tw]').forEach(el => {
+    if (el.dataset.disabled === 'true') return;
+    el.addEventListener('click', () => {
+      state.tableWeek = parseInt(el.dataset.tw, 10);
+      localStorage.setItem('cc-tableWeek', String(state.tableWeek));
+      renderKpiStrip();
+      renderContent();
+    });
+  });
+}
+
+/* ─── KPI STRIP (synced to FY · Quarter · Week · Geo · Deal Type) ───── */
+function renderKpiStrip() {
+  const el = document.getElementById('kpiStrip');
+  const qdata = DATA.quarters[state.quarter];
+  if (!qdata) { el.innerHTML = ''; return; }
+
+  const cw = qdata.currentWeek;
+  // Honor the table-week pill if set and not beyond the quarter's current week;
+  // otherwise pin to the quarter's latest week.
+  const selWeek = (state.tableWeek != null && state.tableWeek >= 1 && state.tableWeek <= cw)
+    ? state.tableWeek : cw;
+  const idx = selWeek - 1;
+
+  // Pull the slice that matches the active geo/deal-type filter
+  const cellKey = `${state.geo}·${state.dt}`;
+  const cell = qdata.cells[cellKey] || qdata.aggregate;
+  const series = (cell.openPipe ? cell : qdata.aggregate);
+
+  const get = (a, i) => (a && i >= 0 && i < a.length && a[i] != null) ? a[i] : null;
+  const open = get(series.openPipe, idx);
+  const ls   = get(series.lsPipe,   idx);
+  const cov  = get(series.totalCov, idx);
+  const openP = get(series.openPipe, idx - 1);
+  const lsP   = get(series.lsPipe,   idx - 1);
+  const covP  = get(series.totalCov, idx - 1);
+  /* Needed coverage at the selected week.
+     - For CLOSED quarters: use THIS quarter's own loose conversion
+       (retrospective: "what coverage would have hit target given Q's actual
+       conversion"). Pulled from DATA.strictPerQuarter which now holds
+       per-quarter loose conversion values.
+     - For IN-FLIGHT / FUTURE quarters: fall back to the historic median
+       across closed quarters (prospective guidance — what to carry now). */
+  const perQLookup = (DATA.strictPerQuarter || {})[cellKey] || {};
+  function _perQConvAt(week) {
+    const entries = perQLookup[week] || perQLookup[String(week)] || [];
+    const e = entries.find(x => x.q === state.quarter);
+    return (e && e.conv != null && e.conv > 0) ? e.conv : null;
+  }
+  /* In-flight quarter check — final_booked isn't real yet, so per-quarter
+     conversion is artificially low and 1/conv blows up. Hide the value. */
+  const isInFlight = cw < WIQ;
+  const perQConvNow  = isInFlight ? null : _perQConvAt(selWeek);
+  const perQConvPrev = (!isInFlight && idx > 0) ? _perQConvAt(selWeek - 1) : null;
+  const histMedNow  = get(series.recCov, idx);
+  const histMedPrev = get(series.recCov, idx - 1);
+  const need  = isInFlight ? null
+    : (perQConvNow  != null ? (1 / perQConvNow)  : histMedNow);
+  const needP = isInFlight ? null
+    : (perQConvPrev != null ? (1 / perQConvPrev) : histMedPrev);
+  const needSource = isInFlight
+    ? `hidden — ${state.quarter} bookings not final yet`
+    : (perQConvNow != null
+      ? `to hit target given ${state.quarter}'s actual conversion`
+      : `1 ÷ median historic conversion at wk ${selWeek}`);
+  const covGap = (cov != null && need != null) ? cov - need : null;
+
+  const isClosed = cw >= WIQ;
+  const isCurrent = state.quarter === DATA.defaultQuarter;
+  const statusLabel = isCurrent
+    ? 'Latest snapshot'
+    : (isClosed ? 'Closed quarter' : 'In-flight quarter');
+
+  const geoLabel = (DATA.geos.find(g => g.code === state.geo) || {}).label || state.geo;
+  const dtLabel  = (DATA.dealTypes.find(d => d.code === state.dt) || {}).label || state.dt;
+  const sliceLabel = `${geoLabel} · ${dtLabel}`;
+
+  const pill = (delta, kind) => {
+    if (delta == null || isNaN(delta)) return '';
+    const cls = delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'zero';
+    const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '·';
+    const text = kind === 'cov'
+      ? `${arrow} ${Math.abs(delta).toFixed(2)}× wow`
+      : `${arrow} ${(Math.abs(delta)/1e6).toFixed(1)}M wow`;
+    return `<span class="delta ${cls}">${text}</span>`;
+  };
+
+  // Second-row KPIs — week-driven. Target is fixed per slice; Booked and
+  // Attainment update with the selected week so the user sees progress at
+  // that specific point in the quarter (not just the final state).
+  const tgt = cell.target;
+  const bkdAtWeek = get(cell.booked || [], idx);
+  const attn = (bkdAtWeek != null && tgt != null && tgt > 0) ? (bkdAtWeek / tgt) * 100 : null;
+  const attnCls = attn == null ? '' : (attn >= 95 ? 'attn-good' : attn >= 75 ? 'attn-md' : 'attn-bad');
+
+  el.innerHTML = `
+    <div class="kpi-meta">
+      <span><span class="dot"></span>${statusLabel} · <span class="now">${state.quarter} · Wk ${selWeek} / ${WIQ}</span></span>
+      <span>${sliceLabel}</span>
+      <span>As of ${DATA.asOfDate}</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="k">Open Pipe</div>
+        <div class="v-row">
+          <div class="v">${open == null ? '—' : (open/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(open != null && openP != null ? open - openP : null, 'money')}
+        </div>
+        <div class="sub">${sliceLabel}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Late-Stage Pipe</div>
+        <div class="v-row">
+          <div class="v">${ls == null ? '—' : (ls/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(ls != null && lsP != null ? ls - lsP : null, 'money')}
+        </div>
+        <div class="sub">stages 3 · 4 · 5 · 6 only</div>
+      </div>
+      <div class="kpi-card is-coverage">
+        <div class="k">Coverage</div>
+        <div class="v-row">
+          <div class="v">${cov == null ? '—' : cov.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${pill(cov != null && covP != null ? cov - covP : null, 'cov')}
+        </div>
+        <div class="sub">open pipe ÷ (target − booked)</div>
+      </div>
+      <div class="kpi-card is-needed">
+        <div class="k">Needed Coverage</div>
+        <div class="v-row">
+          <div class="v">${need == null ? '—' : need.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${(() => {
+            if (covGap == null) return '';
+            const cls = covGap >= 0 ? 'pos' : 'neg';
+            const arrow = covGap >= 0 ? '▲' : '▼';
+            const text = covGap >= 0
+              ? `${arrow} ${covGap.toFixed(2)}× cushion`
+              : `${arrow} ${Math.abs(covGap).toFixed(2)}× short`;
+            return `<span class="delta ${cls}">${text}</span>`;
+          })()}
+        </div>
+        <div class="sub">${needSource}</div>
+      </div>
+    </div>
+    <div class="kpi-row kpi-row-3-extra">
+      <div class="kpi-card">
+        <div class="k">Target</div>
+        <div class="v-row">
+          <div class="v">${tgt == null ? '—' : (tgt/1e6).toFixed(2) + '<span class="unit">M</span>'}</div>
+        </div>
+        <div class="sub">quarterly ACV target</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Booked</div>
+        <div class="v-row">
+          <div class="v">${bkdAtWeek == null ? '—' : (bkdAtWeek/1e6).toFixed(2) + '<span class="unit">M</span>'}</div>
+        </div>
+        <div class="sub">${selWeek >= WIQ ? 'final booked total (live SKU NACV)' : 'Closed Won (snapshot) thru wk ' + selWeek}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Attainment</div>
+        <div class="v-row">
+          <div class="v ${attnCls}">${attn == null ? '—' : attn.toFixed(0) + '<span class="unit">%</span>'}</div>
+        </div>
+        <div class="sub">booked through wk ${selWeek} ÷ target</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSparseBanner() {
+  const el = document.getElementById('sparseBanner');
+  const qdata = DATA.quarters[state.quarter];
+  if (!qdata || !qdata.isSparseSnapshot) { el.innerHTML = ''; return; }
+  const wks = qdata.weeksWithData;
+  el.innerHTML = `
+    <div class="sparse-banner reveal">
+      <span class="icon">⚠</span>
+      <div class="body">
+        <strong>${state.quarter}: sparse snapshot data.</strong>
+        Only ${wks} of ${WIQ} weeks have pipeline snapshots
+        (the daily snapshot table reached weekly cadence in April 2024).
+        <strong>Open pipe / Late-Stage pipe / Coverage</strong> are shown as a single
+        quarterly representative value (the max across available snapshots), held flat across the trajectory.
+        <strong>Booked</strong> is snapshot Closed Won through wk 12, with the live SKU NACV total at wk 13.
+        Compare this quarter at the quarter level, not week by week.
+      </div>
+    </div>
+  `;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SEGMENT PAGE · Pipeline by Geo × Segment (account tier)
+   Mirrors the Dashboard's §01 weekly detail + KPI strip, cut by tier
+   instead of deal type. No needed-coverage (none computed at tier grain).
+   ════════════════════════════════════════════════════════════════════ */
+const SEG = DATA.segment || { quarters: {}, presentQuarters: [] };
+const SEGMENTS = DATA.segments || SEG.segments || [];
+const realSegments = () => SEGMENTS.filter(s => s.code !== 'All');
+
+function renderSegmentFilters() {
+  const fyEl = document.getElementById('segFyPills');
+  if (!fyEl) return;
+  fyEl.innerHTML = DATA.fiscalYears.map(fy =>
+    `<button class="pill-btn" data-segfy="${fy}" data-active="${fy === state.fy}">${fy}</button>`).join('');
+  document.querySelectorAll('[data-segfy]').forEach(el => el.addEventListener('click', () => {
+    state.fy = el.dataset.segfy; localStorage.setItem('cc-fy', state.fy);
+    const qs = DATA.quartersByFy[state.fy] || [];
+    state.quarter = qs[qs.length - 1] || null;
+    localStorage.setItem('cc-quarter', state.quarter);
+    renderAll();
+  }));
+  const allQs = ["Q1","Q2","Q3","Q4"];
+  const present = new Set((DATA.quartersByFy[state.fy] || []).map(q => q.split(" ")[1]));
+  document.getElementById('segQtrPills').innerHTML = allQs.map(q => {
+    const k = `${state.fy} ${q}`; const has = present.has(q);
+    return `<button class="pill-btn" data-segq="${k}" data-active="${k === state.quarter}" data-disabled="${!has}">${q}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-segq]').forEach(el => {
+    if (el.dataset.disabled === 'true') return;
+    el.addEventListener('click', () => {
+      state.quarter = el.dataset.segq; localStorage.setItem('cc-quarter', state.quarter);
+      renderAll();
+    });
+  });
+}
+
+/* Selected week for the segment page (shared tableWeek state, clamped to the
+   segment quarter's currentWeek). */
+function segSelectedWeek(qdata) {
+  const cw = qdata.currentWeek;
+  return (state.tableWeek != null && state.tableWeek >= 1 && state.tableWeek <= cw)
+    ? state.tableWeek : cw;
+}
+
+function renderSegmentKpi() {
+  const el = document.getElementById('segKpiStrip');
+  if (!el) return;
+  const qdata = SEG.quarters[state.quarter];
+  if (!qdata) { el.innerHTML = ''; return; }
+  const week = segSelectedWeek(qdata);
+  const idx = week - 1;
+  const get = (a, i) => (a && i >= 0 && i < a.length && a[i] != null) ? a[i] : null;
+
+  const cell = qdata.cells['All·All'] || qdata.aggregate;
+  const open = get(cell.openPipe, idx), openP = get(cell.openPipe, idx - 1);
+  const ls   = get(cell.lsPipe,   idx), lsP   = get(cell.lsPipe,   idx - 1);
+  const cov  = get(cell.totalCov, idx), covP  = get(cell.totalCov, idx - 1);
+  // Needed: CLOSED quarter → this quarter's own retrospective needed (same
+  // shared rule as the §01 table); IN-FLIGHT → historic median.
+  const isClosedQ = qdata.currentWeek >= WIQ;
+  const need = isClosedQ ? perQuarterNeed(cell, idx, qdata) : get(cell.recCov || [], idx);
+  const needSub = isClosedQ
+    ? `1 ÷ this quarter's actual conversion from wk ${week}`
+    : `1 ÷ median historic conversion at wk ${week}`;
+  const covGap = (cov != null && need != null) ? cov - need : null;
+  const tgt  = cell.target;
+  const bkd  = get(cell.booked || [], idx);
+  const ltb  = (tgt != null && bkd != null) ? Math.max(0, tgt - bkd) : null;
+  const attn = (bkd != null && tgt != null && tgt > 0) ? (bkd / tgt) * 100 : null;
+  const attnCls = attn == null ? '' : (attn >= 95 ? 'attn-good' : attn >= 75 ? 'attn-md' : 'attn-bad');
+
+  const cw = qdata.currentWeek;
+  const isClosed = cw >= WIQ;
+  const isCurrent = state.quarter === DATA.defaultQuarter;
+  const statusLabel = isCurrent ? 'Latest snapshot' : (isClosed ? 'Closed quarter' : 'In-flight quarter');
+
+  const pill = (delta, kind) => {
+    if (delta == null || isNaN(delta)) return '';
+    const cls = delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'zero';
+    const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '·';
+    const text = kind === 'cov'
+      ? `${arrow} ${Math.abs(delta).toFixed(2)}× wow`
+      : `${arrow} ${(Math.abs(delta)/1e6).toFixed(1)}M wow`;
+    return `<span class="delta ${cls}">${text}</span>`;
+  };
+
+  el.innerHTML = `
+    <div class="kpi-meta">
+      <span><span class="dot"></span>${statusLabel} · <span class="now">${state.quarter} · Wk ${week} / ${WIQ}</span></span>
+      <span>All Geos · All Tiers</span>
+      <span>As of ${DATA.asOfDate}</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="k">Open Pipe</div>
+        <div class="v-row">
+          <div class="v">${open == null ? '—' : (open/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(open != null && openP != null ? open - openP : null, 'money')}
+        </div>
+        <div class="sub">all geos · all tiers</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Late-Stage Pipe</div>
+        <div class="v-row">
+          <div class="v">${ls == null ? '—' : (ls/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(ls != null && lsP != null ? ls - lsP : null, 'money')}
+        </div>
+        <div class="sub">stages 3 · 4 · 5 · 6 only</div>
+      </div>
+      <div class="kpi-card is-coverage">
+        <div class="k">Coverage</div>
+        <div class="v-row">
+          <div class="v">${cov == null || isNaN(cov) ? '—' : cov.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${pill(cov != null && covP != null ? cov - covP : null, 'cov')}
+        </div>
+        <div class="sub">open pipe ÷ (target − booked)</div>
+      </div>
+      <div class="kpi-card is-needed">
+        <div class="k">Needed Coverage</div>
+        <div class="v-row">
+          <div class="v">${need == null || isNaN(need) ? '—' : need.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${(() => {
+            if (covGap == null || isNaN(covGap)) return '';
+            const cls = covGap >= 0 ? 'pos' : 'neg';
+            const arrow = covGap >= 0 ? '▲' : '▼';
+            const text = covGap >= 0 ? `${arrow} ${covGap.toFixed(2)}× cushion` : `${arrow} ${Math.abs(covGap).toFixed(2)}× short`;
+            return `<span class="delta ${cls}">${text}</span>`;
+          })()}
+        </div>
+        <div class="sub">${needSub}</div>
+      </div>
+    </div>
+    <div class="kpi-row kpi-row-3-extra">
+      <div class="kpi-card">
+        <div class="k">Target</div>
+        <div class="v-row"><div class="v">${tgt == null ? '—' : (tgt/1e6).toFixed(2) + '<span class="unit">M</span>'}</div></div>
+        <div class="sub">FY25/FY26 tier target</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Booked</div>
+        <div class="v-row"><div class="v">${bkd == null ? '—' : (bkd/1e6).toFixed(2) + '<span class="unit">M</span>'}</div></div>
+        <div class="sub">Closed Won (snapshot) thru wk ${week}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Attainment</div>
+        <div class="v-row"><div class="v ${attnCls}">${attn == null ? '—' : attn.toFixed(0) + '<span class="unit">%</span>'}</div></div>
+        <div class="sub">booked through wk ${week} ÷ target</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSegmentTable() {
+  const qdata = SEG.quarters[state.quarter];
+  if (!qdata) return `<div class="empty">No segment data for <strong>${state.quarter}</strong>. Try a different quarter.</div>`;
+
+  const week = segSelectedWeek(qdata);
+  const idx = week - 1;
+
+  const weekPills = Array.from({length: WIQ}, (_, i) => {
+    const w = i + 1;
+    const disabled = w > qdata.currentWeek;
+    const active = w === week;
+    return `<button class="week-pill" data-stw="${w}" data-active="${active}" data-disabled="${disabled}">${w}</button>`;
+  }).join('');
+
+  const fmtCovDelta = v => {
+    if (v == null || isNaN(v)) return '<td class="wow-zero"><span class="grey">—</span></td>';
+    // A |Δ| this large means one side's LTB was nearly exhausted — the swing
+    // is denominator noise, not a real coverage move. Same >50 cap as values.
+    if (Math.abs(v) > 50) return `<td class="wow-zero"><span class="grey" title="${(v > 0 ? '+' : '−')}${Math.abs(v).toFixed(1)}×">·</span></td>`;
+    const cls = v > 0 ? 'wow-pos' : v < 0 ? 'wow-neg' : 'wow-zero';
+    const sign = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return `<td class="${cls}">${sign}${Math.abs(v).toFixed(1)}×</td>`;
+  };
+
+  const geos = realGeos();
+  const segs = realSegments();
+  // Needed, per quarter state — shared `perQuarterNeed` rule: CLOSED quarter →
+  // this quarter's own retrospective needed (Sam 2026-06-05: AMS·T1 FY26 Q1
+  // wk1 = (1.12−0.13)/6.02 → 16.4% → 6.1×); IN-FLIGHT → historic median.
+  const isClosedQ = qdata.currentWeek >= WIQ;
+  let rowsHtml = '';
+  geos.forEach(g => {
+    segs.forEach((sg, si) => {
+      const c = qdata.cells[`${g.code}·${sg.code}`];
+      const open = c ? c.openPipe[idx] : null;
+      const ls   = c ? c.lsPipe[idx]   : null;
+      const bkd  = c ? c.booked[idx]   : null;
+      const tgt  = c ? c.target : null;
+      const ltb  = (tgt != null && bkd != null) ? Math.max(0, tgt - bkd) : null;
+      const cov  = c ? c.totalCov[idx] : null;
+      const lsCov = (ls != null && ltb != null && ltb > 0) ? ls / ltb : null;
+      const need = isClosedQ ? perQuarterNeed(c, idx, qdata) : (c && c.recCov ? c.recCov[idx] : null);
+      let covCls = 'neutral';
+      if (cov != null && need != null && !isNaN(cov) && !isNaN(need)) covCls = (cov >= need) ? 'ok' : 'bad';
+
+      const openPrev = (c && idx > 0) ? c.openPipe[idx - 1] : null;
+      const lsPrev   = (c && idx > 0) ? c.lsPipe[idx - 1]   : null;
+      const bkdPrev  = (c && idx > 0) ? c.booked[idx - 1]   : null;
+      const ltbPrev  = (tgt != null && bkdPrev != null) ? Math.max(0, tgt - bkdPrev) : null;
+      const covPrev   = (openPrev != null && ltbPrev != null && ltbPrev > 0) ? openPrev / ltbPrev : null;
+      const lsCovPrev = (lsPrev   != null && ltbPrev != null && ltbPrev > 0) ? lsPrev   / ltbPrev : null;
+      const dCov   = (cov   != null && covPrev   != null) ? cov   - covPrev   : null;
+      const dLsCov = (lsCov != null && lsCovPrev != null) ? lsCov - lsCovPrev : null;
+
+      const firstCls = si === 0 ? 'geo-row-first' : '';
+      const lastCls  = si === segs.length - 1 ? 'geo-row-last' : '';
+      const geoLabel = si === 0 ? g.label : '';
+      rowsHtml += `<tr class="${firstCls} ${lastCls}">
+        <td>${geoLabel}</td>
+        <td>${sg.label}</td>
+        <td>${open == null ? '<span class="grey">—</span>' : (open/1e6).toFixed(1)}</td>
+        <td>${ls == null ? '<span class="grey">—</span>' : (ls/1e6).toFixed(1)}</td>
+        <td>${bkd == null ? '<span class="grey">—</span>' : (bkd/1e6).toFixed(2)}</td>
+        <td>${tgt == null ? '<span class="grey">—</span>' : (tgt/1e6).toFixed(2)}</td>
+        <td>${ltb == null ? '<span class="grey">—</span>' : (ltb/1e6).toFixed(2)}</td>
+        <td class="cov-cell ${covCls}">${fmtCovVal(cov)}</td>
+        <td class="cov-cell neutral">${fmtCovVal(lsCov)}</td>
+        <td class="need-cell">${fmtCovVal(need)}</td>
+        ${fmtCovDelta(dCov)}
+        ${fmtCovDelta(dLsCov)}
+      </tr>`;
+    });
+  });
+
+  // Totals row (aggregate coverage at the selected week, plus WoW)
+  let tOpen=0, tLs=0, tBkd=0, tTgt=0, tFinalBkd=0, anyTgt=false, hasData=false;
+  let tOpenPrev=0, tLsPrev=0, tBkdPrev=0, anyPrev=false;
+  geos.forEach(g => segs.forEach(sg => {
+    const c = qdata.cells[`${g.code}·${sg.code}`]; if (!c) return;
+    const open = c.openPipe[idx], ls = c.lsPipe[idx], bkd = c.booked[idx], tgt = c.target;
+    if (open != null) { tOpen += open; hasData = true; }
+    if (ls != null) tLs += ls;
+    if (bkd != null) tBkd += bkd;
+    if (tgt != null) { tTgt += tgt; anyTgt = true; }
+    const fb = c.booked ? c.booked[WIQ - 1] : null;
+    if (fb != null) tFinalBkd += fb;
+    if (idx > 0) {
+      const openPrev = c.openPipe[idx-1], lsPrev = c.lsPipe[idx-1], bkdPrev = c.booked[idx-1];
+      if (openPrev != null) { tOpenPrev += openPrev; anyPrev = true; }
+      if (lsPrev   != null) tLsPrev   += lsPrev;
+      if (bkdPrev  != null) tBkdPrev  += bkdPrev;
+    }
+  }));
+  const tLtb = anyTgt ? Math.max(0, tTgt - tBkd) : null;
+  const tLtbPrev = anyTgt && anyPrev ? Math.max(0, tTgt - tBkdPrev) : null;
+  const tCov   = (tLtb != null && tLtb > 0) ? tOpen / tLtb : null;
+  const tLsCov = (tLtb != null && tLtb > 0) ? tLs   / tLtb : null;
+  const tCovPrev   = (tLtbPrev != null && tLtbPrev > 0 && anyPrev) ? tOpenPrev / tLtbPrev : null;
+  const tLsCovPrev = (tLtbPrev != null && tLtbPrev > 0 && anyPrev) ? tLsPrev   / tLtbPrev : null;
+  const tDCov   = (tCov   != null && tCovPrev   != null) ? tCov   - tCovPrev   : null;
+  const tDLsCov = (tLsCov != null && tLsCovPrev != null) ? tLsCov - tLsCovPrev : null;
+
+  // Aggregate needed. CLOSED quarter → the quarter's own retrospective needed
+  // at this week, computed on the summed cells: 1 ÷ ((Σfinal − Σbooked-now) ÷
+  // Σopen-now). IN-FLIGHT → dollar-weighted historic median: Σ(ltb × need) ÷ Σ(ltb).
+  let totalNeedCov = null;
+  if (isClosedQ) {
+    if (hasData && tOpen > 0) {
+      const tConv = (tFinalBkd - tBkd) / tOpen;
+      totalNeedCov = tConv > 0 ? 1 / tConv : null;
+    }
+  } else {
+    let totalNeedPipe = 0, anyNeedPipe = false;
+    geos.forEach(g => segs.forEach(sg => {
+      const c = qdata.cells[`${g.code}·${sg.code}`]; if (!c || !c.recCov) return;
+      const ltb = c.target != null && c.booked[idx] != null ? Math.max(0, c.target - c.booked[idx]) : null;
+      const r = c.recCov[idx];
+      if (ltb != null && r != null && !isNaN(r)) { totalNeedPipe += ltb * r; anyNeedPipe = true; }
+    }));
+    totalNeedCov = (tLtb != null && tLtb > 0 && anyNeedPipe) ? totalNeedPipe / tLtb : null;
+  }
+  let totalCovCls = 'neutral';
+  if (tCov != null && totalNeedCov != null) totalCovCls = (tCov >= totalNeedCov) ? 'ok' : 'bad';
+
+  const totalsRow = `<tr class="totals">
+    <td>Total</td>
+    <td><span class="grey">all geos · all tiers</span></td>
+    <td>${hasData ? (tOpen/1e6).toFixed(1) : '—'}</td>
+    <td>${hasData ? (tLs/1e6).toFixed(1) : '—'}</td>
+    <td>${hasData ? (tBkd/1e6).toFixed(2) : '—'}</td>
+    <td>${anyTgt ? (tTgt/1e6).toFixed(2) : '—'}</td>
+    <td>${tLtb == null ? '—' : (tLtb/1e6).toFixed(2)}</td>
+    <td class="cov-cell ${totalCovCls}">${fmtCovVal(tCov)}</td>
+    <td class="cov-cell neutral">${fmtCovVal(tLsCov)}</td>
+    <td class="need-cell">${fmtCovVal(totalNeedCov)}</td>
+    ${fmtCovDelta(tDCov)}
+    ${fmtCovDelta(tDLsCov)}
+  </tr>`;
+
+  return `
+    <div class="tbl-card reveal">
+      <div class="head">
+        <span class="num">§ 01</span>
+        <h3>Weekly detail by Geo × Segment</h3>
+        <span class="ctx">${state.quarter} · Wk ${week} of ${WIQ}</span>
+      </div>
+      <div class="week-filter">
+        <span class="label">Week</span>
+        ${weekPills}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="detail">
+          <thead>
+            <tr>
+              <th>Geo</th>
+              <th>Segment</th>
+              <th>Open Pipe ($M)</th>
+              <th>LS Pipe ($M)</th>
+              <th>Booked ($M)</th>
+              <th>Target ($M)</th>
+              <th>LTB ($M)</th>
+              <th title="Total coverage = open pipe ÷ LTB at this week">Coverage</th>
+              <th title="Late-stage coverage = late-stage pipe ÷ LTB at this week">LS Coverage</th>
+              <th class="need-th" title="Closed quarters: 1 ÷ THIS quarter's actual conversion from this week = (final booked − booked by now) ÷ open pipe now. In-flight quarters: 1 ÷ median historic conversion (prospective guidance — final booked isn't known yet).">Needed</th>
+              <th title="Total coverage change vs the prior week (×)">Δ Coverage (WoW)</th>
+              <th title="Late-stage coverage change vs the prior week (×)">Δ LS Coverage (WoW)</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}${totalsRow}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/* Segment § 02 · Recommended coverage glide — the Dashboard page's § 02 carry
+   schedule, cut by tier. recCov is quarter-independent (1 ÷ median loose
+   conversion across closed quarters), read from the current quarter's cells.
+   Unassigned is omitted: no tier target, so a needed multiple isn't actionable
+   (same treatment as Professional Services on the Dashboard page). */
+function renderSegmentGlide() {
+  const qd = SEG.quarters[state.quarter];
+  if (!qd) return '';
+  const _fmt = v => {
+    if (v == null || isNaN(v)) return '<span class="grey">—</span>';
+    if (v > 50) return '<span class="grey">&gt;50×</span>';
+    return v.toFixed(1) + '×';
+  };
+  const tiers = realSegments().filter(s => s.code !== 'UN');
+  const weekHead = Array.from({length: WIQ}, (_, i) => `<th>Wk ${i + 1}</th>`).join('');
+
+  /* By tier · all geos (geo='All' cells — dollar-weighted, not flat-averaged) */
+  let sumBody = '';
+  [{ code: 'All', label: 'All Tiers' }, ...tiers].forEach(sg => {
+    const c = qd.cells[`All·${sg.code}`];
+    const isAll = sg.code === 'All';
+    let cells = '';
+    for (let w = 0; w < WIQ; w++) cells += `<td>${_fmt(c && c.recCov ? c.recCov[w] : null)}</td>`;
+    sumBody += `<tr class="${isAll ? 'geo-row-first geo-row-last dt-total' : ''}"><td>${sg.label}</td>${cells}</tr>`;
+  });
+
+  /* By geo × tier, with a wk-1 hi/lo takeaway */
+  let body2 = '', extremes = null;
+  realGeos().forEach(g => {
+    tiers.forEach((sg, si) => {
+      const c = qd.cells[`${g.code}·${sg.code}`];
+      let cells = '';
+      for (let w = 0; w < WIQ; w++) {
+        const v = c && c.recCov ? c.recCov[w] : null;
+        cells += `<td>${_fmt(v)}</td>`;
+        if (w === 0 && v != null && !isNaN(v)) {
+          if (!extremes) extremes = { hi: { g, sg, v }, lo: { g, sg, v } };
+          else {
+            if (v > extremes.hi.v) extremes.hi = { g, sg, v };
+            if (v < extremes.lo.v) extremes.lo = { g, sg, v };
+          }
+        }
+      }
+      body2 += `<tr class="${si === 0 ? 'geo-row-first' : ''} ${si === tiers.length - 1 ? 'geo-row-last' : ''}">
+        <td>${si === 0 ? g.label : ''}</td><td>${sg.label}</td>${cells}</tr>`;
+    });
+  });
+  const takeaway = extremes && extremes.hi.v !== extremes.lo.v
+    ? `Wk 1 spread: <strong>${extremes.hi.g.label} · ${extremes.hi.sg.label}</strong> needs <strong>${extremes.hi.v.toFixed(1)}×</strong>; <strong>${extremes.lo.g.label} · ${extremes.lo.sg.label}</strong> needs <strong>${extremes.lo.v.toFixed(1)}×</strong>.`
+    : '';
+
+  return `
+    <div class="chart-card reveal" style="margin-top:24px">
+      <div class="head">
+        <span class="num">§ 02</span>
+        <h3>Recommended coverage glide</h3>
+        <div class="takeaway">${takeaway}</div>
+      </div>
+      <p class="reccalc-explainer">
+        The same carry schedule as the Dashboard page, cut by tier. Each value is
+        the median, across all closed quarters, of the needed coverage at that
+        week (<code>1 ÷ median loose conversion</code>), where
+        <code>conversion = (booked by EOQ − booked by week N) ÷ open pipe at week N</code>.
+        Unassigned-tier $ is excluded (no tier target to carry against).
+      </p>
+      <h4 class="rec-subhead">By tier · all geos <span class="rec-sub-note">(open pipe &amp; bookings summed across geos, then converted — dollar-weighted, not a flat average)</span></h4>
+      <div style="overflow-x:auto;"><table class="detail glide-1"><thead><tr><th>Tier</th>${weekHead}</tr></thead><tbody>${sumBody}</tbody></table></div>
+      <h4 class="rec-subhead">By geo × tier</h4>
+      <div style="overflow-x:auto;"><table class="detail glide-2"><thead><tr><th>Geo</th><th>Tier</th>${weekHead}</tr></thead><tbody>${body2}</tbody></table></div>
+    </div>`;
+}
+
+function renderSegment() {
+  const content = document.getElementById('segContent');
+  if (!content) return;
+  renderSegmentFilters();
+  renderSegmentKpi();
+  content.innerHTML = renderSegmentTable() + renderSegmentGlide();
+  bindSegWeekPills();
+}
+function bindSegWeekPills() {
+  document.querySelectorAll('[data-stw]').forEach(el => {
+    if (el.dataset.disabled === 'true') return;
+    el.addEventListener('click', () => {
+      state.tableWeek = parseInt(el.dataset.stw, 10);
+      localStorage.setItem('cc-tableWeek', String(state.tableWeek));
+      renderSegmentKpi();
+      document.getElementById('segContent').innerHTML = renderSegmentTable() + renderSegmentGlide();
+      bindSegWeekPills();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   PRODUCT PAGE · Pipeline by Product (single dimension, no geo)
+   ════════════════════════════════════════════════════════════════════ */
+const PROD = DATA.product || { quarters: {}, presentQuarters: [] };
+const PRODUCTS = DATA.products || PROD.products || [];
+const realProducts = () => PRODUCTS.filter(p => p.code !== 'All');
+
+// The Product page only has data for the quarters with a pipe-by-product tab
+// (PROD.presentQuarters), which is a subset of the global quarters. Drive the
+// page's FY/quarter pills off that — otherwise FY26 defaults to Q4 (no product
+// data) and the populated quarters (e.g. FY26 Q2) look like they're "missing".
+const prodPresent = () => (PROD.presentQuarters || []);
+const prodFYs = () => [...new Set(prodPresent().map(q => q.split(' ')[0]))];
+function prodEffQuarter() {
+  const ps = prodPresent();
+  if (ps.includes(state.quarter)) return state.quarter;       // honour global pick when valid
+  const inFy = ps.filter(q => q.startsWith(state.fy + ' '));  // else latest in the current FY
+  if (inFy.length) return inFy[inFy.length - 1];
+  return ps.length ? ps[ps.length - 1] : null;                // else latest product quarter overall
+}
+
+function renderProductFilters() {
+  const fyEl = document.getElementById('prodFyPills');
+  if (!fyEl) return;
+  const fys = prodFYs();
+  const effQ = prodEffQuarter();
+  const effFy = effQ ? effQ.split(' ')[0] : state.fy;
+  fyEl.innerHTML = fys.map(fy =>
+    `<button class="pill-btn" data-prodfy="${fy}" data-active="${fy === effFy}">${fy}</button>`).join('');
+  document.querySelectorAll('[data-prodfy]').forEach(el => el.addEventListener('click', () => {
+    state.fy = el.dataset.prodfy; localStorage.setItem('cc-fy', state.fy);
+    const qs = prodPresent().filter(q => q.startsWith(state.fy + ' '));
+    state.quarter = qs[qs.length - 1] || state.quarter;
+    localStorage.setItem('cc-quarter', state.quarter);
+    renderAll();
+  }));
+  const allQs = ["Q1","Q2","Q3","Q4"];
+  const present = new Set(prodPresent().filter(q => q.startsWith(effFy + ' ')).map(q => q.split(' ')[1]));
+  document.getElementById('prodQtrPills').innerHTML = allQs.map(q => {
+    const k = `${effFy} ${q}`; const has = present.has(q);
+    return `<button class="pill-btn" data-prodq="${k}" data-active="${k === effQ}" data-disabled="${!has}">${q}</button>`;
+  }).join('');
+  document.querySelectorAll('[data-prodq]').forEach(el => {
+    if (el.dataset.disabled === 'true') return;
+    el.addEventListener('click', () => {
+      state.quarter = el.dataset.prodq; localStorage.setItem('cc-quarter', state.quarter);
+      renderAll();
+    });
+  });
+}
+
+function prodSelectedWeek(qdata) {
+  const cw = qdata.currentWeek;
+  return (state.tableWeek != null && state.tableWeek >= 1 && state.tableWeek <= cw)
+    ? state.tableWeek : cw;
+}
+
+function renderProductKpi() {
+  const el = document.getElementById('prodKpiStrip');
+  if (!el) return;
+  const prodQ = prodEffQuarter();
+  const qdata = PROD.quarters[prodQ];
+  if (!qdata) { el.innerHTML = ''; return; }
+  const week = prodSelectedWeek(qdata);
+  const idx = week - 1;
+  const get = (a, i) => (a && i >= 0 && i < a.length && a[i] != null) ? a[i] : null;
+
+  const cell = qdata.cells['All'] || qdata.aggregate;
+  const open = get(cell.openPipe, idx), openP = get(cell.openPipe, idx - 1);
+  const ls   = get(cell.lsPipe,   idx), lsP   = get(cell.lsPipe,   idx - 1);
+  const cov  = get(cell.totalCov, idx), covP  = get(cell.totalCov, idx - 1);
+  // Needed: CLOSED quarter → this quarter's own retrospective needed (shared
+  // `perQuarterNeed`, same rule as the Segment page); IN-FLIGHT → the
+  // SKU-inclusive historic median.
+  const isClosedQ = qdata.currentWeek >= WIQ;
+  const need = isClosedQ ? perQuarterNeed(cell, idx, qdata) : get(cell.recCov || [], idx);
+  const needSub = isClosedQ
+    ? `1 ÷ this quarter's actual conversion from wk ${week}`
+    : `1 ÷ median historic conversion at wk ${week}`;
+  const covGap = (cov != null && need != null) ? cov - need : null;
+  const tgt  = cell.target;
+  const bkd  = get(cell.booked || [], idx);
+  const attn = (bkd != null && tgt != null && tgt > 0) ? (bkd / tgt) * 100 : null;
+  const attnCls = attn == null ? '' : (attn >= 95 ? 'attn-good' : attn >= 75 ? 'attn-md' : 'attn-bad');
+
+  const cw = qdata.currentWeek;
+  const isClosed = cw >= WIQ;
+  const isCurrent = prodQ === DATA.defaultQuarter;
+  const statusLabel = isCurrent ? 'Latest snapshot' : (isClosed ? 'Closed quarter' : 'In-flight quarter');
+
+  const pill = (delta, kind) => {
+    if (delta == null || isNaN(delta)) return '';
+    const cls = delta > 0 ? 'pos' : delta < 0 ? 'neg' : 'zero';
+    const arrow = delta > 0 ? '▲' : delta < 0 ? '▼' : '·';
+    const text = kind === 'cov'
+      ? `${arrow} ${Math.abs(delta).toFixed(2)}× wow`
+      : `${arrow} ${(Math.abs(delta)/1e6).toFixed(1)}M wow`;
+    return `<span class="delta ${cls}">${text}</span>`;
+  };
+
+  el.innerHTML = `
+    <div class="kpi-meta">
+      <span><span class="dot"></span>${statusLabel} · <span class="now">${prodQ} · Wk ${week} / ${WIQ}</span></span>
+      <span>All Products</span>
+      <span>As of ${DATA.asOfDate}</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="k">Open Pipe</div>
+        <div class="v-row">
+          <div class="v">${open == null ? '—' : (open/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(open != null && openP != null ? open - openP : null, 'money')}
+        </div>
+        <div class="sub">all products</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Late-Stage Pipe</div>
+        <div class="v-row">
+          <div class="v">${ls == null ? '—' : (ls/1e6).toFixed(1) + '<span class="unit">M</span>'}</div>
+          ${pill(ls != null && lsP != null ? ls - lsP : null, 'money')}
+        </div>
+        <div class="sub">stages 3 · 4 · 5 · 6 only</div>
+      </div>
+      <div class="kpi-card is-coverage">
+        <div class="k">Coverage</div>
+        <div class="v-row">
+          <div class="v">${cov == null || isNaN(cov) ? '—' : cov.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${pill(cov != null && covP != null ? cov - covP : null, 'cov')}
+        </div>
+        <div class="sub">open pipe ÷ (target − booked)</div>
+      </div>
+      <div class="kpi-card is-needed">
+        <div class="k">Needed Coverage</div>
+        <div class="v-row">
+          <div class="v">${need == null || isNaN(need) ? '—' : need.toFixed(2) + '<span class="unit">×</span>'}</div>
+          ${(() => {
+            if (covGap == null || isNaN(covGap)) return '';
+            const cls = covGap >= 0 ? 'pos' : 'neg';
+            const arrow = covGap >= 0 ? '▲' : '▼';
+            const text = covGap >= 0 ? `${arrow} ${covGap.toFixed(2)}× cushion` : `${arrow} ${Math.abs(covGap).toFixed(2)}× short`;
+            return `<span class="delta ${cls}">${text}</span>`;
+          })()}
+        </div>
+        <div class="sub">${needSub}</div>
+      </div>
+    </div>
+    <div class="kpi-row kpi-row-3-extra">
+      <div class="kpi-card">
+        <div class="k">Target</div>
+        <div class="v-row"><div class="v">${tgt == null ? '—' : (tgt/1e6).toFixed(2) + '<span class="unit">M</span>'}</div></div>
+        <div class="sub">FY25/FY26 product target</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Booked</div>
+        <div class="v-row"><div class="v">${bkd == null ? '—' : (bkd/1e6).toFixed(2) + '<span class="unit">M</span>'}</div></div>
+        <div class="sub">Closed Won (snapshot) thru wk ${week}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="k">Attainment</div>
+        <div class="v-row"><div class="v ${attnCls}">${attn == null ? '—' : attn.toFixed(0) + '<span class="unit">%</span>'}</div></div>
+        <div class="sub">booked through wk ${week} ÷ target</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderProductTable() {
+  const prodQ = prodEffQuarter();
+  const qdata = PROD.quarters[prodQ];
+  if (!qdata) return `<div class="empty">No product data for <strong>${prodQ || state.quarter}</strong>. Try a different quarter.</div>`;
+
+  const week = prodSelectedWeek(qdata);
+  const idx = week - 1;
+
+  const weekPills = Array.from({length: WIQ}, (_, i) => {
+    const w = i + 1;
+    const disabled = w > qdata.currentWeek;
+    const active = w === week;
+    return `<button class="week-pill" data-ptw="${w}" data-active="${active}" data-disabled="${disabled}">${w}</button>`;
+  }).join('');
+
+  const fmtCovDelta = v => {
+    if (v == null || isNaN(v)) return '<td class="wow-zero"><span class="grey">—</span></td>';
+    // A |Δ| this large means one side's LTB was nearly exhausted — the swing
+    // is denominator noise, not a real coverage move. Same >50 cap as values.
+    if (Math.abs(v) > 50) return `<td class="wow-zero"><span class="grey" title="${(v > 0 ? '+' : '−')}${Math.abs(v).toFixed(1)}×">·</span></td>`;
+    const cls = v > 0 ? 'wow-pos' : v < 0 ? 'wow-neg' : 'wow-zero';
+    const sign = v > 0 ? '+' : (v < 0 ? '−' : '');
+    return `<td class="${cls}">${sign}${Math.abs(v).toFixed(1)}×</td>`;
+  };
+
+  // Table-only exclusions (Sam 2026-06-05): Testim (no/zero target most quarters)
+  // and Vera (no target) render dash-only rows — drop them so the table reads
+  // like the Dashboard page's § 01. They stay in the § 02 glide, and their
+  // dollars stay in the Total row (it reads the All-products cell).
+  const prods = realProducts().filter(p => p.code !== 'TST' && p.code !== 'VRA');
+  // Coverage coloring judges vs Needed under the same quarter-state rule as
+  // the Segment page (shared `perQuarterNeed`): CLOSED quarter → this
+  // quarter's own retrospective needed from the row's own single-attribution
+  // $ (internally consistent: cov ≥ need ⟺ the product hit target from this
+  // week); IN-FLIGHT → the SKU-inclusive historic median.
+  const isClosedQ = qdata.currentWeek >= WIQ;
+  let rowsHtml = '';
+  prods.forEach(p => {
+    const c = qdata.cells[p.code];
+    const open = c ? c.openPipe[idx] : null;
+    const ls   = c ? c.lsPipe[idx]   : null;
+    const bkd  = c ? c.booked[idx]   : null;
+    const tgt  = c ? c.target : null;
+    const ltb  = (tgt != null && bkd != null) ? Math.max(0, tgt - bkd) : null;
+    const cov  = c ? c.totalCov[idx] : null;
+    const lsCov = (ls != null && ltb != null && ltb > 0) ? ls / ltb : null;
+    const need = isClosedQ ? perQuarterNeed(c, idx, qdata) : (c && c.recCov ? c.recCov[idx] : null);
+    let covCls = 'neutral';
+    if (cov != null && need != null && !isNaN(cov) && !isNaN(need)) covCls = (cov >= need) ? 'ok' : 'bad';
+
+    const openPrev = (c && idx > 0) ? c.openPipe[idx - 1] : null;
+    const lsPrev   = (c && idx > 0) ? c.lsPipe[idx - 1]   : null;
+    const bkdPrev  = (c && idx > 0) ? c.booked[idx - 1]   : null;
+    const ltbPrev  = (tgt != null && bkdPrev != null) ? Math.max(0, tgt - bkdPrev) : null;
+    const covPrev   = (openPrev != null && ltbPrev != null && ltbPrev > 0) ? openPrev / ltbPrev : null;
+    const lsCovPrev = (lsPrev   != null && ltbPrev != null && ltbPrev > 0) ? lsPrev   / ltbPrev : null;
+    const dCov   = (cov   != null && covPrev   != null) ? cov   - covPrev   : null;
+    const dLsCov = (lsCov != null && lsCovPrev != null) ? lsCov - lsCovPrev : null;
+
+    rowsHtml += `<tr>
+      <td>${p.label}</td>
+      <td>${open == null ? '<span class="grey">—</span>' : (open/1e6).toFixed(1)}</td>
+      <td>${ls == null ? '<span class="grey">—</span>' : (ls/1e6).toFixed(1)}</td>
+      <td>${bkd == null ? '<span class="grey">—</span>' : (bkd/1e6).toFixed(2)}</td>
+      <td>${tgt == null ? '<span class="grey">—</span>' : (tgt/1e6).toFixed(2)}</td>
+      <td>${ltb == null ? '<span class="grey">—</span>' : (ltb/1e6).toFixed(2)}</td>
+      <td class="cov-cell ${covCls}">${fmtCovVal(cov)}</td>
+      <td class="cov-cell neutral">${fmtCovVal(lsCov)}</td>
+      <td class="need-cell">${fmtCovVal(need)}</td>
+      ${fmtCovDelta(dCov)}
+      ${fmtCovDelta(dLsCov)}
+    </tr>`;
+  });
+
+  // Totals — read the All-products cell directly (the SAME series the KPI
+  // strip reads), so the Total row ties the Coverage KPI and page 1 by
+  // construction. Testim/Vera rows are hidden above, but their dollars are
+  // included here.
+  const allc = qdata.cells['All'] || qdata.aggregate;
+  const gA = (a, i) => (a && i >= 0 && i < a.length && a[i] != null) ? a[i] : null;
+  const tOpen = gA(allc.openPipe, idx), tLs = gA(allc.lsPipe, idx), tBkd = gA(allc.booked, idx);
+  const tTgt = allc.target;
+  const hasData = tOpen != null;
+  const anyTgt = tTgt != null;
+  const tLtb = (anyTgt && tBkd != null) ? Math.max(0, tTgt - tBkd) : null;
+  const tCov = gA(allc.totalCov, idx);
+  const tLsCov = (tLs != null && tLtb != null && tLtb > 0) ? tLs / tLtb : null;
+  const tLsPrev = gA(allc.lsPipe, idx - 1), tBkdPrev = gA(allc.booked, idx - 1);
+  const tLtbPrev = (anyTgt && tBkdPrev != null) ? Math.max(0, tTgt - tBkdPrev) : null;
+  const tCovPrev = gA(allc.totalCov, idx - 1);
+  const tLsCovPrev = (tLsPrev != null && tLtbPrev != null && tLtbPrev > 0) ? tLsPrev / tLtbPrev : null;
+  const tDCov   = (tCov   != null && tCovPrev   != null) ? tCov   - tCovPrev   : null;
+  const tDLsCov = (tLsCov != null && tLsCovPrev != null) ? tLsCov - tLsCovPrev : null;
+
+  // Total coloring: CLOSED quarter → the All-products cell's own retrospective
+  // needed (same series the KPI judges against); IN-FLIGHT → dollar-weighted
+  // SKU-inclusive historic median.
+  let totalNeedCov = null;
+  if (isClosedQ) {
+    totalNeedCov = perQuarterNeed(allc, idx, qdata);
+  } else {
+    let totalNeedPipe = 0, anyNeedPipe = false;
+    realProducts().forEach(p => {
+      const c = qdata.cells[p.code]; if (!c || !c.recCov) return;
+      const ltb = c.target != null && c.booked[idx] != null ? Math.max(0, c.target - c.booked[idx]) : null;
+      const r = c.recCov[idx];
+      if (ltb != null && r != null && !isNaN(r)) { totalNeedPipe += ltb * r; anyNeedPipe = true; }
+    });
+    totalNeedCov = (tLtb != null && tLtb > 0 && anyNeedPipe) ? totalNeedPipe / tLtb : null;
+  }
+  let totalCovCls = 'neutral';
+  if (tCov != null && totalNeedCov != null) totalCovCls = (tCov >= totalNeedCov) ? 'ok' : 'bad';
+
+  const totalsRow = `<tr class="totals">
+    <td>Total <span class="grey">all products</span></td>
+    <td>${hasData ? (tOpen/1e6).toFixed(1) : '—'}</td>
+    <td>${tLs == null ? '—' : (tLs/1e6).toFixed(1)}</td>
+    <td>${tBkd == null ? '—' : (tBkd/1e6).toFixed(2)}</td>
+    <td>${anyTgt ? (tTgt/1e6).toFixed(2) : '—'}</td>
+    <td>${tLtb == null ? '—' : (tLtb/1e6).toFixed(2)}</td>
+    <td class="cov-cell ${totalCovCls}">${fmtCovVal(tCov, 2)}</td>
+    <td class="cov-cell neutral">${fmtCovVal(tLsCov, 2)}</td>
+    <td class="need-cell">${fmtCovVal(totalNeedCov, 2)}</td>
+    ${fmtCovDelta(tDCov)}
+    ${fmtCovDelta(tDLsCov)}
+  </tr>`;
+
+  return `
+    <div class="tbl-card reveal">
+      <div class="head">
+        <span class="num">§ 01</span>
+        <h3>Weekly detail by Product</h3>
+        <span class="ctx">${prodQ} · Wk ${week} of ${WIQ}</span>
+      </div>
+      <p class="reccalc-explainer">
+        Attribution: every $ column is split across product families by each
+        opportunity's <strong>SKU mix</strong>, so multi-product deals contribute to
+        each family they carry, not just the alphabetically-first one. <strong>Open /
+        LS pipe</strong> and <strong>weeks 1–12 booked</strong> pro-rate the opp's
+        whole-opp pipe by its SKU NACV share; <strong>final/latest booked</strong> is
+        SKU-line from the live pull. All of it sums to the company total to the dollar,
+        and the per-product booked ties Historic.xlsx product-by-product. (Before
+        2026-06-08 the pipe filed each whole opp under one family — Sealights' FY26 Q1
+        wk-1 open pipe read $0.5M when its real share is ~$6.9M.) The green/red coloring
+        compares actual coverage to the needed multiple (§ 02 glide, SKU-inclusive
+        conversion). Testim and Vera (no quarterly target) are hidden as rows but their
+        dollars are in the Total, so it ties the Coverage KPI and the Dashboard page.
+      </p>
+      <div class="week-filter">
+        <span class="label">Week</span>
+        ${weekPills}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="detail">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Open Pipe ($M)</th>
+              <th>LS Pipe ($M)</th>
+              <th>Booked ($M)</th>
+              <th>Target ($M)</th>
+              <th>LTB ($M)</th>
+              <th title="Total coverage = open pipe ÷ LTB at this week. Green/red vs the Needed column.">Coverage</th>
+              <th title="Late-stage coverage = late-stage pipe ÷ LTB at this week">LS Coverage</th>
+              <th class="need-th" title="Closed quarters: 1 ÷ THIS quarter's actual conversion from this week = (final booked − booked by now) ÷ open pipe now — same single-attribution $ as the row. In-flight quarters: 1 ÷ median historic SKU-inclusive conversion (see § 02).">Needed</th>
+              <th title="Total coverage change vs the prior week (×)">Δ Coverage (WoW)</th>
+              <th title="Late-stage coverage change vs the prior week (×)">Δ LS Coverage (WoW)</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}${totalsRow}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function bindProdWeekPills() {
+  document.querySelectorAll('[data-ptw]').forEach(el => {
+    if (el.dataset.disabled === 'true') return;
+    el.addEventListener('click', () => {
+      state.tableWeek = parseInt(el.dataset.ptw, 10);
+      localStorage.setItem('cc-tableWeek', String(state.tableWeek));
+      renderProductKpi();
+      document.getElementById('prodContent').innerHTML = renderProductTable() + renderProductGlide();
+      bindProdWeekPills();
+    });
+  });
+}
+
+/* Product § 02 · Recommended coverage glide — the Dashboard page's § 02 carry
+   schedule, cut by product (single dimension, no geo). recCov is quarter-
+   independent (1 ÷ median loose conversion across closed quarters). */
+function renderProductGlide() {
+  const qd = PROD.quarters[prodEffQuarter()];
+  if (!qd) return '';
+  const _fmt = v => {
+    if (v == null || isNaN(v)) return '<span class="grey">—</span>';
+    if (v > 50) return '<span class="grey">&gt;50×</span>';
+    return v.toFixed(1) + '×';
+  };
+  const weekHead = Array.from({length: WIQ}, (_, i) => `<th>Wk ${i + 1}</th>`).join('');
+
+  let body = '', extremes = null;
+  // Vera is dropped from the § 02 glide (Sam, 2026-06-10) — same as it's hidden
+  // from the § 01 table rows. Other is dropped too (Sam, 2026-06-22): it's a
+  // residual catch-all, not a product to glide.
+  [{ code: 'All', label: 'All Products' }, ...realProducts().filter(p => p.code !== 'VRA' && p.code !== 'OTH')].forEach(p => {
+    const c = qd.cells[p.code];
+    const isAll = p.code === 'All';
+    let cells = '';
+    for (let w = 0; w < WIQ; w++) {
+      const v = c && c.recCov ? c.recCov[w] : null;
+      cells += `<td>${_fmt(v)}</td>`;
+      if (!isAll && w === 0 && v != null && !isNaN(v)) {
+        if (!extremes) extremes = { hi: { p, v }, lo: { p, v } };
+        else {
+          if (v > extremes.hi.v) extremes.hi = { p, v };
+          if (v < extremes.lo.v) extremes.lo = { p, v };
+        }
+      }
+    }
+    body += `<tr class="${isAll ? 'geo-row-first geo-row-last dt-total' : ''}"><td>${p.label}</td>${cells}</tr>`;
+  });
+  const takeaway = extremes && extremes.hi.v !== extremes.lo.v
+    ? `Wk 1 spread: <strong>${extremes.hi.p.label}</strong> needs <strong>${extremes.hi.v.toFixed(1)}×</strong>; <strong>${extremes.lo.p.label}</strong> needs <strong>${extremes.lo.v.toFixed(1)}×</strong>.`
+    : '';
+
+  return `
+    <div class="chart-card reveal" style="margin-top:24px">
+      <div class="head">
+        <span class="num">§ 02</span>
+        <h3>Recommended coverage glide</h3>
+        <div class="takeaway">${takeaway}</div>
+      </div>
+      <p class="reccalc-explainer">
+        The same carry schedule as the Dashboard page, cut by product. Each value
+        is the median, across all closed quarters, of the needed coverage at that
+        week (<code>1 ÷ median loose conversion</code>), where
+        <code>conversion = (booked by EOQ − booked by week N) ÷ open pipe at week N</code>.
+        Open pipe and booked use the <strong>same pro-rated SKU-mix attribution as
+        the §01 table</strong> (each opp's pipe split across its families by SKU share),
+        with EOQ booked from the live SKU-line total — so this needed coverage is
+        apples-to-apples with the actual coverage it's compared against.
+      </p>
+      <div style="overflow-x:auto;"><table class="detail glide-1"><thead><tr><th>Product</th>${weekHead}</tr></thead><tbody>${body}</tbody></table></div>
+    </div>`;
+}
+
+function renderProduct() {
+  const content = document.getElementById('prodContent');
+  if (!content) return;
+  renderProductFilters();
+  renderProductKpi();
+  content.innerHTML = renderProductTable() + renderProductGlide();
+  bindProdWeekPills();
+}
+
+/* ─── Page nav ───────────────────────────────────────────────────────── */
+function renderPageNav() {
+  document.querySelectorAll('#pageNav button').forEach(btn => {
+    btn.dataset.active = (btn.dataset.page === state.page) ? 'true' : 'false';
+  });
+  document.querySelectorAll('.page').forEach(p => {
+    const want = `page-${state.page}`;
+    p.classList.toggle('is-active', p.id === want);
+  });
+}
+document.querySelectorAll('#pageNav button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.page = btn.dataset.page;
+    localStorage.setItem('cc-page', state.page);
+    renderAll();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+function renderAll() {
+  renderPageNav();
+  renderKpiStrip(); renderSparseBanner(); renderFilters(); renderContent();
+  renderSegment();
+  renderProduct();
+}
+renderAll();
+</script>
+</body>
+</html>

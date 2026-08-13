@@ -57,7 +57,9 @@ def test_waterfall_reports_migration_rather_than_dropping_the_column(legacy_run)
     body = r.json()
     assert "sales_cycle_tail_from_earlier_quarters" in body["columns"]
     assert body["migrated_columns"] == ["sales_cycle_tail_from_earlier_quarters"]
-    assert body["missing_columns"] == []
+    # Runs written before 2026-08-13 predate existing_open_pipe; the endpoint
+    # reports the gap rather than silently narrowing the table.
+    assert body["missing_columns"] == ["existing_open_pipe"]
 
 
 def test_a_run_with_no_derivation_is_404_not_500(tmp_path, monkeypatch):

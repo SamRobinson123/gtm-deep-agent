@@ -73,7 +73,7 @@ than choosing.
 | Pulling or debugging raw call transcripts | [`tables/call-transcripts.md`](tables/call-transcripts.md) |
 | Linking a call to its opp/account/owner (transcript-side dims) | [`tables/transcripts-lookup.md`](tables/transcripts-lookup.md) |
 | Coverage curve — open pipe, LTB, coverage WoW | [`analysis/coverage-curve.md`](analysis/coverage-curve.md) → [`tables/opp-daily-snapshot.md`](tables/opp-daily-snapshot.md) |
-| **Coverage dashboard** — maintaining or rebuilding the Coverage Curve Analysis project (its SQL, math, HTML UI) | [`models/coverage-dashboard.md`](models/coverage-dashboard.md) → then the project's own `COVERAGE_CURVE_CONTEXT.md` |
+| **Coverage dashboard** — maintaining or rebuilding `coverage_dashboard/` (its SQL, math, HTML UI) | [`models/coverage-dashboard.md`](models/coverage-dashboard.md) → then `coverage_dashboard/COVERAGE_CURVE_CONTEXT.md` |
 | Adding a new table context file | [`sql/conventions.md`](sql/conventions.md) — follow the same contract format |
 
 ---
@@ -123,12 +123,11 @@ README.md  (you are here)
 │                                two opp_id formats. relates to → call-transcripts.md
 │
 ├── models/
-│   ├── coverage-dashboard.md      ← the standalone Coverage Curve Analysis
-│   │                                 project ("Coverage Curve Analysis/" at repo
-│   │                                 root, its own nested git): sources, week
-│   │                                 pinning, booked split, rec engine, locked
-│   │                                 design system, load-bearing gotchas.
-│   │                                 routes to → the project's own
+│   ├── coverage-dashboard.md      ← the coverage dashboard project, ingested at
+│   │                                 coverage_dashboard/ in this repo: sources,
+│   │                                 week pinning, booked split, rec engine,
+│   │                                 locked design system, load-bearing gotchas.
+│   │                                 routes to → coverage_dashboard/
 │   │                                 COVERAGE_CURVE_CONTEXT.md (full reference)
 │   └── pipe-create.md             ← weekly actual-vs-target pipe creation
 │                                     (originally extracted from the dashboard

@@ -1,0 +1,12 @@
+[project]
+name = "coverage-curve-analysis"
+version = "0.1.0"
+description = "Weekly coverage-curve analysis for Tricentis sales pipeline."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.2",
+    "pyodbc>=5.1",
+    "python-dotenv>=1.0",
+    "openpyxl>=3.1",
+    "pyarrow>=15.0",
+]

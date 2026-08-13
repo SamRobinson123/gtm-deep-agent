@@ -419,6 +419,10 @@ def derive_targets(
         floor = historic_floor(sku, qs, grain)
         q_target = _for_quarter(bookings_target, qs)
         q_existing = _for_quarter(existing_pipe_bookings, qs)
+        # The raw open-pipe balance the expected-bookings term was computed FROM.
+        # Carried into the output so the waterfall shows the observable dollars,
+        # not only the modelled expectation derived from them.
+        q_open = q_existing.attrs.get("open_pipe") if q_existing is not None else None
         q_won = _for_quarter(closed_won, qs)
 
         for key in keys:
@@ -465,6 +469,7 @@ def derive_targets(
                 grain: key,
                 "bookings_target": target,
                 "closed_won": won,
+                "existing_open_pipe": (float(q_open.get(key, 0.0)) if q_open is not None else None),
                 "expected_from_existing_pipe": existing,
                 "sales_cycle_tail_from_earlier_quarters": tail,
                 "gap": gap,

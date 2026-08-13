@@ -240,10 +240,14 @@ async def run_waterfall(run_id: str):
     raw, migrated = load_derivation(run_id)
     df = wf.flag_outliers(raw, "Territory")
     df = df.replace({float("nan"): None})
+    # yield_per_dollar is deliberately NOT displayed: it is q0_weight x
+    # in_quarter_win_rate, both already columns here (Sam, 2026-08-13). It stays
+    # in the CSV — the ledger and the verifier recompute from it.
     order = ["quarter", "Territory", "bookings_target", "closed_won",
-             "expected_from_existing_pipe", "sales_cycle_tail_from_earlier_quarters",
+             "existing_open_pipe", "expected_from_existing_pipe",
+             "sales_cycle_tail_from_earlier_quarters",
              "gap", "q0_weight", "in_quarter_win_rate", "pre_q_win_rate",
-             "yield_per_dollar", "required_by_gap", "historic_floor",
+             "required_by_gap", "historic_floor",
              "pipe_create_target", "binding", "outlier_flags", "outlier_reasons"]
     cols = [c for c in order if c in df.columns]
 
