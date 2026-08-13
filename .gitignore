@@ -32,3 +32,6 @@ __pycache__/
 
 # Local tooling
 .remember/
+
+# Standalone project with its own git history — never embed it here
+Coverage Curve Analysis/
